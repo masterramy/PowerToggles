@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,3 +32,77 @@ jobs:
 
       - name: Assemble debug
         run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Verify APK metadata
+        run: |
+          APK="build/outputs/apk/debug/PowerToggles-debug.apk"
+          if [ ! -f "$APK" ]; then
+            APK="$(find build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n 1)"
+          fi
+          test -n "$APK"
+          test -f "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee apk-badging.txt
+          grep -q "package: name='com.painless.pc'" apk-badging.txt
+          grep -q "targetSdkVersion:'36'" apk-badging.txt
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate2a-debug-apk
+          path: |
+            ${{ env.APK }}
+            apk-badging.txt
+          if-no-files-found: error
+
+      - name: Install API 36 emulator image
+        run: sdkmanager "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - name: Create API 36 AVD
+        run: |
+          echo no | avdmanager create avd --force --name gate2a_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+
+      - name: Boot emulator
+        run: |
+          sudo chmod 666 /dev/kvm || true
+          nohup "$ANDROID_HOME/emulator/emulator" -avd gate2a_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > emulator.log 2>&1 &
+          adb wait-for-device
+          for i in $(seq 1 120); do
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              echo "Emulator booted"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Emulator failed to boot"
+          cat emulator.log
+          exit 1
+
+      - name: Install and launch Power Toggles
+        run: |
+          mkdir -p runtime-evidence
+          adb install -r "$APK"
+          adb shell am force-stop com.painless.pc
+          adb shell am start -W -n com.painless.pc/.settings.LaunchActivity | tee runtime-evidence/am-start.txt
+          sleep 4
+          adb shell dumpsys activity activities > runtime-evidence/activities.txt
+          adb shell dumpsys window windows > runtime-evidence/windows.txt
+          adb shell uiautomator dump /sdcard/gate2a-window.xml || true
+          adb pull /sdcard/gate2a-window.xml runtime-evidence/window.xml || true
+          adb exec-out screencap -p > runtime-evidence/launch.png || true
+          adb logcat -d > runtime-evidence/logcat.txt
+          grep -q "com.painless.pc" runtime-evidence/activities.txt
+          if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc" runtime-evidence/logcat.txt; then
+            echo "Power Toggles fatal runtime signal detected"
+            exit 1
+          fi
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate2a-runtime-evidence
+          path: |
+            runtime-evidence/
+            emulator.log
+          if-no-files-found: warn
