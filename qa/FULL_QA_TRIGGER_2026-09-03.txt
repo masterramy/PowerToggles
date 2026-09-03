@@ -1,0 +1,1 @@
+Gate 2A release-readiness QA trigger. This non-product marker exists only to force the current base workflow to execute against the latest modernization head.
