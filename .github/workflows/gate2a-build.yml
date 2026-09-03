@@ -9,9 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    env:
-      ANDROID_AVD_HOME: ${{ runner.temp }}/gate2a-avd
-      ANDROID_USER_HOME: ${{ runner.temp }}/gate2a-android-user
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,6 +21,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Pin Android AVD paths
+        run: |
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/gate2a-avd" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$RUNNER_TEMP/gate2a-android-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gate2a-avd" "$RUNNER_TEMP/gate2a-android-user"
 
       - name: Install Android API 36
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
@@ -63,7 +66,6 @@ jobs:
 
       - name: Create API 36 AVD
         run: |
-          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
           echo no | avdmanager create avd --force --name gate2a_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
           echo "avdmanager sees:"
           avdmanager list avd
