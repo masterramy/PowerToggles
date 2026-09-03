@@ -1,24 +1,25 @@
 buildscript {
     repositories {
+        google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.0.0'
+        classpath 'com.android.tools.build:gradle:8.13.2'
     }
 }
 
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 23
-    buildToolsVersion "22.0.1"
+    namespace "com.painless.pc"
+    compileSdkVersion 36
 
     defaultConfig {
         applicationId "com.painless.pc"
         minSdkVersion 16
-        targetSdkVersion 23
+        targetSdkVersion 36
         versionCode 160604
-        versionName "6.0.4"
+        versionName "6.0.4-gate2a"
     }
     buildTypes {
         debug {
@@ -26,7 +27,7 @@ android {
         }
         release {
             minifyEnabled true
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), 'proguard-rules.txt'
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), 'proguard-rules.txt'
         }
     }
     sourceSets {
@@ -43,6 +44,6 @@ android {
 }
 
 dependencies {
-    provided files('libs/hidden-apis.jar')
-    provided files('libs/hidden-apis_2.jar')
+    compileOnly files('libs/hidden-apis.jar')
+    compileOnly files('libs/hidden-apis_2.jar')
 }
