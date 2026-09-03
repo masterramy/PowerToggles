@@ -122,7 +122,7 @@ public abstract class RVFactory {
   }
 
   /**
-   * Creates PendingIntent to notify the widget of a tracker was clicked.
+   * Creates PendingIntent to notify the widget if a tracker was clicked.
    */
   private static final PendingIntent getLaunchPendingIntent(
           Context context, AbstractTracker tracker, int widgetID, int buttonId, boolean isNotification, boolean shouldProxy) {
@@ -132,17 +132,19 @@ public abstract class RVFactory {
       Intent proxyIntent = new Intent(context, ProxyActivity.class);
       proxyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       proxyIntent.setData(data);
-      return PendingIntent.getActivity(context, 0, proxyIntent, Intent.FILL_IN_DATA);
+      return PendingIntent.getActivity(context, 0, proxyIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
     } else {
       if (!isNotification && (tracker.trackerId == -1) && !GlobalFlags.hapticFeedback(context)) {
         // Simple Shortcut;
         SimpleShortcut shrt = (SimpleShortcut) tracker;
         return PendingIntent.getActivity(context, SimpleShortcut.getId(widgetID, buttonId),
-                shrt.getIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT);
+                shrt.getIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
       }
       return PendingIntent.getBroadcast(context, 0, /* no requestCode */
-          makeIntent(context, data), 0 /* no flags */);
+          makeIntent(context, data), PendingIntent.FLAG_IMMUTABLE);
     }
   }
 

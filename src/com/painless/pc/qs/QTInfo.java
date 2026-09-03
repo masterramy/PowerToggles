@@ -103,11 +103,14 @@ public class QTInfo implements ShortcutIdParser {
       intent.putExtra("iconPackage", pkg).putExtra("iconId", R.drawable.icon_bg_white);
     }
     if (clickIntent != null) {
-      intent.putExtra("onClick", PendingIntent.getActivity(context, (widgetId << 3), clickIntent, PendingIntent.FLAG_UPDATE_CURRENT));
+      intent.putExtra("onClick", PendingIntent.getActivity(context, (widgetId << 3), clickIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     } else {
-      intent.putExtra("onClick", PendingIntent.getBroadcast(context, (widgetId << 3) + 2, clickBroadcast, PendingIntent.FLAG_UPDATE_CURRENT));
+      intent.putExtra("onClick", PendingIntent.getBroadcast(context, (widgetId << 3) + 2, clickBroadcast,
+          PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
-    intent.putExtra("onLongClick", PendingIntent.getActivity(context, (widgetId << 3) + 1, longClickIntent, PendingIntent.FLAG_UPDATE_CURRENT));
+    intent.putExtra("onLongClick", PendingIntent.getActivity(context, (widgetId << 3) + 1, longClickIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     intent.putExtra("package", pkg);
     context.sendBroadcast(intent);
   }

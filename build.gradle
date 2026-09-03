@@ -44,6 +44,9 @@ android {
     lintOptions {
         disable 'MissingTranslation'
         disable 'ManifestResource'
+        // The legacy config layout intentionally reuses btn_1/btn_2/btn_3 inside
+        // section-specific containers. All consumers scope lookup to their container.
+        disable 'DuplicateIds'
     }
 }
 
