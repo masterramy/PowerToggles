@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,29 +36,39 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Assemble debug
-        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Assemble debug and release bundle
+        run: gradle --no-daemon --stacktrace assembleDebug bundleRelease
 
-      - name: Verify APK metadata
+      - name: Verify build metadata
         run: |
           APK="build/outputs/apk/debug/PowerToggles-debug.apk"
           if [ ! -f "$APK" ]; then
             APK="$(find build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n 1)"
           fi
+          AAB="$(find build/outputs/bundle/release -type f -name '*.aab' | head -n 1)"
           test -n "$APK"
           test -f "$APK"
+          test -n "$AAB"
+          test -f "$AAB"
           echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "AAB=$AAB" >> "$GITHUB_ENV"
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee apk-badging.txt
           grep -q "package: name='com.painless.pc'" apk-badging.txt
           grep -q "targetSdkVersion:'36'" apk-badging.txt
+          unzip -t "$AAB" | tee aab-integrity.txt
+          grep -q "No errors detected" aab-integrity.txt
+          sha256sum "$APK" "$AAB" | tee build-sha256.txt
 
-      - name: Upload debug APK
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gate2a-debug-apk
+          name: gate2a-build-artifacts
           path: |
             ${{ env.APK }}
+            ${{ env.AAB }}
             apk-badging.txt
+            aab-integrity.txt
+            build-sha256.txt
           if-no-files-found: error
 
       - name: Install API 36 emulator image
@@ -67,9 +77,7 @@ jobs:
       - name: Create API 36 AVD
         run: |
           echo no | avdmanager create avd --force --name gate2a_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
-          echo "avdmanager sees:"
           avdmanager list avd
-          echo "emulator sees:"
           "$ANDROID_HOME/emulator/emulator" -list-avds
           "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx gate2a_api36
 
@@ -97,30 +105,19 @@ jobs:
           cat emulator.log
           exit 1
 
-      - name: Install and launch Power Toggles
+      - name: Install Power Toggles
         run: |
-          mkdir -p runtime-evidence
           adb install -r "$APK"
-          adb shell am force-stop com.painless.pc
-          adb shell am start -W -n com.painless.pc/.settings.LaunchActivity | tee runtime-evidence/am-start.txt
-          sleep 4
-          adb shell dumpsys activity activities > runtime-evidence/activities.txt
-          adb shell dumpsys window windows > runtime-evidence/windows.txt
-          adb shell uiautomator dump /sdcard/gate2a-window.xml || true
-          adb pull /sdcard/gate2a-window.xml runtime-evidence/window.xml || true
-          adb exec-out screencap -p > runtime-evidence/launch.png || true
-          adb logcat -d > runtime-evidence/logcat.txt
-          grep -q "com.painless.pc" runtime-evidence/activities.txt
-          if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc" runtime-evidence/logcat.txt; then
-            echo "Power Toggles fatal runtime signal detected"
-            exit 1
-          fi
+          adb shell pm list packages -f | grep 'com.painless.pc'
 
-      - name: Upload runtime evidence
+      - name: Full API 36 runtime QA and screenshots
+        run: bash scripts/gate2a_runtime_qa.sh
+
+      - name: Upload runtime QA evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gate2a-runtime-evidence
+          name: gate2a-runtime-qa-evidence
           path: |
             runtime-evidence/
             emulator.log
