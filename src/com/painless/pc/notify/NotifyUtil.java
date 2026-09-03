@@ -2,8 +2,11 @@ package com.painless.pc.notify;
 
 import java.util.Calendar;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.Build;
 
 import com.painless.pc.R;
 import com.painless.pc.singleton.Globals;
@@ -11,6 +14,23 @@ import com.painless.pc.singleton.SettingStorage;
 import com.painless.pc.util.WidgetSetting;
 
 public class NotifyUtil {
+
+  public static final String NOTIFICATION_CHANNEL_ID = "power_toggles_controls";
+
+  public static void ensureNotificationChannel(Context context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+      if (manager.getNotificationChannel(NOTIFICATION_CHANNEL_ID) == null) {
+        NotificationChannel channel = new NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            context.getString(R.string.app_name),
+            NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription(context.getString(R.string.app_name));
+        channel.setShowBadge(false);
+        manager.createNotificationChannel(channel);
+      }
+    }
+  }
 
 	public static int getDrawable(int iconId) {
 		if (iconId == 3) {
