@@ -65,16 +65,24 @@ jobs:
       - name: Boot emulator
         run: |
           sudo chmod 666 /dev/kvm || true
-          nohup "$ANDROID_HOME/emulator/emulator" -avd gate2a_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > emulator.log 2>&1 &
-          adb wait-for-device
+          "$ANDROID_HOME/emulator/emulator" -avd gate2a_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "Emulator PID: $EMU_PID"
           for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed"
+              cat emulator.log
+              exit 1
+            fi
             if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
               echo "Emulator booted"
+              adb devices -l
               exit 0
             fi
             sleep 2
           done
-          echo "Emulator failed to boot"
+          echo "Emulator failed to boot within 240 seconds"
+          adb devices -l || true
           cat emulator.log
           exit 1
 
