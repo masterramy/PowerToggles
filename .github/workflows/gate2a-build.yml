@@ -2,7 +2,7 @@ name: Gate 2A Android Build
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ gate2a-ci-base ]
   workflow_dispatch:
 
 jobs:
