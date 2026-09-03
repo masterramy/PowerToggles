@@ -148,6 +148,7 @@
         <receiver
             android:name="LockAdmin"
             android:description="@string/admin_desc"
+            android:exported="true"
             android:label="@string/admin_label"
             android:permission="android.permission.BIND_DEVICE_ADMIN" >
             <meta-data
@@ -162,6 +163,7 @@
         <!-- Various activities related to app navigation -->
         <activity
             android:name=".settings.LaunchActivity"
+            android:exported="true"
             android:icon="@drawable/widget_icon"
             android:label="@string/app_name"
             android:theme="@style/activityTheme" >
@@ -189,6 +191,7 @@
         <activity
             android:name=".picker.IconPackPicker"
             android:configChanges="orientation|screenSize"
+            android:exported="false"
             android:label="@string/ip_app_icons"
             android:theme="@style/activityTheme" >
             <intent-filter>
@@ -211,6 +214,7 @@
         <activity
             android:name=".cfg.WidgetConfigActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/configTheme" >
             <intent-filter>
@@ -243,6 +247,7 @@
         <activity
             android:name=".qs.TileConfigActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
             android:label="@string/qs_title"
             android:launchMode="singleTop"
             android:theme="@style/activityTheme" >
@@ -325,6 +330,7 @@
         </activity>
         <activity
             android:name=".folder.FolderPick"
+            android:exported="true"
             android:icon="@drawable/folder_icon"
             android:label="@string/folder_title"
             android:theme="@style/activityTheme" >
@@ -377,5 +383,3 @@
             </intent-filter>
         </activity>
     </application>
-
-</manifest>
