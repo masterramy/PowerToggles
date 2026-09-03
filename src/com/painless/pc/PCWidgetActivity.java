@@ -236,7 +236,10 @@ public class PCWidgetActivity extends AppWidgetProvider {
       return false;
     }
 
-    final Notification notification = new Notification();
+    NotifyUtil.ensureNotificationChannel(context);
+    final Notification notification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        ? new Notification.Builder(context, NotifyUtil.NOTIFICATION_CHANNEL_ID).build()
+        : new Notification();
 
     int icon = NotifyStatus.getIconId(context);
 
