@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Reproducible API 36 release-readiness runtime probe.
 OUT="runtime-evidence"
 mkdir -p "$OUT/screens" "$OUT/ui" "$OUT/state" "$OUT/logs"
 
