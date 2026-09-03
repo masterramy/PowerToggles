@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/gate2a-avd
+      ANDROID_USER_HOME: ${{ runner.temp }}/gate2a-android-user
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,7 +63,13 @@ jobs:
 
       - name: Create API 36 AVD
         run: |
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
           echo no | avdmanager create avd --force --name gate2a_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          echo "avdmanager sees:"
+          avdmanager list avd
+          echo "emulator sees:"
+          "$ANDROID_HOME/emulator/emulator" -list-avds
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx gate2a_api36
 
       - name: Boot emulator
         run: |
