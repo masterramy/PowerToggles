@@ -57,7 +57,7 @@ public abstract class PriorityService extends Service {
           .setSmallIcon(icon)
           .setContentTitle(getString(title))
           .setContentText(getString(subtitle))
-          .setContentIntent(PendingIntent.getBroadcast(this, 0, new Intent(stopIntent), 0))
+          .setContentIntent(PendingIntent.getBroadcast(this, 0, new Intent(stopIntent), PendingIntent.FLAG_IMMUTABLE))
           .setOngoing(true)
           .build();
       startForeground(mNotificationId, n);

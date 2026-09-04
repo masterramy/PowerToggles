@@ -85,9 +85,12 @@ public class TogglePicker extends Dialog
           // Root
           (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1 ?
                   new int[] { 29, 30, 35, 39, 36, 37} :
-                    new int[] { 29, 30, 35, 39, 46, 36, 37}),
+                    new int[] { 29, 30, 35, 39, 46, 36, 37})
 
-                    new int[] { 14}           // Others
+          // Historical WiMAX tracker (14) remains in the stable tracker-id table
+          // for persisted legacy definitions, but is intentionally not offered by
+          // the restored modern picker because Android has no supported WiMAX
+          // control surface.
   };
 
   @Thunk final ArrayList<SectionItem> mFullToggleList = new ArrayList<SectionItem>();
@@ -547,5 +550,4 @@ public class TogglePicker extends Dialog
     void onTogglePicked(AbstractTracker tracker, Bitmap icon);
   }
 }
-
 

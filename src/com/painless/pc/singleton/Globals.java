@@ -271,7 +271,8 @@ public class Globals {
 	}
 
 	public static void setAlarm(Context context, Calendar when, Intent target) {
-		final PendingIntent sender = PendingIntent.getBroadcast(context, 0, target, PendingIntent.FLAG_CANCEL_CURRENT);
+		final PendingIntent sender = PendingIntent.getBroadcast(context, 0, target,
+				PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 		final AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
 		am.set(AlarmManager.RTC, when.getTimeInMillis(), sender);	
 	}

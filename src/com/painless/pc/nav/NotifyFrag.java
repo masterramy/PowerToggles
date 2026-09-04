@@ -1,5 +1,6 @@
 package com.painless.pc.nav;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.Notification;
@@ -8,6 +9,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -34,6 +37,8 @@ import com.painless.pc.singleton.Globals;
 import com.painless.pc.util.Thunk;
 
 public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnIconSelectListener, OnClickListener {
+
+  private static final int REQUEST_POST_NOTIFICATIONS = 1001;
 
   @Thunk SharedPreferences mPrefs;
 
@@ -95,6 +100,14 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
   @Override
   public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
     if (buttonView == mEnableButton) {
+      if (isChecked && Build.VERSION.SDK_INT >= 33
+          && getActivity().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        mEnableButton.setOnCheckedChangeListener(null);
+        mEnableButton.setChecked(false);
+        mEnableButton.setOnCheckedChangeListener(this);
+        requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, REQUEST_POST_NOTIFICATIONS);
+        return;
+      }
       NotifyStatus.setEnabled(getActivity(), isChecked);
       PCWidgetActivity.partialUpdateAllWidgets(getActivity());
     } else {
@@ -102,6 +115,15 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
       if (mEnableButton.isChecked()) {
         PCWidgetActivity.partialUpdateAllWidgets(getActivity());
       }
+    }
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    if (requestCode == REQUEST_POST_NOTIFICATIONS && mEnableButton != null) {
+      boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+      mEnableButton.setChecked(granted);
     }
   }
 

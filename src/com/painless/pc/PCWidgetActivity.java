@@ -232,11 +232,14 @@ public class PCWidgetActivity extends AppWidgetProvider {
   static final boolean updateStatusbarWidget(Context context) {
     final WidgetSetting setting = NotifyUtil.getSetting(context);
     if (setting == null) {
-      // Hide the notification
+      ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE)).cancel(Globals.NOTIFICATION_ID);
       return false;
     }
 
-    final Notification notification = new Notification();
+    NotifyUtil.ensureNotificationChannel(context);
+    final Notification notification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        ? new Notification.Builder(context, NotifyUtil.NOTIFICATION_CHANNEL_ID).build()
+        : new Notification();
 
     int icon = NotifyStatus.getIconId(context);
 
