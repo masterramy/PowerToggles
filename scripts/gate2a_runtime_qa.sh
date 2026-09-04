@@ -43,6 +43,38 @@ open_row() {
   capture "$name"
 }
 
+notification_switch_state() {
+  local name="$1"
+  adb shell uiautomator dump "/sdcard/${name}.xml" >/dev/null
+  adb pull "/sdcard/${name}.xml" "$OUT/state/${name}.xml" >/dev/null
+  if grep -Eq 'resource-id="com\.painless\.pc:id/my_switch"[^>]*checked="true"' "$OUT/state/${name}.xml"; then
+    printf 'true\n'
+  elif grep -Eq 'resource-id="com\.painless\.pc:id/my_switch"[^>]*checked="false"' "$OUT/state/${name}.xml"; then
+    printf 'false\n'
+  else
+    echo "Unable to determine notification switch state" >&2
+    return 1
+  fi
+}
+
+set_notification_switch() {
+  local desired="$1"
+  local name="$2"
+  local current
+  current="$(notification_switch_state "${name}-before")"
+  echo "notification switch before ${name}: ${current}" > "$OUT/state/${name}.txt"
+  if [ "$current" != "$desired" ]; then
+    adb shell input tap 998 202
+    sleep 2
+  fi
+  current="$(notification_switch_state "${name}-after")"
+  echo "notification switch after ${name}: ${current}" >> "$OUT/state/${name}.txt"
+  if [ "$current" != "$desired" ]; then
+    echo "Notification switch failed to reach desired state ${desired}"
+    return 1
+  fi
+}
+
 # Root launch and screenshot.
 launch_root | tee "$OUT/am-start.txt"
 capture "00-launch"
@@ -118,21 +150,24 @@ fi
 # Notification-widget functional path on targetSdk 36:
 # 1) prove the Android 13+ runtime permission is requested,
 # 2) grant it deterministically for CI,
-# 3) enable the notification and prove an active notification + channel exist,
-# 4) render the notification shade, then disable it again.
+# 3) prove the persisted notification switch is ON and an active notification/channel exist,
+# 4) render the notification shade,
+# 5) explicitly switch OFF and prove the active notification is canceled.
 adb shell pm revoke com.painless.pc android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 launch_root > "$OUT/state/notification-permission-root.txt"
 adb shell input tap 540 548
 sleep 2
 adb logcat -c
+set_notification_switch "false" "notification-prepermission-reset"
 adb shell input tap 998 202
 sleep 1
 capture "13-notification-permission-prompt"
-if ! grep -Eqi 'notification|allow' "$OUT/ui/13-notification-permission-prompt.xml"; then
-  echo "Expected notification permission UI was not observed"
-  exit 1
-fi
+grep -q 'package="com.google.android.permissioncontroller"' "$OUT/ui/13-notification-permission-prompt.xml"
+grep -q 'Allow Power Toggles to send you notifications?' "$OUT/ui/13-notification-permission-prompt.xml"
+grep -q 'text="Allow"' "$OUT/ui/13-notification-permission-prompt.xml"
 
+# Grant in CI rather than clicking the dialog so permission state is deterministic.
+# The app already persisted the user's ON intent when the permission prompt appeared.
 adb shell pm grant com.painless.pc android.permission.POST_NOTIFICATIONS
 adb shell input keyevent KEYCODE_BACK || true
 sleep 1
@@ -140,27 +175,32 @@ launch_root > "$OUT/state/notification-enabled-root.txt"
 adb shell input tap 540 548
 sleep 2
 adb logcat -c
-adb shell input tap 998 202
+set_notification_switch "true" "notification-enable"
 sleep 2
 capture "14-notification-enabled"
+grep -Eq 'resource-id="com\.painless\.pc:id/my_switch"[^>]*checked="true"' "$OUT/ui/14-notification-enabled.xml"
 adb shell dumpsys notification --noredact > "$OUT/state/notification-enabled.dumpsys.txt"
-grep -q 'com.painless.pc' "$OUT/state/notification-enabled.dumpsys.txt"
+grep -Eq 'NotificationRecord\(.*pkg=com\.painless\.pc|pkg=com\.painless\.pc.*id=1' "$OUT/state/notification-enabled.dumpsys.txt"
 grep -q 'power_toggles_controls' "$OUT/state/notification-enabled.dumpsys.txt"
 
 adb shell cmd statusbar expand-notifications >/dev/null 2>&1 || true
 sleep 2
 capture "15-notification-shade"
+grep -q 'package="com.android.systemui"' "$OUT/ui/15-notification-shade.xml"
 adb shell cmd statusbar collapse >/dev/null 2>&1 || true
 sleep 1
 
 # Disable and confirm the active app notification is removed while the channel remains.
-adb shell input tap 998 202
+set_notification_switch "false" "notification-disable"
 sleep 2
+capture "16-notification-disabled"
+grep -Eq 'resource-id="com\.painless\.pc:id/my_switch"[^>]*checked="false"' "$OUT/ui/16-notification-disabled.xml"
 adb shell dumpsys notification --noredact > "$OUT/state/notification-disabled.dumpsys.txt"
 if grep -E 'NotificationRecord\(.*pkg=com\.painless\.pc|pkg=com\.painless\.pc.*id=1' "$OUT/state/notification-disabled.dumpsys.txt"; then
   echo "Power Toggles notification remained active after disabling"
   exit 1
 fi
+grep -q 'power_toggles_controls' "$OUT/state/notification-disabled.dumpsys.txt"
 
 # Exercise the widget configurator beyond construction: expand Style and open Add Toggle.
 adb shell am force-stop com.painless.pc
@@ -171,20 +211,20 @@ adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
 sleep 2
 adb shell input tap 540 451
 sleep 1
-capture "16-widget-style-expanded"
-grep -Eqi 'Full height|Huge icons|Indicator|Labels' "$OUT/ui/16-widget-style-expanded.xml"
+capture "17-widget-style-expanded"
+grep -Eqi 'Full height|Huge icons|Indicator|Labels' "$OUT/ui/17-widget-style-expanded.xml"
 
 # Relaunch config so Add Toggle is at a stable coordinate, then open the picker.
 adb shell am force-stop com.painless.pc
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
   -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1003 \
   > "$OUT/state/widget-add-toggle-start.txt" 2>&1
- sleep 2
+sleep 2
 adb logcat -c
 adb shell input tap 850 312
 sleep 2
-capture "17-widget-add-toggle-picker"
-grep -Eqi 'Battery|Wi.?Fi|Bluetooth|toggle|shortcut' "$OUT/ui/17-widget-add-toggle-picker.xml"
+capture "18-widget-add-toggle-picker"
+grep -Eqi 'Battery|Wi.?Fi|Bluetooth|toggle|shortcut' "$OUT/ui/18-widget-add-toggle-picker.xml"
 adb shell input keyevent KEYCODE_BACK || true
 
 # Final package/install facts and permission state.
