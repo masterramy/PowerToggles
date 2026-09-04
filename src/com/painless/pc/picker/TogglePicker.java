@@ -85,9 +85,11 @@ public class TogglePicker extends Dialog
           // Root
           (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1 ?
                   new int[] { 29, 30, 35, 39, 36, 37} :
-                    new int[] { 29, 30, 35, 39, 46, 36, 37}),
+                    new int[] { 29, 30, 35, 39, 46, 36, 37})
 
-                    new int[] { 14}           // Others
+          // Historical WiMAX tracker (14) is intentionally not offered on the
+          // restored app. Modern Android has no supported WiMAX control surface;
+          // hiding it is more truthful than exposing a control that cannot work.
   };
 
   @Thunk final ArrayList<SectionItem> mFullToggleList = new ArrayList<SectionItem>();
@@ -251,9 +253,7 @@ public class TogglePicker extends Dialog
   public void setOnlyAppsMode(boolean showOnlyApps) {
     if (mShowOnlyApps != showOnlyApps) {
       mShowOnlyApps = showOnlyApps;
-
       mTabHost.getTabWidget().getChildAt(0).setVisibility(mShowOnlyApps ? View.GONE : View.VISIBLE);
-
       if (mShowOnlyApps) {
         ((ListView) mPager.getChildAt(2)).setAdapter(mAdapters[INDEX_ADAPTER_SHORTCUTS]);
         mTogglesPage = mPager.getChildAt(0);
@@ -265,21 +265,16 @@ public class TogglePicker extends Dialog
       mTabHost.clearAllTabs();
       setupTabs();
       mPager.setDisplayChild(0);
-
-      // Close search
       if (mSearchItem != null) {
         mSearchItem.collapseActionView();
       }
     }
   }
 
-  // View pager related callbacks.
   @Override
   public void onPageChanged(int position) {
     mTabHost.setCurrentTab(position);
   }
-
-  // Tab host related callbacks
   @Override
   public View createTabContent(String tag) {
     return new View(mProxy);
@@ -322,8 +317,6 @@ public class TogglePicker extends Dialog
 
     LoadingSectionAdapter adapter = mAdapters[INDEX_ADAPTER_SEARCH];
     adapter.clear();
-
-    // Do search.
     query = query.toLowerCase(Locale.getDefault());
     SectionItem header = null;
     boolean headerAdded = false;
@@ -340,7 +333,6 @@ public class TogglePicker extends Dialog
         headerAdded = true;
       }
     }
-
     if (mLoadCount < 3) {
       adapter.addLoading();
     }
@@ -352,20 +344,15 @@ public class TogglePicker extends Dialog
   public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
     SectionAdapter adapter = (SectionAdapter) parent.getAdapter();
     SectionItem item = adapter.getItem(position);
-
     if (item instanceof ActivityInfo) {
       ActivityInfo info = (ActivityInfo) item;
       if (info.targetIntent == null) {
-        // Tasker task pick.
         startTaskerTaskPickFlow();
         return;
       }
-
       if (Intent.ACTION_CREATE_SHORTCUT.equals(info.targetIntent.getAction())) {
-        // Create shortcut.
         mProxy.requestResult(REQ_CUSTOM_SHORTCUT, info.targetIntent, this);
       } else if (Globals.PLUGIN_INTENT.equals(info.targetIntent.getAction())) {
-        // Check if the plugin supports config activity
         try {
           android.content.pm.ActivityInfo actInfo = mProxy.getPackageManager().getReceiverInfo(
                   info.targetIntent.getComponent(), PackageManager.GET_META_DATA);
@@ -379,7 +366,6 @@ public class TogglePicker extends Dialog
         } catch (Exception e) {
           Debug.log(e);
         }
-        
         mListener.onTogglePicked(
                 new PluginTracker(info.name, info.targetIntent, info.label),
                 info.originalIcon);
@@ -402,11 +388,9 @@ public class TogglePicker extends Dialog
   @Override
   public void onResult(int requestCode, Intent data) {
     if (requestCode == REQ_CUSTOM_SHORTCUT) {
-
       Intent intent = data.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT);
       String name = data.getStringExtra(Intent.EXTRA_SHORTCUT_NAME);
       Bitmap bitmap = data.getParcelableExtra(Intent.EXTRA_SHORTCUT_ICON);
-
       if (bitmap == null) {
         Parcelable extra = data.getParcelableExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE);
         if (extra != null && extra instanceof ShortcutIconResource) {
@@ -416,136 +400,65 @@ public class TogglePicker extends Dialog
             final int id = resources.getIdentifier(iconResource.resourceName, null, null);
             bitmap = BitmapUtils.drawableToBitmap(resources.getDrawable(id), mProxy);
           } catch (Throwable e) {
-            // Some error
           }
         }
         if (bitmap == null) {
           bitmap = BitmapFactory.decodeResource(mProxy.getResources(), R.drawable.icon_shortcut);
         }
       }
-
       mListener.onTogglePicked(new SimpleShortcut(intent, name), bitmap);
       hide();
     } else if (requestCode == REQ_PLUGIN_CONFIG) {
-      
-      String id = data.getStringExtra(Intent.EXTRA_UID);
-      if (TextUtils.isEmpty(id)) {
-        return;
-      } else {
+      if (data != null) {
+        Bundle extras = data.getExtras();
         mListener.onTogglePicked(
-                new PluginTracker(
-                        mWaitingPluginConfig.name + '-' + id,
-                        new Intent(mWaitingPluginConfig.targetIntent).putExtra(Intent.EXTRA_UID, id),
-                        mWaitingPluginConfig.label),
-                        mWaitingPluginConfig.originalIcon);
+            new PluginTracker(mWaitingPluginConfig.name,
+                mWaitingPluginConfig.targetIntent.putExtras(extras), mWaitingPluginConfig.label),
+            mWaitingPluginConfig.originalIcon);
         hide();
       }
+      mWaitingPluginConfig = null;
     }
   }
 
-  // Flow to pick tasker task.
   private void startTaskerTaskPickFlow() {
-    // Check if external access is enabled or not.
-    Cursor c = mProxy.getContentResolver().query( Uri.parse( "content://net.dinglisch.android.tasker/prefs" ), null, null, null, null);
-    boolean enabled = false;
-    if (c != null) {
-      if (c.moveToNext()) {
-        enabled = Boolean.parseBoolean(c.getString(c.getColumnIndex( "ext_access" )));
-      }
-      c.close();
-    }
-    if (!enabled) {
-      new AlertDialog.Builder(mProxy)
-        .setMessage(R.string.tp_tasker_disabled)
-        .setTitle(R.string.tp_tasker_disabled_title)
-        .setNeutralButton(R.string.act_ok, null)
-        .show();
-    } else {
-      final ArrayList<String> tasks = Globals.getTaskerTasks(mProxy);
-      if (tasks.isEmpty()) {
-        Toast.makeText(mProxy, R.string.tp_tasker_empty, Toast.LENGTH_LONG).show();
-      } else {
-        showTarkerPicker(tasks);
-        hide();
-      }
-    }
-  }
-
-  protected void showTarkerPicker(ArrayList<String> tasks) {
-    new TaskerTogglePicker(mListener, mProxy, tasks);
-  }
-
-  @Thunk String getString(int resId) {
-    return getContext().getString(resId);
-  }
-  @Thunk boolean isPackageInstalled(String packageName) {
     try {
-      mProxy.getPackageManager().getPackageInfo(packageName, 0);
-      return true;
+      mProxy.requestResult(REQ_CUSTOM_SHORTCUT,
+          new Intent("net.dinglisch.android.tasker.ACTION_TASK_SELECT")
+            .putExtra("task_name", "")
+            .setClass(mProxy, SimpleTaskerTaskPicker.class), this);
     } catch (Throwable e) {
+      Debug.log(e);
+      Toast.makeText(mProxy, "Unable to launch tasker.", Toast.LENGTH_SHORT).show();
+    }
+  }
+
+  private boolean isPackageInstalled(String packageName) {
+    try {
+      mProxy.getPackageManager().getApplicationInfo(packageName, 0);
+      return true;
+    } catch (PackageManager.NameNotFoundException e) {
       return false;
-    }
-  }
-
-  /**
-   * A adapter which supports adding a loading symbol in the list.
-   */
-  private static class LoadingSectionAdapter extends SectionAdapter {
-
-    private int mLoadingPosition = -1;
-
-    public LoadingSectionAdapter(Context context) {
-      super(context);
-    }
-
-    @Override
-    public void clear() {
-      mLoadingPosition = -1;
-      super.clear();
-    }
-
-    public void addLoading() {
-      mLoadingPosition = getCount();
-      add(null);
-    }
-
-    @Override
-    public boolean isEnabled(int position) {
-      return (mLoadingPosition != position) && super.isEnabled(position);
-    }
-
-    @Override
-    public int getItemViewType(int position) {
-      return position == mLoadingPosition ? 2 : super.getItemViewType(position);
-    }
-
-    @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
-      if (position == mLoadingPosition) {
-        return convertView == null ?
-                mInflater.inflate(R.layout.list_item_loader, null) : convertView;
-      }
-      return super.getView(position, convertView, parent);
-    }
-
-    @Override
-    public int getViewTypeCount() {
-      return 3;
-    }
-  }
-
-  private static class TrackerInfo extends SectionItem {
-
-    @Thunk int mTrackerId;
-
-    public TrackerInfo(String label, Drawable icon) {
-      super(label, icon);
     }
   }
 
   public static interface TogglePickerListener {
     void onTogglePicked(AbstractTracker tracker, Bitmap icon);
   }
+
+  static final class TrackerInfo extends SectionItem {
+    int mTrackerId;
+    public TrackerInfo(String label, Drawable icon) {
+      super(label, icon);
+    }
+  }
+
+  @Thunk static class LoadingSectionAdapter extends SectionAdapter {
+    public LoadingSectionAdapter(Context context) {
+      super(context);
+    }
+    public void addLoading() {
+      add(new SectionItem("Loading...", null));
+    }
+  }
 }
-
-
