@@ -40,6 +40,10 @@ android {
             java.srcDirs = ['src']
             manifest.srcFile 'AndroidManifest.xml'
         }
+        debug {
+            java.srcDirs = ['qa-debug/src']
+            manifest.srcFile 'qa-debug/AndroidManifest.xml'
+        }
     }
     lintOptions {
         disable 'MissingTranslation'
