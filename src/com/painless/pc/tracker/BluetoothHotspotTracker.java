@@ -11,6 +11,8 @@ import com.painless.pc.singleton.Globals;
 
 public class BluetoothHotspotTracker extends AbstractTracker {
 
+  private static final String TETHER_SETTINGS_ACTION = "android.settings.TETHER_SETTINGS";
+
   public BluetoothHotspotTracker(int trackerId, SharedPreferences pref) {
     super(trackerId, pref, getTriImageConfig(R.drawable.icon_toggle_bluetooth_tether));
   }
@@ -35,9 +37,11 @@ public class BluetoothHotspotTracker extends AbstractTracker {
 
   @Override
   protected void requestStateChange(Context context, boolean desiredState) {
-    Globals.startIntent(context,
-        new Intent(Settings.ACTION_TETHER_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    Intent target = new Intent(TETHER_SETTINGS_ACTION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    if (target.resolveActivity(context.getPackageManager()) == null) {
+      target = new Intent(Settings.ACTION_WIRELESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    }
+    Globals.startIntent(context, target);
   }
 
   @Override
