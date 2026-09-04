@@ -59,7 +59,10 @@ grep -Eq 'name="rotation_restore_ok" value="true"|value="true" name="rotation_re
 adb shell appops set com.painless.pc WRITE_SETTINGS default || true
 
 # F2 Wi-Fi: Android 10+ must hand off to the supported system Wi-Fi panel.
+# Isolate each external probe in a fresh app process so a no-history probe
+# activity cannot absorb a later command as a stale top-instance delivery.
 grep -q 'Settings.Panel.ACTION_WIFI' src/com/painless/pc/tracker/WifiStateTracker.java
+adb shell am force-stop com.painless.pc
 adb logcat -c
 adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe wifi > "$OUT/state/wifi-launch.txt"
@@ -74,6 +77,7 @@ sleep 1
 # adapter enable/disable. Source proves consent intent; runtime proves settings fallback.
 grep -q 'ACTION_REQUEST_ENABLE' src/com/painless/pc/tracker/BluetoothTracker.java
 grep -q 'ACTION_BLUETOOTH_SETTINGS' src/com/painless/pc/tracker/BluetoothTracker.java
+adb shell am force-stop com.painless.pc
 adb logcat -c
 adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe bluetooth_disable > "$OUT/state/bluetooth-launch.txt"
