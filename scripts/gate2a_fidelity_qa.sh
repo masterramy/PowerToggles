@@ -4,11 +4,30 @@ set -euo pipefail
 OUT="${1:-fidelity-evidence}"
 mkdir -p "$OUT/screens" "$OUT/ui" "$OUT/state" "$OUT/logs"
 
+dump_ui_retry() {
+  local name="$1"
+  local remote="/sdcard/$name.xml"
+  local local_xml="$OUT/ui/$name.xml"
+  adb shell rm -f "$remote" >/dev/null 2>&1 || true
+  rm -f "$local_xml"
+  for attempt in 1 2 3 4 5; do
+    adb shell uiautomator dump "$remote" >/dev/null 2>&1 || true
+    if adb shell test -s "$remote" >/dev/null 2>&1; then
+      adb pull "$remote" "$local_xml" >/dev/null 2>&1 || true
+      if [ -s "$local_xml" ]; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  echo "Unable to capture UI hierarchy for $name" >&2
+  return 1
+}
+
 capture() {
   local name="$1"
+  dump_ui_retry "$name"
   adb exec-out screencap -p > "$OUT/screens/$name.png"
-  adb shell uiautomator dump "/sdcard/$name.xml" >/dev/null
-  adb pull "/sdcard/$name.xml" "$OUT/ui/$name.xml" >/dev/null
   adb shell dumpsys activity activities > "$OUT/state/$name.activities.txt"
   adb shell dumpsys window windows > "$OUT/state/$name.windows.txt"
   adb logcat -d > "$OUT/logs/$name.logcat.txt"
