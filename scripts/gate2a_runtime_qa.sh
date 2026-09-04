@@ -26,6 +26,16 @@ capture() {
   fatal_scan "$name"
 }
 
+capture_external() {
+  local name="$1"
+  adb exec-out screencap -p > "$OUT/screens/${name}.png"
+  adb shell uiautomator dump "/sdcard/${name}.xml" >/dev/null || true
+  adb pull "/sdcard/${name}.xml" "$OUT/ui/${name}.xml" >/dev/null 2>&1 || true
+  adb shell dumpsys activity activities > "$OUT/state/${name}.activities.txt"
+  adb shell dumpsys window windows > "$OUT/state/${name}.windows.txt"
+  fatal_scan "$name"
+}
+
 launch_root() {
   adb shell am force-stop com.painless.pc
   adb logcat -c
@@ -147,12 +157,7 @@ if grep -Eq 'name="heptic_feedback" value="true"|value="true" name="heptic_feedb
   exit 1
 fi
 
-# Notification-widget functional path on targetSdk 36:
-# 1) prove the Android 13+ runtime permission is requested,
-# 2) grant it deterministically for CI,
-# 3) prove the persisted notification switch is ON and an active notification/channel exist,
-# 4) render the notification shade,
-# 5) explicitly switch OFF and prove the active notification is canceled.
+# Notification-widget functional path on targetSdk 36.
 adb shell pm revoke com.painless.pc android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 launch_root > "$OUT/state/notification-permission-root.txt"
 adb shell input tap 540 548
@@ -166,8 +171,6 @@ grep -q 'package="com.google.android.permissioncontroller"' "$OUT/ui/13-notifica
 grep -q 'Allow Power Toggles to send you notifications?' "$OUT/ui/13-notification-permission-prompt.xml"
 grep -q 'text="Allow"' "$OUT/ui/13-notification-permission-prompt.xml"
 
-# Grant in CI rather than clicking the dialog so permission state is deterministic.
-# The app already persisted the user's ON intent when the permission prompt appeared.
 adb shell pm grant com.painless.pc android.permission.POST_NOTIFICATIONS
 adb shell input keyevent KEYCODE_BACK || true
 sleep 1
@@ -190,7 +193,6 @@ grep -q 'package="com.android.systemui"' "$OUT/ui/15-notification-shade.xml"
 adb shell cmd statusbar collapse >/dev/null 2>&1 || true
 sleep 1
 
-# Disable and confirm the active app notification is removed while the channel remains.
 set_notification_switch "false" "notification-disable"
 sleep 2
 capture "16-notification-disabled"
@@ -202,7 +204,7 @@ if grep -E 'NotificationRecord\(.*pkg=com\.painless\.pc|pkg=com\.painless\.pc.*i
 fi
 grep -q 'power_toggles_controls' "$OUT/state/notification-disabled.dumpsys.txt"
 
-# Exercise the widget configurator beyond construction: expand Style and open Add Toggle.
+# Widget configurator and picker evidence.
 adb shell am force-stop com.painless.pc
 adb logcat -c
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
@@ -214,7 +216,6 @@ sleep 1
 capture "17-widget-style-expanded"
 grep -Eqi 'Full height|Huge icons|Indicator|Labels' "$OUT/ui/17-widget-style-expanded.xml"
 
-# Relaunch config so Add Toggle is at a stable coordinate, then open the picker.
 adb shell am force-stop com.painless.pc
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
   -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1003 \
@@ -227,13 +228,71 @@ capture "18-widget-add-toggle-picker"
 grep -Eqi 'Battery|Wi.?Fi|Bluetooth|toggle|shortcut' "$OUT/ui/18-widget-add-toggle-picker.xml"
 adb shell input keyevent KEYCODE_BACK || true
 
+# Representative fidelity slice ------------------------------------------------
+# F0/F1 visual/status: the picker exposes a real Battery status control.
+grep -qi 'Battery' "$OUT/ui/18-widget-add-toggle-picker.xml"
+
+# F1 settings-write: grant the Android special-access app-op in the controlled
+# emulator, invoke the real AutoRotateTracker through the debug-only probe, prove
+# the system setting actually changes, and restore the exact original value.
+adb shell appops set com.painless.pc WRITE_SETTINGS allow
+adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+  --es probe autorotate_toggle > "$OUT/state/fidelity-autorotate-toggle.txt"
+sleep 1
+adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/fidelity-autorotate.xml"
+grep -Eq 'name="rotation_changed" value="true"|value="true" name="rotation_changed"' "$OUT/state/fidelity-autorotate.xml"
+adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+  --es probe autorotate_restore > "$OUT/state/fidelity-autorotate-restore.txt"
+sleep 1
+adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/fidelity-autorotate-restored.xml"
+grep -Eq 'name="rotation_restore_ok" value="true"|value="true" name="rotation_restore_ok"' "$OUT/state/fidelity-autorotate-restored.xml"
+adb shell appops set com.painless.pc WRITE_SETTINGS default || true
+
+# F2 Wi-Fi: on Android 10+ the restored tracker must hand off to the supported
+# system Wi-Fi panel rather than pretending WifiManager.setWifiEnabled succeeded.
+adb logcat -c
+adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+  --es probe wifi > "$OUT/state/fidelity-wifi-launch.txt"
+sleep 2
+capture_external "19-fidelity-wifi-panel"
+grep -Eq 'com\.android\.settings|SettingsPanelActivity' "$OUT/state/19-fidelity-wifi-panel.activities.txt"
+grep -Eqi 'Wi.?Fi|Internet' "$OUT/ui/19-fidelity-wifi-panel.xml"
+adb shell input keyevent KEYCODE_BACK || true
+sleep 1
+
+# F2 Bluetooth: direct enable/disable is forbidden for targetSdk 33+; source must
+# use the consent intent for enable and runtime must provide a system-settings
+# fallback for disable without crashing.
+grep -q 'ACTION_REQUEST_ENABLE' src/com/painless/pc/tracker/BluetoothTracker.java
+adb logcat -c
+adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+  --es probe bluetooth_disable > "$OUT/state/fidelity-bluetooth-launch.txt"
+sleep 2
+capture_external "20-fidelity-bluetooth-settings"
+grep -Eq 'com\.android\.settings' "$OUT/state/20-fidelity-bluetooth-settings.activities.txt"
+grep -qi 'Bluetooth' "$OUT/ui/20-fidelity-bluetooth-settings.xml"
+adb shell input keyevent KEYCODE_BACK || true
+sleep 1
+
+# F3 retired control: historical WiMAX implementation remains in source for
+# provenance, but the modern picker intentionally does not offer tracker 14.
+test -f src/com/painless/pc/tracker/WiMaxTracker.java
+if grep -Eq 'new int\[\][[:space:]]*\{[[:space:]]*14[[:space:]]*\}' src/com/painless/pc/picker/TogglePicker.java; then
+  echo "Retired WiMAX tracker is still exposed in the modern picker"
+  exit 1
+fi
+echo "F0/F1 Battery status: PASS" > "$OUT/state/fidelity-summary.txt"
+echo "F1 Auto-rotate setting write+restore: PASS" >> "$OUT/state/fidelity-summary.txt"
+echo "F2 Wi-Fi supported system-panel fallback: PASS" >> "$OUT/state/fidelity-summary.txt"
+echo "F2 Bluetooth consent/settings fallback: PASS" >> "$OUT/state/fidelity-summary.txt"
+echo "F3 WiMAX retired from picker: PASS" >> "$OUT/state/fidelity-summary.txt"
+
 # Final package/install facts and permission state.
 adb shell dumpsys package com.painless.pc > "$OUT/package-final.txt"
 adb shell pm list packages -f | grep 'com.painless.pc' > "$OUT/package-installed.txt"
 adb shell appops get com.painless.pc > "$OUT/appops.txt" 2>&1 || true
 adb shell dumpsys notification --noredact > "$OUT/notification-final.txt"
 
-# Consolidated screenshot inventory for downstream visual QA.
 find "$OUT/screens" -maxdepth 1 -type f -name '*.png' -printf '%f\n' | sort > "$OUT/screenshot-index.txt"
 
 echo "Gate 2A runtime QA complete"
