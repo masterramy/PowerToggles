@@ -110,7 +110,7 @@ jobs:
           adb shell pm list packages -f | grep 'com.painless.pc'
 
       - name: Full API 36 runtime QA and screenshots
-        run: bash scripts/gate2a_runtime_qa.sh
+        run: bash scripts/publication_runtime_qa.sh
 
       - name: Upload publication runtime evidence
         if: always()
