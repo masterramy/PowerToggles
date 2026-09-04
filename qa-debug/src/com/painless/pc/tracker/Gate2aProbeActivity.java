@@ -1,6 +1,7 @@
 package com.painless.pc.tracker;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -20,7 +21,18 @@ public final class Gate2aProbeActivity extends Activity {
   @Override
   protected void onCreate(Bundle state) {
     super.onCreate(state);
-    final String probe = getIntent().getStringExtra("probe");
+    runProbe(getIntent());
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    runProbe(intent);
+  }
+
+  private void runProbe(Intent intent) {
+    final String probe = intent.getStringExtra("probe");
     final SharedPreferences appPrefs = Globals.getAppPrefs(this);
 
     if ("battery".equals(probe)) {
