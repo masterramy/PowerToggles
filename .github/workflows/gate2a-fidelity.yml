@@ -1,0 +1,100 @@
+name: Gate 2A Fidelity QA
+
+on:
+  pull_request:
+    branches: [ gate2a-ci-base ]
+  workflow_dispatch:
+
+jobs:
+  fidelity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Pin Android AVD paths
+        run: |
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/gate2a-avd" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$RUNNER_TEMP/gate2a-android-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gate2a-avd" "$RUNNER_TEMP/gate2a-android-user"
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assemble debug candidate
+        run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Verify debug metadata
+        run: |
+          APK="build/outputs/apk/debug/PowerToggles-debug.apk"
+          if [ ! -f "$APK" ]; then
+            APK="$(find build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n 1)"
+          fi
+          test -n "$APK"
+          test -f "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee fidelity-apk-badging.txt
+          grep -q "package: name='com.painless.pc'" fidelity-apk-badging.txt
+          grep -q "targetSdkVersion:'36'" fidelity-apk-badging.txt
+          sha256sum "$APK" | tee fidelity-apk-sha256.txt
+
+      - name: Create API 36 AVD
+        run: |
+          echo no | avdmanager create avd --force --name gate2a_fidelity_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx gate2a_fidelity_api36
+
+      - name: Boot emulator
+        run: |
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd gate2a_fidelity_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > fidelity-emulator.log 2>&1 &
+          EMU_PID=$!
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed"
+              cat fidelity-emulator.log
+              exit 1
+            fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              adb devices -l
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Emulator failed to boot within 240 seconds"
+          cat fidelity-emulator.log
+          exit 1
+
+      - name: Install Power Toggles
+        run: |
+          adb install -r "$APK"
+          adb shell pm list packages -f | grep 'com.painless.pc'
+
+      - name: Run bounded F0-F3 fidelity QA
+        run: bash scripts/gate2a_fidelity_qa.sh
+
+      - name: Upload fidelity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate2a-fidelity-evidence
+          path: |
+            fidelity-evidence/
+            fidelity-emulator.log
+            fidelity-apk-badging.txt
+            fidelity-apk-sha256.txt
+          if-no-files-found: warn
