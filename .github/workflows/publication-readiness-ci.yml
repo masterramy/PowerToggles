@@ -1,0 +1,123 @@
+name: Publication Readiness Android CI
+
+on:
+  push:
+    branches: [ publication-readiness ]
+  workflow_dispatch:
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Pin Android AVD paths
+        run: |
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/publication-avd" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$RUNNER_TEMP/publication-android-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/publication-avd" "$RUNNER_TEMP/publication-android-user"
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assemble debug and release bundle
+        run: gradle --no-daemon --stacktrace assembleDebug bundleRelease
+
+      - name: Verify build metadata
+        run: |
+          APK="build/outputs/apk/debug/PowerToggles-debug.apk"
+          if [ ! -f "$APK" ]; then
+            APK="$(find build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n 1)"
+          fi
+          AAB="$(find build/outputs/bundle/release -type f -name '*.aab' | head -n 1)"
+          test -n "$APK"
+          test -f "$APK"
+          test -n "$AAB"
+          test -f "$AAB"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "AAB=$AAB" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee publication-apk-badging.txt
+          grep -q "package: name='com.painless.pc'" publication-apk-badging.txt
+          grep -q "targetSdkVersion:'36'" publication-apk-badging.txt
+          unzip -t "$AAB" | tee publication-aab-integrity.txt
+          grep -q "No errors detected" publication-aab-integrity.txt
+          sha256sum "$APK" "$AAB" | tee publication-build-sha256.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-build-artifacts
+          path: |
+            ${{ env.APK }}
+            ${{ env.AAB }}
+            publication-apk-badging.txt
+            publication-aab-integrity.txt
+            publication-build-sha256.txt
+          if-no-files-found: error
+
+      - name: Install API 36 emulator image
+        run: sdkmanager "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - name: Create API 36 AVD
+        run: |
+          echo no | avdmanager create avd --force --name publication_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          avdmanager list avd
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx publication_api36
+
+      - name: Boot emulator
+        run: |
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd publication_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "Emulator PID: $EMU_PID"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed"
+              cat emulator.log
+              exit 1
+            fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              echo "Emulator booted"
+              adb devices -l
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Emulator failed to boot within 240 seconds"
+          adb devices -l || true
+          cat emulator.log
+          exit 1
+
+      - name: Install candidate
+        run: |
+          adb install -r "$APK"
+          adb shell pm list packages -f | grep 'com.painless.pc'
+
+      - name: Full API 36 runtime QA and screenshots
+        run: bash scripts/gate2a_runtime_qa.sh
+
+      - name: Upload publication runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-runtime-evidence
+          path: |
+            runtime-evidence/
+            emulator.log
+          if-no-files-found: warn
