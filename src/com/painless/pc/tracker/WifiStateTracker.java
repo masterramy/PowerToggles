@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.provider.Settings;
 import android.text.TextUtils;
 
@@ -83,23 +84,28 @@ public final class WifiStateTracker extends AbstractDoubleClickTracker {
 	}
 
 	static void setWifiStateAsync(final Context context, final boolean desiredState) {
+		// Android 10+ intentionally prevents ordinary apps from directly enabling or
+		// disabling Wi-Fi. Preserve the control truthfully by handing the user to the
+		// system Wi-Fi panel instead of pretending a restricted API call succeeded.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+			Globals.startIntent(context, new Intent(Settings.Panel.ACTION_WIFI));
+			return;
+		}
+
 		final WifiManager wifiManager =
 			(WifiManager) context.getSystemService(Context.WIFI_SERVICE);
 		if (wifiManager == null) {
 			return;
 		}
 
-		// Actually request the wifi change and persistent
-		// settings write off the UI thread, as it can take a
-		// user-noticeable amount of time, especially if there's
-		// disk contention.
+		// Legacy direct control remains available on pre-Android-10 devices.
 		new AsyncTask<Void, Void, Void>() {
 			@Override
 			protected Void doInBackground(Void... args) {
 				try {
 					wifiManager.setWifiEnabled(desiredState);
 				} catch (SecurityException e) {
-					Globals.startIntent(context, new Intent(android.provider.Settings.ACTION_WIFI_SETTINGS));
+					Globals.startIntent(context, new Intent(Settings.ACTION_WIFI_SETTINGS));
 				}
 				return null;
 			}
