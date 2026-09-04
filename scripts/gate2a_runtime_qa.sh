@@ -5,6 +5,26 @@ set -euo pipefail
 OUT="runtime-evidence"
 mkdir -p "$OUT/screens" "$OUT/ui" "$OUT/state" "$OUT/logs"
 
+dump_ui_retry() {
+  local name="$1"
+  local remote="/sdcard/$name.xml"
+  local local_xml="$OUT/ui/$name.xml"
+  adb shell rm -f "$remote" >/dev/null 2>&1 || true
+  rm -f "$local_xml"
+  for attempt in 1 2 3 4 5; do
+    adb shell uiautomator dump "$remote" >/dev/null 2>&1 || true
+    if adb shell test -s "$remote" >/dev/null 2>&1; then
+      adb pull "$remote" "$local_xml" >/dev/null 2>&1 || true
+      if [ -s "$local_xml" ]; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  echo "Unable to capture UI hierarchy for $name" >&2
+  return 1
+}
+
 fatal_scan() {
   local name="$1"
   adb logcat -d > "$OUT/logs/${name}.logcat.txt"
@@ -16,9 +36,8 @@ fatal_scan() {
 
 capture() {
   local name="$1"
+  dump_ui_retry "$name"
   adb exec-out screencap -p > "$OUT/screens/${name}.png"
-  adb shell uiautomator dump "/sdcard/${name}.xml" >/dev/null || true
-  adb pull "/sdcard/${name}.xml" "$OUT/ui/${name}.xml" >/dev/null 2>&1 || true
   adb shell dumpsys activity activities > "$OUT/state/${name}.activities.txt"
   adb shell dumpsys window windows > "$OUT/state/${name}.windows.txt"
   adb shell dumpsys package com.painless.pc > "$OUT/state/${name}.package.txt"
@@ -28,9 +47,8 @@ capture() {
 
 capture_external() {
   local name="$1"
+  dump_ui_retry "$name"
   adb exec-out screencap -p > "$OUT/screens/${name}.png"
-  adb shell uiautomator dump "/sdcard/${name}.xml" >/dev/null || true
-  adb pull "/sdcard/${name}.xml" "$OUT/ui/${name}.xml" >/dev/null 2>&1 || true
   adb shell dumpsys activity activities > "$OUT/state/${name}.activities.txt"
   adb shell dumpsys window windows > "$OUT/state/${name}.windows.txt"
   fatal_scan "$name"
@@ -226,11 +244,30 @@ adb shell input tap 850 312
 sleep 2
 capture "18-widget-add-toggle-picker"
 grep -Eqi 'Battery|Wi.?Fi|Bluetooth|toggle|shortcut' "$OUT/ui/18-widget-add-toggle-picker.xml"
+
+# Battery Info is intentionally in the Hardware section, several sections below
+# the picker's first viewport. Scroll the real picker until that control is
+# rendered instead of treating the first UIAutomator viewport as the whole list.
+BATTERY_VISIBLE=false
+for attempt in 1 2 3 4 5 6; do
+  if dump_ui_retry "18-battery-scan" && grep -qi 'Battery Info' "$OUT/ui/18-battery-scan.xml"; then
+    BATTERY_VISIBLE=true
+    break
+  fi
+  adb shell input swipe 540 1650 540 650 350
+  sleep 1
+done
+if [ "$BATTERY_VISIBLE" != "true" ]; then
+  echo "Battery Info was not rendered in the modern picker after bounded scrolling"
+  exit 1
+fi
+capture "18b-widget-battery-visible"
+grep -qi 'Battery Info' "$OUT/ui/18b-widget-battery-visible.xml"
 adb shell input keyevent KEYCODE_BACK || true
 
 # Representative fidelity slice ------------------------------------------------
 # F0/F1 visual/status: the picker exposes a real Battery status control.
-grep -qi 'Battery' "$OUT/ui/18-widget-add-toggle-picker.xml"
+grep -qi 'Battery Info' "$OUT/ui/18b-widget-battery-visible.xml"
 
 # F1 settings-write: grant the Android special-access app-op in the controlled
 # emulator, invoke the real AutoRotateTracker through the debug-only probe, prove
