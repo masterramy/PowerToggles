@@ -12,6 +12,7 @@ import com.painless.pc.singleton.Globals;
 public final class HotSpotTracker extends AbstractDoubleClickTracker {
 
   private static final String CHANGE_ACTION = "android.net.wifi.WIFI_AP_STATE_CHANGED";
+  private static final String TETHER_SETTINGS_ACTION = "android.settings.TETHER_SETTINGS";
 
   @Override
   public String getChangeAction() {
@@ -40,7 +41,11 @@ public final class HotSpotTracker extends AbstractDoubleClickTracker {
   }
 
   private static void openTetherSettings(Context context) {
-    Globals.startIntent(context, new Intent(Settings.ACTION_TETHER_SETTINGS));
+    Intent target = new Intent(TETHER_SETTINGS_ACTION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    if (target.resolveActivity(context.getPackageManager()) == null) {
+      target = new Intent(Settings.ACTION_WIRELESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    }
+    Globals.startIntent(context, target);
   }
 
   /**
@@ -53,6 +58,8 @@ public final class HotSpotTracker extends AbstractDoubleClickTracker {
 
   @Override
   Intent getDCIntent(Context context) {
-    return new Intent(Settings.ACTION_TETHER_SETTINGS);
+    Intent target = new Intent(TETHER_SETTINGS_ACTION);
+    return target.resolveActivity(context.getPackageManager()) != null
+        ? target : new Intent(Settings.ACTION_WIRELESS_SETTINGS);
   }
 }
