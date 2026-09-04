@@ -23,6 +23,16 @@ public final class Gate2aProbeActivity extends Activity {
     final String probe = getIntent().getStringExtra("probe");
     final SharedPreferences appPrefs = Globals.getAppPrefs(this);
 
+    if ("battery".equals(probe)) {
+      final int battery = Globals.getBattery(this);
+      getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+          .putInt("battery_percent", battery)
+          .putBoolean("battery_valid", battery >= 0 && battery <= 100)
+          .commit();
+      finish();
+      return;
+    }
+
     if ("wifi".equals(probe)) {
       new WifiStateTracker(3, appPrefs).requestStateChange(this, true);
       return;
