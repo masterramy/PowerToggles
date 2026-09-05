@@ -205,6 +205,6 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
   @Thunk void updatePriorityIcons() {
     int priority = mPrefs.getInt(Globals.NOTIFICATION_PRIORITY, 5);
     ((ImageView) mRoot.findViewById(R.id.notify_status_1)).setImageResource(priority> 2 ? R.drawable.status_icon : R.drawable.status_no_icon);
-    ((ImageView) mRoot.findViewById(R.id.notify_status_2)).setImageResource(priority==5 ? R.drawable.status_pin : R.drawable.status_no_icon);
+    ((ImageView) mRoot.findViewById(R.id.notify_status_2)).setImageResource(priority==5 ? R.drawable.status_pin : R.drawable.status_no_pin);
   }
 }
