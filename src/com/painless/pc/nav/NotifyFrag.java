@@ -89,7 +89,7 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
       mVisibility = (CheckedTextView) mRoot.findViewById(R.id.chk_show_on_lock_screen);
       mVisibility.setChecked(NotifyStatus.notifyVisibility(getActivity()) == Notification.VISIBILITY_PUBLIC);
     } else {
-      ((View) btnVisibility.getParent()).setVisibility(View.GONE);
+      btnVisibility.setVisibility(View.GONE);
     }
     updatePriorityIcons();
     return mRoot;
