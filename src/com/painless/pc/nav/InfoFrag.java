@@ -4,7 +4,6 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceChangeListener;
@@ -18,7 +17,6 @@ import android.view.View;
 import com.painless.pc.LockAdmin;
 import com.painless.pc.PCWidgetActivity;
 import com.painless.pc.R;
-import com.painless.pc.singleton.RootTools;
 import com.painless.pc.singleton.SettingStorage;
 import com.painless.pc.tracker.AbstractTracker;
 
@@ -42,9 +40,8 @@ public class InfoFrag extends PreferenceFragment implements OnPreferenceChangeLi
 
     PreferenceCategory infoCatgory = (PreferenceCategory) findPreference("pref_info");
     PCWidgetActivity.partialUpdateAllWidgets(context);
-    updateInfoPref(infoCatgory, 0, 4, PCWidgetActivity.sPollBattery);
-    updateInfoPref(infoCatgory, 1, 2, RootTools.isRooted());
-    
+    updateInfoPref(infoCatgory, 0, PCWidgetActivity.sPollBattery);
+
     // Device admin pref
     mDPM = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
     mCN = new ComponentName(context, LockAdmin.class);
@@ -77,11 +74,10 @@ public class InfoFrag extends PreferenceFragment implements OnPreferenceChangeLi
     return false;
   }
 
-  private void updateInfoPref(PreferenceCategory category, int index, int helpId, boolean isOn) {
+  private void updateInfoPref(PreferenceCategory category, int index, boolean isOn) {
     TwoStatePreference pref = (TwoStatePreference) category.getPreference(index);
     pref.setChecked(isOn);
     pref.setOnPreferenceChangeListener(this);
-    pref.setIntent(getHelpIntent(helpId));
   }
 
   @Override
@@ -103,13 +99,5 @@ public class InfoFrag extends PreferenceFragment implements OnPreferenceChangeLi
       screen.setEnabled(false);
       screen.setSummary(R.string.stat_active_toggle_none);
     }
-  }
-
-  public static Intent getHelpIntent(int helpId) {
-    return new Intent(Intent.ACTION_VIEW)
-      .setData(Uri.parse("http://powertoggles.com/help?e=" + helpId))
-      .putExtra("android.support.customtabs.extra.SESSION", "")
-      .putExtra("android.support.customtabs.extra.TOOLBAR_COLOR", 0xff212121);
-
   }
 }
