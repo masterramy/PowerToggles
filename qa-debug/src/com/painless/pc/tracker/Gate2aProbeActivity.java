@@ -60,6 +60,36 @@ public final class Gate2aProbeActivity extends Activity {
       return;
     }
 
+    if ("hotspot_settings".equals(probe)) {
+      new HotSpotTracker(0, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
+    if ("mobile_data_settings".equals(probe)) {
+      new GprsStateTracker(1, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
+    if ("location_settings".equals(probe)) {
+      new GpsStateTracker(5, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
+    if ("airplane_settings".equals(probe)) {
+      new AirplaneTracker(8, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
+    if ("mobile_network_settings".equals(probe)) {
+      new DataNetworkTracker(11, appPrefs).toggleState(this);
+      return;
+    }
+
+    if ("usb_tether_settings".equals(probe)) {
+      new UsbTetherTracker(12, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
     if ("autorotate_toggle".equals(probe)) {
       final int before = Settings.System.getInt(
           getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
