@@ -168,5 +168,99 @@ if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.pai
   exit 1
 fi
 
+# Exhaustively inventory the real new-toggle picker. This is deliberately QA-only:
+# stable historical tracker IDs remain untouched, while the customer-facing picker
+# must expose every intended surviving control and none of the retired/root-era set.
+adb shell am force-stop com.painless.pc
+adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
+  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1005 \
+  > runtime-evidence/state/publication-picker-inventory-start.txt 2>&1
+sleep 2
+adb shell input tap 850 312
+sleep 2
+mkdir -p runtime-evidence/picker-inventory
+rm -f runtime-evidence/picker-inventory/*.xml runtime-evidence/picker-inventory/*.png
+
+for page in $(seq -w 0 18); do
+  name="22-publication-picker-${page}"
+  if ! publication_dump_ui_retry "$name"; then
+    echo "Unable to dump picker UI on inventory page $page"
+    exit 1
+  fi
+  cp "runtime-evidence/ui/${name}.xml" "runtime-evidence/picker-inventory/${page}.xml"
+  adb exec-out screencap -p > "runtime-evidence/picker-inventory/${page}.png"
+  adb shell input swipe 540 1650 540 520 350
+  sleep 1
+ done
+
+python3 - <<'PY'
+from pathlib import Path
+import html
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+root = Path("runtime-evidence/picker-inventory")
+seen = set()
+page_text = []
+for path in sorted(root.glob("*.xml")):
+    values = []
+    try:
+        doc = ET.parse(path)
+    except Exception as exc:
+        raise SystemExit(f"Cannot parse {path}: {exc}")
+    for node in doc.iter():
+        text = html.unescape(node.attrib.get("text", "")).strip()
+        if text:
+            seen.add(text)
+            values.append(text)
+    page_text.append(f"{path.name}: " + " | ".join(values))
+
+expected = [
+    "Hotspot (Wifi)", "Mobile Data Settings", "Data Sync", "Wi‑Fi", "Flashlight",
+    "GPS", "Bluetooth", "Brightness", "Airplane Mode", "Screen Auto Rotate",
+    "Volume Toggle", "Mobile Network", "USB Tether", "Screen Always On (WakeLock)",
+    "Battery Info", "Screen Timeout", "Auto Brightness", "Play/Pause Music",
+    "Next Track", "Previous Track", "Music volume", "Bluetooth Discovery",
+    "Brightness Slider", "NFC", "Screen Lock", "Bluetooth Tether", "Volume Slider",
+    "Sync Now", "Screen Light", "Notification Widget", "Widget Settings",
+    "Second Notification Row", "Rotation Lock", "Pulse notification light", "Home Shortcut",
+]
+retired = [
+    "WiMax (4G)", "Shutdown", "Restart", "Shutdown Menu", "Increase System Font",
+    "Decrease System Font", "adbWireless", "Receive internet calls (SIP)",
+    "Internet calling (SIP)", "Recent Apps", "No Lock Screen", "Wifi Optimize",
+    "Immersive mode",
+]
+missing = [x for x in expected if x not in seen]
+forbidden = [x for x in retired if x in seen]
+(root / "seen-text.txt").write_text("\n".join(sorted(seen)) + "\n", encoding="utf-8")
+(root / "page-text.txt").write_text("\n".join(page_text) + "\n", encoding="utf-8")
+summary = [
+    f"expected_surviving={len(expected)}",
+    f"seen_surviving={len(expected) - len(missing)}",
+    f"retired_expected_absent={len(retired)}",
+    f"retired_seen={len(forbidden)}",
+    "missing=" + " | ".join(missing),
+    "forbidden=" + " | ".join(forbidden),
+]
+(root / "summary.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
+if missing or forbidden:
+    print("Publication picker inventory failed", file=sys.stderr)
+    print("\n".join(summary), file=sys.stderr)
+    sys.exit(1)
+print("Publication picker inventory: PASS")
+print("\n".join(summary))
+PY
+
+adb shell dumpsys activity activities > runtime-evidence/state/22-publication-picker-inventory.activities.txt
+adb shell dumpsys window windows > runtime-evidence/state/22-publication-picker-inventory.windows.txt
+adb logcat -d > runtime-evidence/logs/22-publication-picker-inventory.logcat.txt
+if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc" runtime-evidence/logs/22-publication-picker-inventory.logcat.txt; then
+  echo "Fatal runtime signal during publication picker inventory"
+  exit 1
+fi
+
 find runtime-evidence/screens -maxdepth 1 -type f -name '*.png' -printf '%f\n' | sort > runtime-evidence/screenshot-index.txt
 echo "Publication rendered label audit: PASS" > runtime-evidence/state/publication-label-audit-summary.txt
+echo "Publication picker exposure audit: PASS" > runtime-evidence/state/publication-picker-inventory-summary.txt
