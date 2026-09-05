@@ -88,8 +88,6 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
       btnVisibility.setOnClickListener(this);
       mVisibility = (CheckedTextView) mRoot.findViewById(R.id.chk_show_on_lock_screen);
       mVisibility.setChecked(NotifyStatus.notifyVisibility(getActivity()) == Notification.VISIBILITY_PUBLIC);
-
-      mRoot.findViewById(R.id.btn_show_on_lock_screen_help).setOnClickListener(this);
     } else {
       ((View) btnVisibility.getParent()).setVisibility(View.GONE);
     }
@@ -194,9 +192,6 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
         NotifyStatus.setNotifyVisibility(getActivity(), mVisibility.isChecked() ? Notification.VISIBILITY_PUBLIC : Notification.VISIBILITY_SECRET);
         refreshNotification();
         break;
-      case R.id.btn_show_on_lock_screen_help:
-        startActivity(InfoFrag.getHelpIntent(37));
-        break;
     }
   }
 
@@ -210,6 +205,6 @@ public class NotifyFrag extends Fragment implements OnCheckedChangeListener, OnI
   @Thunk void updatePriorityIcons() {
     int priority = mPrefs.getInt(Globals.NOTIFICATION_PRIORITY, 5);
     ((ImageView) mRoot.findViewById(R.id.notify_status_1)).setImageResource(priority> 2 ? R.drawable.status_icon : R.drawable.status_no_icon);
-    ((ImageView) mRoot.findViewById(R.id.notify_status_2)).setImageResource(priority==5 ? R.drawable.status_pin : R.drawable.status_no_pin);
+    ((ImageView) mRoot.findViewById(R.id.notify_status_2)).setImageResource(priority==5 ? R.drawable.status_pin : R.drawable.status_no_icon);
   }
 }
