@@ -93,3 +93,80 @@ PY
 chmod +x "$TMP_PROBE"
 bash "$TMP_PROBE"
 rm -f "$TMP_PROBE"
+
+# Publication copy closure for the surviving tracker labels. The main picker
+# viewport produced by the certified probe must show the three corrected labels
+# that belong in its first visible section, and must not regress to their stale
+# literal names. This is rendered/runtime evidence, not only a resource check.
+TOP_PICKER_XML="runtime-evidence/ui/18-widget-add-toggle-picker.xml"
+test -s "$TOP_PICKER_XML"
+grep -Fq 'text="Mobile Data Settings"' "$TOP_PICKER_XML"
+grep -Fq 'text="Mobile Network"' "$TOP_PICKER_XML"
+grep -Fq 'text="Wi‑Fi"' "$TOP_PICKER_XML"
+if grep -Fq 'text="GPRS (Mobile Data)"' "$TOP_PICKER_XML" \
+  || grep -Fq 'text="Data Network Toggle"' "$TOP_PICKER_XML" \
+  || grep -Fq 'text="Wifi"' "$TOP_PICKER_XML"; then
+  echo "A stale publication tracker label remains in the rendered top picker"
+  exit 1
+fi
+
+# Flashlight is farther down the categorized picker. Re-open the real widget
+# picker and bounded-scroll until the corrected label is rendered, then retain
+# a screenshot/UI hierarchy as exact-head evidence. Do not infer it from the
+# resource file alone.
+publication_dump_ui_retry() {
+  local name="$1"
+  local remote="/sdcard/${name}.xml"
+  local local_xml="runtime-evidence/ui/${name}.xml"
+  adb shell rm -f "$remote" >/dev/null 2>&1 || true
+  rm -f "$local_xml"
+  for attempt in 1 2 3 4 5; do
+    adb shell uiautomator dump "$remote" >/dev/null 2>&1 || true
+    if adb shell test -s "$remote" >/dev/null 2>&1; then
+      adb pull "$remote" "$local_xml" >/dev/null 2>&1 || true
+      if [ -s "$local_xml" ]; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+adb shell am force-stop com.painless.pc
+adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
+  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1004 \
+  > runtime-evidence/state/publication-label-audit-start.txt 2>&1
+sleep 2
+adb shell input tap 850 312
+sleep 2
+
+FLASHLIGHT_VISIBLE=false
+for attempt in 1 2 3 4 5 6 7 8; do
+  if publication_dump_ui_retry "21-publication-labels-lower-picker" \
+    && grep -Fq 'text="Flashlight"' runtime-evidence/ui/21-publication-labels-lower-picker.xml; then
+    FLASHLIGHT_VISIBLE=true
+    break
+  fi
+  adb shell input swipe 540 1650 540 650 350
+  sleep 1
+done
+if [ "$FLASHLIGHT_VISIBLE" != "true" ]; then
+  echo "Corrected Flashlight label was not rendered after bounded picker scrolling"
+  exit 1
+fi
+if grep -Fq 'text="Flash Light"' runtime-evidence/ui/21-publication-labels-lower-picker.xml; then
+  echo "Stale Flash Light label remains in the rendered lower picker"
+  exit 1
+fi
+adb exec-out screencap -p > runtime-evidence/screens/21-publication-labels-lower-picker.png
+adb shell dumpsys activity activities > runtime-evidence/state/21-publication-labels-lower-picker.activities.txt
+adb shell dumpsys window windows > runtime-evidence/state/21-publication-labels-lower-picker.windows.txt
+adb logcat -d > runtime-evidence/logs/21-publication-labels-lower-picker.logcat.txt
+if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc" runtime-evidence/logs/21-publication-labels-lower-picker.logcat.txt; then
+  echo "Fatal runtime signal during publication label audit"
+  exit 1
+fi
+
+find runtime-evidence/screens -maxdepth 1 -type f -name '*.png' -printf '%f\n' | sort > runtime-evidence/screenshot-index.txt
+echo "Publication rendered label audit: PASS" > runtime-evidence/state/publication-label-audit-summary.txt
