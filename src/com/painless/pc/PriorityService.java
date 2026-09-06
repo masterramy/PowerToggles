@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Build;
 import android.os.IBinder;
 
 import com.painless.pc.singleton.Globals;
@@ -66,7 +67,11 @@ public abstract class PriorityService extends Service {
       mRegistered = true;
     }
     if (mRegistered) {
-      registerReceiver(mStopReceiver, stopFilter);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(mStopReceiver, stopFilter, Context.RECEIVER_NOT_EXPORTED);
+      } else {
+        registerReceiver(mStopReceiver, stopFilter);
+      }
     }
   }
 
