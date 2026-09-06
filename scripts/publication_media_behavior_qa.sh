@@ -52,10 +52,6 @@ media_volume() {
   adb shell dumpsys audio | python3 -c 'import re,sys; s=sys.stdin.read(); m=re.search(r"STREAM_MUSIC:[\s\S]*?streamVolume:\s*(\d+)",s,re.I); print(m.group(1) if m else (_ for _ in ()).throw(SystemExit("cannot parse STREAM_MUSIC volume from dumpsys audio")))'
 }
 
-set_media_volume() {
-  adb shell cmd media_session volume --stream 3 --set "$1" >/dev/null
-}
-
 node_bounds() {
   local xml="$1"
   local rid="$2"
@@ -95,7 +91,8 @@ PY
 
 # ID 27 Volume Slider: drive the real STREAM_MUSIC SeekBar (second enabled row
 # with current default prefs), prove two distinct system-volume mutations, then
-# restore the exact original STREAM_MUSIC value.
+# restore the exact original STREAM_MUSIC value through the existing debug-only
+# AudioManager probe rather than shell media-command semantics.
 original_media="$(media_volume)"
 run_probe volume_slider
 capture 37-volume-slider-before
@@ -112,11 +109,11 @@ sleep 1
 high_media="$(media_volume)"
 capture 39-volume-slider-high
 if [ "$low_media" = "$high_media" ]; then
-  set_media_volume "$original_media" || true
+  run_probe media_volume_restore_original || true
   echo "Volume Slider did not produce distinct STREAM_MUSIC values" >&2
   exit 1
 fi
-set_media_volume "$original_media"
+run_probe media_volume_restore_original
 restored_media="$(media_volume)"
 if [ "$restored_media" != "$original_media" ]; then
   echo "Volume Slider QA cleanup failed to restore original STREAM_MUSIC" >&2
