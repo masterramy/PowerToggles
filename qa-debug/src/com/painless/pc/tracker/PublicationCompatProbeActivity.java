@@ -24,6 +24,7 @@ public final class PublicationCompatProbeActivity extends Activity {
   private static final String HAD_ROTATION_NOTIFY_PREF = "had_rotation_notify_pref";
   private static final String ORIGINAL_ROTATION_NOTIFY_PREF = "original_rotation_notify_pref";
   private static final String ORIGINAL_ROTATION = "original_rotation_lock_rotation";
+  private static final String ORIGINAL_USER_ROTATION = "original_user_rotation";
   private static final String ORIGINAL_MASTER_SYNC = "original_master_sync";
   private static final String HAD_PULSE_SETTING = "had_pulse_setting";
   private static final String ORIGINAL_PULSE_SETTING = "original_pulse_setting";
@@ -52,8 +53,6 @@ public final class PublicationCompatProbeActivity extends Activity {
           .putBoolean(ORIGINAL_WAKE_NOTIFY_PREF,
               appPrefs.getBoolean("wake_lock_notify_hidden", true))
           .commit();
-      // Shipping PriorityService shows its foreground notification when this
-      // legacy "hidden" preference is false. Exercise that exact branch.
       appPrefs.edit().putBoolean("wake_lock_notify_hidden", false).commit();
       finish();
       return;
@@ -121,6 +120,55 @@ public final class PublicationCompatProbeActivity extends Activity {
     if ("sync_restore".equals(probe)) {
       new SyncStateTracker(2, appPrefs).requestStateChange(this,
           qaPrefs.getBoolean(ORIGINAL_MASTER_SYNC, true));
+      finish();
+      return;
+    }
+
+    if ("rotation_setting_prepare".equals(probe)) {
+      final int originalAuto = Settings.System.getInt(
+          getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1);
+      final int originalUser = Settings.System.getInt(
+          getContentResolver(), Settings.System.USER_ROTATION, 0);
+      qaPrefs.edit()
+          .putInt(ORIGINAL_ROTATION, originalAuto)
+          .putInt(ORIGINAL_USER_ROTATION, originalUser)
+          .putInt("rotation_setting_before", originalUser)
+          .commit();
+      finish();
+      return;
+    }
+
+    if ("rotation_setting_toggle".equals(probe)) {
+      final int before = Settings.System.getInt(
+          getContentResolver(), Settings.System.USER_ROTATION, 0);
+      final int desired = before == 0 ? 1 : 0;
+      final boolean wroteUser = Settings.System.putInt(
+          getContentResolver(), Settings.System.USER_ROTATION, desired);
+      final boolean wroteAuto = Settings.System.putInt(
+          getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
+      final int after = Settings.System.getInt(
+          getContentResolver(), Settings.System.USER_ROTATION, -1);
+      qaPrefs.edit()
+          .putInt("rotation_setting_after", after)
+          .putBoolean("rotation_setting_user_write", wroteUser)
+          .putBoolean("rotation_setting_auto_write", wroteAuto)
+          .putBoolean("rotation_setting_changed", after == desired && after != before)
+          .commit();
+      finish();
+      return;
+    }
+
+    if ("rotation_setting_restore".equals(probe)) {
+      final int originalUser = qaPrefs.getInt(ORIGINAL_USER_ROTATION, 0);
+      final int originalAuto = qaPrefs.getInt(ORIGINAL_ROTATION, 1);
+      Settings.System.putInt(getContentResolver(), Settings.System.USER_ROTATION, originalUser);
+      Settings.System.putInt(getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, originalAuto);
+      qaPrefs.edit()
+          .putInt("rotation_setting_restored", Settings.System.getInt(
+              getContentResolver(), Settings.System.USER_ROTATION, -1))
+          .putInt("rotation_auto_restored", Settings.System.getInt(
+              getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, -1))
+          .commit();
       finish();
       return;
     }
