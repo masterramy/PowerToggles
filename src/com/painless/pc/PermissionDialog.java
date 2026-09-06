@@ -1,37 +1,45 @@
 package com.painless.pc;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
 import android.widget.CheckBox;
 
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 import com.painless.pc.singleton.Globals;
 
-public class PermissionDialog extends AlertActivity implements OnClickListener {
+public class PermissionDialog extends Activity implements OnClickListener {
 
   private Intent mTargetIntent;
+  private CheckBox mNeverCheckBox;
 
   @Override
   protected void onCreate(Bundle args) {
     super.onCreate(args);
 
-    final AlertController.AlertParams p = mAlertParams;
-    p.mViewLayoutResId = R.layout.permission_prompt;
-    p.mTitle = getText(R.string.pp_title);
-
-    p.mPositiveButtonText = getText(R.string.lbl_settings);
-    p.mPositiveButtonListener = this;
-    p.mNegativeButtonText = getText(R.string.pp_ignore);
-    p.mNegativeButtonListener = this;
-    setupAlert();
-
     mTargetIntent = getIntent().getParcelableExtra("target");
+
+    final View content = getLayoutInflater().inflate(R.layout.permission_prompt, null);
+    mNeverCheckBox = (CheckBox) content.findViewById(R.id.chk_never);
+
+    new AlertDialog.Builder(this)
+      .setTitle(R.string.pp_title)
+      .setView(content)
+      .setPositiveButton(R.string.lbl_settings, this)
+      .setNegativeButton(R.string.pp_ignore, this)
+      .setOnCancelListener(new DialogInterface.OnCancelListener() {
+        @Override
+        public void onCancel(DialogInterface dialog) {
+          finish();
+        }
+      })
+      .show();
   }
 
   @TargetApi(23)
@@ -41,11 +49,11 @@ public class PermissionDialog extends AlertActivity implements OnClickListener {
       startActivity(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         .setData(Uri.parse("package:" + getPackageName())));
-    } else {
+    } else if (mTargetIntent != null) {
       startActivity(mTargetIntent);
     }
 
-    if (((CheckBox) findViewById(R.id.chk_never)).isChecked()) {
+    if (mNeverCheckBox != null && mNeverCheckBox.isChecked()) {
       Globals.getAppPrefs(this).edit().putBoolean("prompt_permission", true).apply();
     }
 
