@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Point;
+import android.os.Build;
 import android.provider.Settings;
 import android.view.Display;
 import android.view.Surface;
@@ -76,14 +77,27 @@ public class RotationLockTracker extends AbstractTracker {
   public static final boolean isLandScapeDefault(Context ctx) {
     WindowManager windowManager = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
     Display display = windowManager.getDefaultDisplay();
+
+    // Display.Mode physical dimensions are stable across USER_ROTATION changes,
+    // unlike Configuration.orientation and the currently rotated logical display
+    // geometry. Prefer them on API 23+ so repeated Portrait/Landscape transitions
+    // cannot change our inference of the device's natural orientation.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      Display.Mode mode = display.getMode();
+      if (mode != null) {
+        int width = mode.getPhysicalWidth();
+        int height = mode.getPhysicalHeight();
+        if (width != height) {
+          return width > height;
+        }
+      }
+    }
+
+    // Legacy fallback for API 16-22: recover natural orientation from current
+    // geometry plus the current display rotation.
     int rotation = display.getRotation();
     Point size = new Point();
     display.getRealSize(size);
-
-    // Recover the device's natural orientation from current display geometry
-    // plus rotation. Configuration.orientation changes when USER_ROTATION is
-    // forced, so using it made the second Portrait -> Landscape transition
-    // misclassify the device's natural orientation on Android 16.
     if ((rotation == Surface.ROTATION_0) || (rotation == Surface.ROTATION_180)) {
       return size.x > size.y;
     }
