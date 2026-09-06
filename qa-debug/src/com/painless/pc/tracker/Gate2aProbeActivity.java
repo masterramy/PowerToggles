@@ -100,6 +100,64 @@ public final class Gate2aProbeActivity extends Activity {
       return;
     }
 
+    if ("brightness_toggle".equals(probe)) {
+      final int beforeLevel = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, -1);
+      final int beforeMode = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE, -1);
+      final BacklightTracker tracker = new BacklightTracker(7, appPrefs);
+      tracker.getActualState(this);
+      tracker.toggleState(this);
+      final int afterLevel = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, -1);
+      final int afterMode = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE, -1);
+      getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+          .putInt("brightness_before", beforeLevel)
+          .putInt("brightness_after", afterLevel)
+          .putInt("brightness_mode_before", beforeMode)
+          .putInt("brightness_mode_after", afterMode)
+          .commit();
+      finish();
+      return;
+    }
+
+    if ("timeout_toggle".equals(probe)) {
+      final int before = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, -1);
+      final TimeoutTracker tracker = new TimeoutTracker(16, appPrefs);
+      tracker.getActualState(this);
+      tracker.toggleState(this);
+      final int after = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, -1);
+      getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+          .putInt("timeout_before", before)
+          .putInt("timeout_after", after)
+          .commit();
+      finish();
+      return;
+    }
+
+    if ("auto_brightness_toggle".equals(probe)) {
+      final int before = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE, -1);
+      final AutoBacklightTracker tracker = new AutoBacklightTracker(17, appPrefs);
+      tracker.toggleState(this);
+      final int after = Settings.System.getInt(
+          getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE, -1);
+      getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+          .putInt("auto_brightness_before", before)
+          .putInt("auto_brightness_after", after)
+          .commit();
+      finish();
+      return;
+    }
+
+    if ("brightness_slider".equals(probe)) {
+      new BrightnessSliderToggle(23, appPrefs).toggleState(this);
+      return;
+    }
+
     if ("autorotate_toggle".equals(probe)) {
       final int before = Settings.System.getInt(
           getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
