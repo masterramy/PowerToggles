@@ -171,43 +171,61 @@ if [ "$sync_restored" != "$sync_before" ]; then
   fail=1
 fi
 
-# IDs 38 and 40 legitimately use WRITE_SETTINGS. The preceding publication
-# suite leaves the app-op denied, so grant it only for this bounded tranche and
-# return it to denied afterward.
+# IDs 38 and 40 legitimately enter through WRITE_SETTINGS. The preceding
+# publication suite leaves the app-op denied, so grant it only for this bounded
+# tranche and return it to denied afterward.
 adb shell appops set "$PKG" WRITE_SETTINGS allow >/dev/null 2>&1 || true
 
-# ID 38 Rotation Lock. Exercise the valid no-prompt customer configuration,
-# force auto-rotate off so the real tracker starts RLService, then disable and
-# restore exact rotation/preferences. This deliberately tests modern overlay
-# and foreground-service compatibility rather than bypassing those paths.
+# ID 38 Rotation Lock. The repaired shipping implementation no longer runs the
+# obsolete null-token RLService overlay. Start from Auto, invoke the exact real
+# tracker twice, require public rotation-setting transitions, then restore the
+# exact original USER_ROTATION / ACCELEROMETER_ROTATION values and preferences.
+rotation_original_auto="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+rotation_original_user="$(adb shell settings get system user_rotation | tr -d '\r')"
 adb shell am force-stop "$PKG" || true
 adb logcat -c || true
 run_probe rotation_lock_prepare || true
+rotation_prepared_auto="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
 adb logcat -c || true
 run_probe rotation_lock_enable || true
-sleep 3
-adb shell dumpsys activity services "$PKG" > "$OUT/state/rotation-lock-enabled-services.txt" 2>&1 || true
-capture_log 51-rotation-lock-enabled
-if app_fatal "$OUT/logs/51-rotation-lock-enabled.logcat.txt"; then
-  rotation_lock_result="FAIL_FATAL"
+sleep 2
+rotation_after_first_auto="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+rotation_after_first_user="$(adb shell settings get system user_rotation | tr -d '\r')"
+capture_log 51-rotation-lock-first
+if app_fatal "$OUT/logs/51-rotation-lock-first.logcat.txt"; then
+  rotation_lock_result="FAIL_FATAL_FIRST"
   fail=1
-elif ! grep -q "RLService" "$OUT/state/rotation-lock-enabled-services.txt"; then
-  rotation_lock_result="FAIL_SERVICE_NOT_RUNNING"
+elif [ "$rotation_prepared_auto" != "1" ] || [ "$rotation_after_first_auto" != "0" ]; then
+  rotation_lock_result="FAIL_FIRST_TRANSITION"
   fail=1
 else
-  rotation_lock_result="PASS_ENABLED"
-  adb shell dumpsys notification --noredact > "$OUT/state/rotation-lock-enabled-notification.txt" 2>&1 || true
+  rotation_lock_result="PASS_FIRST_TRANSITION"
 fi
+
 adb logcat -c || true
 run_probe rotation_lock_disable || true
 sleep 2
-adb shell dumpsys activity services "$PKG" > "$OUT/state/rotation-lock-disabled-services.txt" 2>&1 || true
-capture_log 52-rotation-lock-disabled
-if grep -q "RLService" "$OUT/state/rotation-lock-disabled-services.txt"; then
-  rotation_lock_result="${rotation_lock_result}+FAIL_DISABLE"
+rotation_after_second_auto="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+rotation_after_second_user="$(adb shell settings get system user_rotation | tr -d '\r')"
+capture_log 52-rotation-lock-second
+if app_fatal "$OUT/logs/52-rotation-lock-second.logcat.txt"; then
+  rotation_lock_result="${rotation_lock_result}+FAIL_FATAL_SECOND"
+  fail=1
+elif [ "$rotation_after_second_auto" != "0" ] || [ "$rotation_after_second_user" = "$rotation_after_first_user" ]; then
+  rotation_lock_result="${rotation_lock_result}+FAIL_SECOND_TRANSITION"
+  fail=1
+else
+  rotation_lock_result="PASS_TRANSITIONS"
+fi
+
+run_probe rotation_lock_restore || true
+sleep 1
+rotation_restored_auto="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+rotation_restored_user="$(adb shell settings get system user_rotation | tr -d '\r')"
+if [ "$rotation_restored_auto" != "$rotation_original_auto" ] || [ "$rotation_restored_user" != "$rotation_original_user" ]; then
+  rotation_lock_result="${rotation_lock_result}+FAIL_RESTORE"
   fail=1
 fi
-run_probe rotation_lock_restore || true
 
 # ID 40 Pulse Notification Light. On hardware without an LED we can still prove
 # the shipping WRITE_SETTINGS behavior is safe and restorable; physical LED
@@ -270,6 +288,15 @@ printf '%s\n' \
   "data_sync_after=$sync_after" \
   "data_sync_restored=$sync_restored" \
   "rotation_lock=$rotation_lock_result" \
+  "rotation_original_auto=$rotation_original_auto" \
+  "rotation_original_user=$rotation_original_user" \
+  "rotation_prepared_auto=$rotation_prepared_auto" \
+  "rotation_after_first_auto=$rotation_after_first_auto" \
+  "rotation_after_first_user=$rotation_after_first_user" \
+  "rotation_after_second_auto=$rotation_after_second_auto" \
+  "rotation_after_second_user=$rotation_after_second_user" \
+  "rotation_restored_auto=$rotation_restored_auto" \
+  "rotation_restored_user=$rotation_restored_user" \
   "pulse_light=$pulse_result" \
   "pulse_before=$pulse_before" \
   "pulse_after=$pulse_after" \
