@@ -49,11 +49,11 @@ run_probe() {
 }
 
 media_volume() {
-  adb shell media volume --stream 3 --get | python3 -c 'import re,sys; s=sys.stdin.read(); m=re.search(r"volume is (\d+)",s,re.I); print(m.group(1) if m else (_ for _ in ()).throw(SystemExit("cannot parse media volume: "+s)))'
+  adb shell dumpsys audio | python3 -c 'import re,sys; s=sys.stdin.read(); m=re.search(r"STREAM_MUSIC:[\s\S]*?streamVolume:\s*(\d+)",s,re.I); print(m.group(1) if m else (_ for _ in ()).throw(SystemExit("cannot parse STREAM_MUSIC volume from dumpsys audio")))'
 }
 
 set_media_volume() {
-  adb shell media volume --stream 3 --set "$1" >/dev/null
+  adb shell cmd media_session volume --stream 3 --set "$1" >/dev/null
 }
 
 node_bounds() {
