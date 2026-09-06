@@ -68,8 +68,11 @@ xml_int() {
 # ID 25 Screen Lock: first exercise the exact customer path with Device Admin
 # absent and retain the Android consent surface. Then activate the same declared
 # admin only as bounded QA setup, invoke the exact tracker again, and require
-# DevicePolicyManager.lockNow() to put the emulator to sleep. The emulator is
-# ephemeral; removal is attempted after evidence collection.
+# DevicePolicyManager.lockNow() to make the device non-interactive / screen-off.
+# API-36 emulator dumps can retain top-level mWakefulness=Awake while the
+# Wakefulness Session Observer correctly reports mIsInteractive=false, so the
+# assertion accepts that public interactive-state signal as equivalent lock
+# evidence. The emulator is ephemeral; removal is attempted after collection.
 adb shell am force-stop "$PKG" || true
 adb shell dpm remove-active-admin --user 0 "$ADMIN" > "$OUT/state/screen-lock-preclean.txt" 2>&1 || true
 adb logcat -c || true
@@ -107,7 +110,7 @@ else
   if app_fatal "$OUT/logs/56-screen-lock-active.logcat.txt"; then
     screen_lock_result="${screen_lock_result}+FAIL_LOCK_FATAL"
     fail=1
-  elif grep -Eq "Wakefulness=Asleep|mWakefulness=Asleep|Display Power: state=OFF|state=OFF" "$OUT/state/screen-lock-after-lock-power.txt"; then
+  elif grep -Eq "Wakefulness=Asleep|mWakefulness=Asleep|Display Power: state=OFF|state=OFF|mIsInteractive=false" "$OUT/state/screen-lock-after-lock-power.txt"; then
     screen_lock_result="PASS_CONSENT_AND_LOCK"
   else
     screen_lock_result="${screen_lock_result}+FAIL_NOT_LOCKED"
