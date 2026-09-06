@@ -74,7 +74,7 @@ public class TogglePicker extends Dialog
           new int[] { 3, 2, 28, 8, 6, 22, 24},                 // Network
           new int[] { 18, 19, 20, 21},                         // Multimedia
           new int[] { 7, 17, 23, 13, 16, 9, 31, 38},           // Display
-          new int[] { 4, 5, 25, 10, 27, 15, 40, 43},           // Hardware
+          new int[] { 4, 5, 25, 10, 27, 15, 43},               // Hardware
           new int[] { 33, 32, 34}                              // App Commands
 
           // Publication-readiness retirement boundary:
@@ -82,8 +82,8 @@ public class TogglePicker extends Dialog
           // but new configurations must not offer unsupported/obsolete controls.
           // Retired here: WiMAX 14; shutdown/restart/menu 29/30/35;
           // font mutation 36/37; adbWireless 39; legacy platform SIP 41/42;
-          // hidden Recent Apps 44; deprecated No Lock 45; Wifi Optimize 46;
-          // and the obsolete global Immersive service 47.
+          // Pulse Notification Light 40; hidden Recent Apps 44; deprecated No Lock 45;
+          // Wifi Optimize 46; and the obsolete global Immersive service 47.
   };
 
   @Thunk final ArrayList<SectionItem> mFullToggleList = new ArrayList<SectionItem>();

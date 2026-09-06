@@ -294,13 +294,13 @@ expected = [
     "Next Track", "Previous Track", "Music volume", "Bluetooth Discovery",
     "Brightness Slider", "NFC", "Screen Lock", "Bluetooth Tether", "Volume Slider",
     "Sync Now", "Screen Light", "Notification Widget", "Widget Settings",
-    "Second Notification Row", "Rotation Lock", "Pulse notification light", "Home Shortcut",
+    "Second Notification Row", "Rotation Lock", "Home Shortcut",
 ]
 retired = [
     "WiMax (4G)", "Shutdown", "Restart", "Shutdown Menu", "Increase System Font",
     "Decrease System Font", "adbWireless", "Receive internet calls (SIP)",
-    "Internet calling (SIP)", "Recent Apps", "No Lock Screen", "Wifi Optimize",
-    "Immersive mode",
+    "Internet calling (SIP)", "Pulse notification light", "Recent Apps",
+    "No Lock Screen", "Wifi Optimize", "Immersive mode",
 ]
 missing = [x for x in expected if x not in seen]
 forbidden = [x for x in retired if x in seen]
