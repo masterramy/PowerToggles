@@ -118,7 +118,18 @@ jobs:
           bash scripts/publication_media_behavior_qa.sh
           bash scripts/publication_rotation_setting_qa.sh
           bash scripts/publication_api36_compat_qa.sh
+          original_stay_on="$(adb shell settings get global stay_on_while_plugged_in | tr -d '\r')"
+          adb shell settings put global stay_on_while_plugged_in 0
+          set +e
           bash scripts/publication_remaining_controls_qa.sh
+          remaining_rc=$?
+          set -e
+          if [ "$original_stay_on" = "null" ] || [ -z "$original_stay_on" ]; then
+            adb shell settings delete global stay_on_while_plugged_in
+          else
+            adb shell settings put global stay_on_while_plugged_in "$original_stay_on"
+          fi
+          exit "$remaining_rc"
 
       - name: Upload publication runtime evidence
         if: always()
