@@ -113,6 +113,7 @@ jobs:
         run: |
           bash scripts/publication_runtime_qa.sh
           bash scripts/publication_settings_route_qa.sh
+          bash scripts/publication_write_settings_qa.sh
 
       - name: Upload publication runtime evidence
         if: always()
