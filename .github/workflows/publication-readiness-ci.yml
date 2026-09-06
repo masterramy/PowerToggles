@@ -116,6 +116,7 @@ jobs:
           bash scripts/publication_write_settings_qa.sh
           bash scripts/publication_media_ui_qa.sh
           bash scripts/publication_media_behavior_qa.sh
+          bash scripts/publication_api36_compat_qa.sh
 
       - name: Upload publication runtime evidence
         if: always()
