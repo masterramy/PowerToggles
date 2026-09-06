@@ -1,8 +1,10 @@
 package com.painless.pc.tracker;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.provider.Settings;
 
@@ -17,6 +19,7 @@ public final class Gate2aProbeActivity extends Activity {
 
   private static final String PROBE_PREFS = "gate2a_probe";
   private static final String ORIGINAL_ROTATION = "original_rotation";
+  private static final String ORIGINAL_MEDIA_VOLUME = "original_media_volume";
 
   @Override
   protected void onCreate(Bundle state) {
@@ -186,6 +189,57 @@ public final class Gate2aProbeActivity extends Activity {
       probePrefs.edit().putInt("rotation_restored", restored)
           .putBoolean("rotation_restore_ok", restored == original).commit();
       finish();
+      return;
+    }
+
+    if ("media_volume_prepare".equals(probe)) {
+      final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+      if (am != null) {
+        final int original = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+        final int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        final int baseline = Math.max(1, Math.min(max, Math.max(2, max / 2)));
+        getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+            .putInt(ORIGINAL_MEDIA_VOLUME, original)
+            .putInt("media_volume_baseline", baseline).commit();
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, baseline, 0);
+      }
+      finish();
+      return;
+    }
+
+    if ("media_volume_toggle".equals(probe)) {
+      final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+      final int before = am == null ? -1 : am.getStreamVolume(AudioManager.STREAM_MUSIC);
+      new MediaVolume(21, appPrefs).toggleState(this);
+      final int after = am == null ? -1 : am.getStreamVolume(AudioManager.STREAM_MUSIC);
+      getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+          .putInt("media_volume_before", before)
+          .putInt("media_volume_after", after).commit();
+      finish();
+      return;
+    }
+
+    if ("media_volume_restore_original".equals(probe)) {
+      final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+      final SharedPreferences probePrefs = getSharedPreferences(PROBE_PREFS, MODE_PRIVATE);
+      final int original = probePrefs.getInt(ORIGINAL_MEDIA_VOLUME, -1);
+      if (am != null && original >= 0) {
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, original, 0);
+      }
+      final int restored = am == null ? -1 : am.getStreamVolume(AudioManager.STREAM_MUSIC);
+      probePrefs.edit().putInt("media_volume_original_restored", restored)
+          .putBoolean("media_volume_original_restore_ok", restored == original).commit();
+      finish();
+      return;
+    }
+
+    if ("volume_slider".equals(probe)) {
+      new VolumeSliderToggle(27, appPrefs).toggleState(this);
+      return;
+    }
+
+    if ("screen_light".equals(probe)) {
+      new ScreenLightCommand(31, appPrefs).toggleState(this);
       return;
     }
 
