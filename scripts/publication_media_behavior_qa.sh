@@ -147,7 +147,12 @@ adb shell input keyevent KEYCODE_MOVE_END
 for i in 1 2 3 4 5 6 7 8; do adb shell input keyevent KEYCODE_DEL; done
 adb shell input text 40FFFFFF
 sleep 1
-read sx0 sy0 sx1 sy1 <<<"$(node_bounds "$OUT/ui/41-screen-light-color-dialog.xml" 'android:id/button1' 0)"
+# Editing opens the IME and moves/occludes the dialog buttons on API 36. Hide it,
+# then resolve the live SET COLOR bounds instead of tapping stale pre-IME bounds.
+adb shell input keyevent KEYCODE_BACK
+sleep 1
+dump_ui 41b-screen-light-color-dialog-ime-hidden
+read sx0 sy0 sx1 sy1 <<<"$(node_bounds "$OUT/ui/41b-screen-light-color-dialog-ime-hidden.xml" 'android:id/button1' 0)"
 adb shell input tap $(( (sx0+sx1)/2 )) $(( (sy0+sy1)/2 ))
 sleep 2
 capture 42-screen-light-dimmed
@@ -173,7 +178,10 @@ adb shell input keyevent KEYCODE_MOVE_END
 for i in 1 2 3 4 5 6 7 8; do adb shell input keyevent KEYCODE_DEL; done
 adb shell input text "$original_hex"
 sleep 1
-read sx0 sy0 sx1 sy1 <<<"$(node_bounds "$OUT/ui/44-screen-light-restore-dialog.xml" 'android:id/button1' 0)"
+adb shell input keyevent KEYCODE_BACK
+sleep 1
+dump_ui 44b-screen-light-restore-dialog-ime-hidden
+read sx0 sy0 sx1 sy1 <<<"$(node_bounds "$OUT/ui/44b-screen-light-restore-dialog-ime-hidden.xml" 'android:id/button1' 0)"
 adb shell input tap $(( (sx0+sx1)/2 )) $(( (sy0+sy1)/2 ))
 sleep 2
 read_widget_prefs "$OUT/state/screen-light-prefs-restored.xml"
