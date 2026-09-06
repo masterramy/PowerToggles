@@ -1,6 +1,7 @@
 package com.painless.pc;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -16,6 +17,7 @@ import com.painless.pc.singleton.Globals;
 public abstract class PriorityService extends Service {
 
   private static final String STOP_INTENT_PREFIX = "com.painless.ps.";
+  private static final String FOREGROUND_CHANNEL_ID = "persistent_controls";
 
   private final int mNotificationId;
   private final String mAction;
@@ -54,7 +56,21 @@ public abstract class PriorityService extends Service {
     if (!Globals.getAppPrefs(this).getBoolean(key, dValue)) {
       String stopIntent = STOP_INTENT_PREFIX + key;
 
-      Notification n = new Notification.Builder(this)
+      NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+      Notification.Builder builder;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        NotificationChannel channel = new NotificationChannel(
+            FOREGROUND_CHANNEL_ID,
+            getString(title),
+            NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription(getString(subtitle));
+        notificationManager.createNotificationChannel(channel);
+        builder = new Notification.Builder(this, FOREGROUND_CHANNEL_ID);
+      } else {
+        builder = new Notification.Builder(this);
+      }
+
+      Notification n = builder
           .setSmallIcon(icon)
           .setContentTitle(getString(title))
           .setContentText(getString(subtitle))
