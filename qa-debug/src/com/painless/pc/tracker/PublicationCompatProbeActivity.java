@@ -7,7 +7,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.provider.Settings;
 
-import com.painless.pc.RLService;
 import com.painless.pc.singleton.Globals;
 
 /**
@@ -177,6 +176,8 @@ public final class PublicationCompatProbeActivity extends Activity {
       qaPrefs.edit()
           .putInt(ORIGINAL_ROTATION, Settings.System.getInt(
               getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1))
+          .putInt(ORIGINAL_USER_ROTATION, Settings.System.getInt(
+              getContentResolver(), Settings.System.USER_ROTATION, 0))
           .putBoolean(HAD_ROTATION_PROMPT_PREF, appPrefs.contains("rotation_lock_prompt"))
           .putBoolean(ORIGINAL_ROTATION_PROMPT_PREF,
               appPrefs.getBoolean("rotation_lock_prompt", true))
@@ -190,7 +191,7 @@ public final class PublicationCompatProbeActivity extends Activity {
           .putBoolean("rotation_lock_notify_hidden", false)
           .commit();
       Settings.System.putInt(getContentResolver(),
-          Settings.System.ACCELEROMETER_ROTATION, 0);
+          Settings.System.ACCELEROMETER_ROTATION, 1);
       finish();
       return;
     }
@@ -208,9 +209,9 @@ public final class PublicationCompatProbeActivity extends Activity {
     }
 
     if ("rotation_lock_restore".equals(probe)) {
-      stopService(new Intent(this, RLService.class));
-      Settings.System.putInt(getContentResolver(),
-          Settings.System.ACCELEROMETER_ROTATION,
+      Settings.System.putInt(getContentResolver(), Settings.System.USER_ROTATION,
+          qaPrefs.getInt(ORIGINAL_USER_ROTATION, 0));
+      Settings.System.putInt(getContentResolver(), Settings.System.ACCELEROMETER_ROTATION,
           qaPrefs.getInt(ORIGINAL_ROTATION, 1));
       final SharedPreferences.Editor editor = appPrefs.edit();
       if (qaPrefs.getBoolean(HAD_ROTATION_PROMPT_PREF, false)) {
