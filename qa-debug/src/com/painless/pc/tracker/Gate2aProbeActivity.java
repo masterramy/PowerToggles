@@ -90,6 +90,16 @@ public final class Gate2aProbeActivity extends Activity {
       return;
     }
 
+    if ("nfc_settings".equals(probe)) {
+      new NfcStateTracker(24, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
+    if ("bluetooth_tether_settings".equals(probe)) {
+      new BluetoothHotspotTracker(26, appPrefs).requestStateChange(this, true);
+      return;
+    }
+
     if ("autorotate_toggle".equals(probe)) {
       final int before = Settings.System.getInt(
           getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
