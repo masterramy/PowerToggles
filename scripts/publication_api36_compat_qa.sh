@@ -171,9 +171,9 @@ if [ "$sync_restored" != "$sync_before" ]; then
   fail=1
 fi
 
-# IDs 38 and 40 legitimately enter through WRITE_SETTINGS. The preceding
-# publication suite leaves the app-op denied, so grant it only for this bounded
-# tranche and return it to denied afterward.
+# ID 38 legitimately enters through WRITE_SETTINGS. The preceding publication
+# suite leaves the app-op denied, so grant it only for this bounded tranche and
+# return it to denied afterward.
 adb shell appops set "$PKG" WRITE_SETTINGS allow >/dev/null 2>&1 || true
 
 # ID 38 Rotation Lock. The repaired shipping implementation no longer runs the
@@ -227,33 +227,13 @@ if [ "$rotation_restored_auto" != "$rotation_original_auto" ] || [ "$rotation_re
   fail=1
 fi
 
-# ID 40 Pulse Notification Light. On hardware without an LED we can still prove
-# the shipping WRITE_SETTINGS behavior is safe and restorable; physical LED
-# illumination remains a separate device requirement.
-pulse_before="$(adb shell settings get system notification_light_pulse | tr -d '\r')"
-adb shell am force-stop "$PKG" || true
-adb logcat -c || true
-run_probe pulse_prepare || true
-run_probe pulse_toggle || true
-sleep 2
-pulse_after="$(adb shell settings get system notification_light_pulse | tr -d '\r')"
-capture_log 53-pulse-light-toggled
-if app_fatal "$OUT/logs/53-pulse-light-toggled.logcat.txt"; then
-  pulse_result="FAIL_FATAL"
-  fail=1
-elif [ "$pulse_before" = "$pulse_after" ]; then
-  pulse_result="FAIL_NO_MUTATION"
-  fail=1
-else
-  pulse_result="PASS_SETTING_MUTATION"
-fi
-run_probe pulse_restore || true
-sleep 1
-pulse_restored="$(adb shell settings get system notification_light_pulse | tr -d '\r')"
-if [ "$pulse_restored" != "$pulse_before" ]; then
-  pulse_result="${pulse_result}+FAIL_RESTORE"
-  fail=1
-fi
+# ID 40 Pulse Notification Light is F3-retired from new-user exposure because
+# Android 16 treats notification_light_pulse as a private secure setting. Do not
+# exercise an unsupported historical implementation as a current shipping control.
+pulse_result="RETIRED_NOT_EXPOSED"
+pulse_before="retired"
+pulse_after="retired"
+pulse_restored="retired"
 adb shell appops set "$PKG" WRITE_SETTINGS deny >/dev/null 2>&1 || true
 
 # ID 43 Home Shortcut. Invoke the exact shipping HomeCommand and require the
