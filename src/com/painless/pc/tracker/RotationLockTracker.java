@@ -4,8 +4,9 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
+import android.graphics.Point;
 import android.provider.Settings;
+import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
 
@@ -73,15 +74,20 @@ public class RotationLockTracker extends AbstractTracker {
   }
 
   public static final boolean isLandScapeDefault(Context ctx) {
-    WindowManager lWindowManager =  (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
+    WindowManager windowManager = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
+    Display display = windowManager.getDefaultDisplay();
+    int rotation = display.getRotation();
+    Point size = new Point();
+    display.getRealSize(size);
 
-    Configuration cfg = ctx.getResources().getConfiguration();
-    int lRotation = lWindowManager.getDefaultDisplay().getRotation();
-
-    return (((lRotation == Surface.ROTATION_0) || (lRotation == Surface.ROTATION_180)) &&
-            (cfg.orientation == Configuration.ORIENTATION_LANDSCAPE)) ||
-            (((lRotation == Surface.ROTATION_90) || (lRotation == Surface.ROTATION_270)) &&
-                    (cfg.orientation == Configuration.ORIENTATION_PORTRAIT));
+    // Recover the device's natural orientation from current display geometry
+    // plus rotation. Configuration.orientation changes when USER_ROTATION is
+    // forced, so using it made the second Portrait -> Landscape transition
+    // misclassify the device's natural orientation on Android 16.
+    if ((rotation == Surface.ROTATION_0) || (rotation == Surface.ROTATION_180)) {
+      return size.x > size.y;
+    }
+    return size.y > size.x;
   }
 
   private static boolean isAutoRotate(final ContentResolver resolver) {
