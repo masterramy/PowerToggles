@@ -73,10 +73,15 @@ printf '%s\n' \
   "auto_restored=$auto_restored" \
   | tee "$OUT/summary.txt"
 
+# The probe records `changed` synchronously from the immediate readback after the
+# USER_ROTATION write. Android may subsequently normalize USER_ROTATION while
+# accelerometer rotation is disabled, so a delayed `before != after` comparison
+# is not a stable proof condition. Require the actual write return values plus
+# the probe's immediate changed assertion, and independently require exact
+# restoration of both original settings.
 [ "$changed" = "true" ]
 [ "$user_write" = "true" ]
 [ "$auto_write" = "true" ]
-[ "$before" != "$after" ]
 [ "$restored" = "$before" ]
 [ "$auto_restored" = "$original_auto" ]
 if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc|ANR in com\.painless\.pc|SecurityException" "$OUT/logs/rotation-setting.logcat.txt"; then
