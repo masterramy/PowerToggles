@@ -11,7 +11,6 @@ import android.view.WindowManager;
 
 import com.painless.pc.R;
 import com.painless.pc.RLPicker;
-import com.painless.pc.RLService;
 import com.painless.pc.singleton.Globals;
 
 public class RotationLockTracker extends AbstractTracker {
@@ -33,14 +32,13 @@ public class RotationLockTracker extends AbstractTracker {
   @Override
   public int getActualState(Context context) {
     final ContentResolver cr = context.getContentResolver();
-
-    if (isAutoRotate(cr) && (RLService.LOCK_VIEW == null)) {
+    if (isAutoRotate(cr)) {
       return STATE_ENABLED;
-    } else {
-      boolean isLandScapeDefault = isLandScapeDefault(context);
-      boolean isPortrait = isLandScapeDefault ^ RLService.LOCK_VIEW == null;
-      return isPortrait ? STATE_DISABLED : STATE_INTERMEDIATE;
     }
+
+    int rotation = Settings.System.getInt(cr, Settings.System.USER_ROTATION, Surface.ROTATION_0);
+    int portraitRotation = isLandScapeDefault(context) ? Surface.ROTATION_90 : Surface.ROTATION_0;
+    return rotation == portraitRotation ? STATE_DISABLED : STATE_INTERMEDIATE;
   }
 
   @Override
@@ -48,15 +46,14 @@ public class RotationLockTracker extends AbstractTracker {
     if (mShowPrompt) {
       Globals.startIntent(context, Globals.setIncognetoIntent(new Intent(context, RLPicker.class)));
     } else {
-      Intent i = new Intent(context, RLService.class);
-      if (isAutoRotate(context.getContentResolver())) {
-        context.stopService(i);
-      } else if (RLService.LOCK_VIEW == null) {
-        context.startService(i);
+      int state = getActualState(context);
+      if (state == STATE_ENABLED) {
+        RLPicker.setRotationMode(context, 1);
+      } else if (state == STATE_DISABLED) {
+        RLPicker.setRotationMode(context, 2);
       } else {
-        context.stopService(i);
+        RLPicker.setRotationMode(context, 0);
       }
-      RLPicker.setAutoRotate(context, 0);
     }
   }
 
@@ -81,9 +78,9 @@ public class RotationLockTracker extends AbstractTracker {
     Configuration cfg = ctx.getResources().getConfiguration();
     int lRotation = lWindowManager.getDefaultDisplay().getRotation();
 
-    return (((lRotation == Surface.ROTATION_0) || (lRotation == Surface.ROTATION_180)) &&   
+    return (((lRotation == Surface.ROTATION_0) || (lRotation == Surface.ROTATION_180)) &&
             (cfg.orientation == Configuration.ORIENTATION_LANDSCAPE)) ||
-            (((lRotation == Surface.ROTATION_90) || (lRotation == Surface.ROTATION_270)) &&    
+            (((lRotation == Surface.ROTATION_90) || (lRotation == Surface.ROTATION_270)) &&
                     (cfg.orientation == Configuration.ORIENTATION_PORTRAIT));
   }
 
