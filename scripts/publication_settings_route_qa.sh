@@ -56,6 +56,8 @@ capture_route location_settings 25-location-settings
 capture_route airplane_settings 26-airplane-settings
 capture_route mobile_network_settings 27-mobile-network-settings
 capture_route usb_tether_settings 28-usb-tether-settings
+capture_route nfc_settings 29-nfc-settings
+capture_route bluetooth_tether_settings 30-bluetooth-tether-settings
 
 printf '%s\n' \
   'hotspot_settings=PASS' \
@@ -64,6 +66,8 @@ printf '%s\n' \
   'airplane_settings=PASS' \
   'mobile_network_settings=PASS' \
   'usb_tether_settings=PASS' \
+  'nfc_settings=PASS' \
+  'bluetooth_tether_settings=PASS' \
   > "$OUT/summary.txt"
 
 echo "Publication user-mediated settings-route QA: PASS"
