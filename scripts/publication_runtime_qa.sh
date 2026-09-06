@@ -60,8 +60,8 @@ if grep -Eqi 'text="Quick settings"|text="Market review"' "$OUT/ui/04-publicatio
   echo "Retired publication navigation surface is still visible"
   exit 1
 fi
-open_row "05-settings" 884
-open_row "06-stats-info" 1010
+open_row "05-settings" 819
+open_row "06-stats-info" 945
 if grep -Eqi 'text="Help"|text="Root Access"' "$OUT/ui/06-stats-info.xml"; then
   echo "Retired legacy Stats surface is still visible"
   exit 1
@@ -73,7 +73,7 @@ if old_nav not in src:
 src = src.replace(old_nav, new_nav, 1)
 
 old_settings = 'open_row "10-settings-before-toggle" 1010'
-new_settings = 'open_row "10-settings-before-toggle" 884'
+new_settings = 'open_row "10-settings-before-toggle" 819'
 if old_settings not in src:
     raise SystemExit("Settings row patch anchor missing from certified probe")
 src = src.replace(old_settings, new_settings, 1)
@@ -81,7 +81,7 @@ src = src.replace(old_settings, new_settings, 1)
 old_persist = '''adb shell input tap 540 1010
 sleep 2
 capture "12-settings-haptic-persisted"'''
-new_persist = '''adb shell input tap 540 884
+new_persist = '''adb shell input tap 540 819
 sleep 2
 capture "12-settings-haptic-persisted"'''
 if old_persist not in src:
