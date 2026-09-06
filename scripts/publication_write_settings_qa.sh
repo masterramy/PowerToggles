@@ -51,6 +51,22 @@ fi
 adb shell input keyevent KEYCODE_BACK
 sleep 1
 
+rotation_denied_before="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+run_probe autorotate_toggle
+rotation_denied_after="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+capture_state 34-autorotate-write-settings-denied
+if [ "$rotation_denied_before" != "$rotation_denied_after" ]; then
+  echo "Auto Rotate changed while WRITE_SETTINGS was denied" >&2
+  exit 1
+fi
+if ! grep -Eq 'com\.painless\.pc/.?PermissionDialog|com\.painless\.pc.*PermissionDialog' \
+    "$OUT/state/34-autorotate-write-settings-denied-activities.txt" "$OUT/state/34-autorotate-write-settings-denied-windows.txt"; then
+  echo "Auto Rotate denial did not expose PermissionDialog" >&2
+  exit 1
+fi
+adb shell input keyevent KEYCODE_BACK
+sleep 1
+
 # Grant the legitimate special app-op, exercise real shipping implementations,
 # prove actual system state changes, and restore every mutated emulator setting.
 set_write_settings_mode allow
@@ -91,6 +107,22 @@ if [ "$auto_before" = "$auto_after" ]; then
 fi
 adb shell settings put system screen_brightness_mode "$auto_before"
 
+# Screen Auto Rotate uses the same public WRITE_SETTINGS path. Prove the real
+# tracker flips the system setting, then restores the exact original value.
+rotation_before="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+run_probe autorotate_toggle
+rotation_after="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+if [ "$rotation_before" = "$rotation_after" ]; then
+  echo "Auto Rotate tracker made no observable change with WRITE_SETTINGS granted" >&2
+  exit 1
+fi
+run_probe autorotate_restore
+rotation_restored="$(adb shell settings get system accelerometer_rotation | tr -d '\r')"
+if [ "$rotation_restored" != "$rotation_before" ]; then
+  echo "Auto Rotate did not restore the exact original setting" >&2
+  exit 1
+fi
+
 # Brightness Slider is a customer-visible panel gated by the same legitimate
 # WRITE_SETTINGS access. Retain its rendered state for sequential review.
 run_probe brightness_slider
@@ -129,9 +161,15 @@ printf '%s\n' \
   "timeout_after=$timeout_after" \
   "auto_brightness_before=$auto_before" \
   "auto_brightness_after=$auto_after" \
+  "rotation_denied_before=$rotation_denied_before" \
+  "rotation_denied_after=$rotation_denied_after" \
+  "rotation_before=$rotation_before" \
+  "rotation_after=$rotation_after" \
+  "rotation_restored=$rotation_restored" \
   'brightness=PASS' \
   'screen_timeout=PASS' \
   'auto_brightness=PASS' \
+  'screen_auto_rotate=PASS' \
   'brightness_slider=PASS' \
   'write_settings_denial_revoke=PASS' \
   > "$OUT/summary.txt"
