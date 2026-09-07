@@ -118,6 +118,7 @@ jobs:
           bash scripts/publication_media_behavior_qa.sh
           bash scripts/publication_rotation_setting_qa.sh
           bash scripts/publication_api36_compat_qa.sh
+          bash scripts/publication_rotation_picker_qa.sh
           original_stay_on="$(adb shell settings get global stay_on_while_plugged_in | tr -d '\r')"
           adb shell settings put global stay_on_while_plugged_in 0
           set +e
