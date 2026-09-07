@@ -3,10 +3,15 @@ set -euo pipefail
 
 OUT="runtime-evidence/widget-settings"
 mkdir -p "$OUT" runtime-evidence/screens runtime-evidence/ui runtime-evidence/state runtime-evidence/logs
+USER_ID="$(adb shell am get-current-user | tr -d '\r')"
+case "$USER_ID" in
+  ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $USER_ID"; exit 1 ;;
+esac
+printf 'android_user_id=%s\n' "$USER_ID" > "$OUT/android-user.txt"
 
 cleanup() {
   adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-  adb shell appwidget revokebind --package com.painless.pc --user current >/dev/null 2>&1 || true
+  adb shell appwidget revokebind --package com.painless.pc --user "$USER_ID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -68,8 +73,10 @@ PY
 
 # The debug APK is acting as a real AppWidgetHost for this proof. Android's
 # framework shell command grants only the bind permission needed for the isolated
-# emulator host; the grant is revoked by the EXIT trap.
-adb shell appwidget grantbind --package com.painless.pc --user current | tee "$OUT/grantbind.txt"
+# emulator host; the grant is revoked by the EXIT trap. Android 16's appwidget
+# shell path does not resolve the special USER_CURRENT (-2) token here, so use the
+# actual numeric foreground user returned by ActivityManager.
+adb shell appwidget grantbind --package com.painless.pc --user "$USER_ID" | tee "$OUT/grantbind.txt"
 adb logcat -c
 probe allocate_bind > "$OUT/allocate-bind.txt"
 pull_prefs > "$OUT/prefs.xml"
