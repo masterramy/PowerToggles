@@ -174,6 +174,8 @@ public final class PublicationRemainingProbeActivity extends Activity {
     if ("media_transport".equals(probe)) {
       qaPrefs.edit()
           .putInt("media_play_pause_count", 0)
+          .putInt("media_play_count", 0)
+          .putInt("media_pause_count", 0)
           .putInt("media_next_count", 0)
           .putInt("media_prev_count", 0)
           .putBoolean("media_session_supported", Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
@@ -202,6 +204,24 @@ public final class PublicationRemainingProbeActivity extends Activity {
             edit.commit();
           }
           return true;
+        }
+
+        @Override
+        public void onPlay() {
+          qaPrefs.edit()
+              .putInt("media_play_count", qaPrefs.getInt("media_play_count", 0) + 1)
+              .putInt("media_play_pause_count",
+                  qaPrefs.getInt("media_play_pause_count", 0) + 1)
+              .commit();
+        }
+
+        @Override
+        public void onPause() {
+          qaPrefs.edit()
+              .putInt("media_pause_count", qaPrefs.getInt("media_pause_count", 0) + 1)
+              .putInt("media_play_pause_count",
+                  qaPrefs.getInt("media_play_pause_count", 0) + 1)
+              .commit();
         }
       });
       final long actions = PlaybackState.ACTION_PLAY_PAUSE |
