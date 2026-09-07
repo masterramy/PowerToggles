@@ -134,9 +134,6 @@
         <service android:name="ScreenOnService" android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the screen awake while the user explicitly enables Screen Always On." />
         </service>
-        <service android:name="RLService" android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Maintains the user-selected rotation lock while the control is enabled." />
-        </service>
         <service android:name="BatteryService" />
 
         <activity android:name=".folder.FolderActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:theme="@style/panelTheme" >
