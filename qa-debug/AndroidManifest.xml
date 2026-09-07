@@ -20,5 +20,10 @@
             android:name="com.painless.pc.tracker.PublicationWidgetHostProbeActivity"
             android:exported="true"
             android:excludeFromRecents="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationMediaEdgeProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
     </application>
 </manifest>

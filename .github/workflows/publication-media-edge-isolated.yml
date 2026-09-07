@@ -1,0 +1,174 @@
+name: Publication Media Edge Isolated QA
+
+on:
+  push:
+    branches: [ publication-readiness ]
+  workflow_dispatch:
+
+jobs:
+  media-edge-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Pin Android AVD paths
+        run: |
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/media-edge-avd" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$RUNNER_TEMP/media-edge-android-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/media-edge-avd" "$RUNNER_TEMP/media-edge-android-user"
+
+      - name: Install Android API 36 and emulator
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assemble debug candidate
+        run: |
+          gradle --no-daemon --stacktrace assembleDebug
+          APK="build/outputs/apk/debug/PowerToggles-debug.apk"
+          test -f "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          sha256sum "$APK" | tee isolated-media-edge-apk-sha256.txt
+
+      - name: Create API 36 AVD
+        run: |
+          echo no | avdmanager create avd --force --name media_edge_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx media_edge_api36
+
+      - name: Boot fresh emulator
+        run: |
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd media_edge_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > media-edge-emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "Emulator PID: $EMU_PID"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed"
+              cat media-edge-emulator.log
+              exit 1
+            fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              adb devices -l
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Emulator failed to boot within 240 seconds"
+          adb devices -l || true
+          cat media-edge-emulator.log
+          exit 1
+
+      - name: Install candidate
+        run: |
+          adb install -r "$APK"
+          adb shell pm list packages -f | grep 'com.painless.pc'
+
+      - name: Media no-player and explicit-player certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG="com.painless.pc"
+          PROBE="$PKG/.tracker.PublicationMediaEdgeProbeActivity"
+          OUT="runtime-evidence/media-edge-isolated"
+          mkdir -p "$OUT"
+
+          app_fatal() {
+            grep -E "FATAL EXCEPTION|ANR in ${PKG//./\\.}|am_crash.*${PKG//./\\.}|am_anr.*${PKG//./\\.}" "$1" >/dev/null 2>&1
+          }
+
+          xml_bool() {
+            local file="$1" key="$2"
+            if grep -Eq "<boolean name=\"${key}\" value=\"true\"" "$file"; then
+              printf 'true'
+            elif grep -Eq "<boolean name=\"${key}\" value=\"false\"" "$file"; then
+              printf 'false'
+            else
+              printf 'missing'
+            fi
+          }
+
+          xml_int() {
+            local file="$1" key="$2"
+            sed -n "s/.*<int name=\"${key}\" value=\"\([^\"]*\)\".*/\1/p" "$file" | head -n 1
+          }
+
+          # Fresh emulator, no QA-created MediaSession. Retain the framework state
+          # before invocation so the no-player claim is evidence-bounded.
+          adb shell am force-stop "$PKG" || true
+          adb shell dumpsys media_session > "$OUT/media-session-before-no-player.txt" 2>&1 || true
+          if grep -q 'PublicationMediaTransportProbe' "$OUT/media-session-before-no-player.txt"; then
+            echo "Unexpected publication probe MediaSession before no-player test" >&2
+            exit 1
+          fi
+          adb logcat -c || true
+          adb shell am start -W -n "$PROBE" --es probe no_player > "$OUT/no-player-start.txt" 2>&1
+          sleep 1
+          adb logcat -d > "$OUT/no-player.logcat.txt"
+          adb exec-out run-as "$PKG" cat shared_prefs/publication_media_edge_probe.xml > "$OUT/no-player-probe.xml"
+          if app_fatal "$OUT/no-player.logcat.txt"; then
+            echo "No-player media invocation produced an app fatal/ANR" >&2
+            exit 1
+          fi
+          test "$(xml_bool "$OUT/no-player-probe.xml" no_player_completed)" = true
+          test "$(xml_bool "$OUT/no-player-probe.xml" no_player_threw)" = false
+          test "$(xml_bool "$OUT/no-player-probe.xml" no_player_pref_restored)" = true
+          adb shell pidof "$PKG" > "$OUT/no-player-pid.txt"
+
+          # Configured-player branch: the debug Activity registers an in-process
+          # receiver, stores its Intent URI exactly where shipping MediaButton reads
+          # the user-selected player, and requires DOWN+UP with matching downTime.
+          adb shell am force-stop "$PKG" || true
+          adb logcat -c || true
+          adb shell am start -W -n "$PROBE" --es probe explicit_player > "$OUT/explicit-start.txt" 2>&1
+          sleep 2
+          adb logcat -d > "$OUT/explicit.logcat.txt"
+          adb exec-out run-as "$PKG" cat shared_prefs/publication_media_edge_probe.xml > "$OUT/explicit-probe.xml"
+          if app_fatal "$OUT/explicit.logcat.txt"; then
+            echo "Configured-player media invocation produced an app fatal/ANR" >&2
+            exit 1
+          fi
+          test "$(xml_bool "$OUT/explicit-probe.xml" explicit_completed)" = true
+          test "$(xml_bool "$OUT/explicit-probe.xml" explicit_threw)" = false
+          test "$(xml_bool "$OUT/explicit-probe.xml" explicit_pref_restored)" = true
+
+          for key in play_pause next prev; do
+            down="$(xml_int "$OUT/explicit-probe.xml" explicit_${key}_down)"
+            up="$(xml_int "$OUT/explicit-probe.xml" explicit_${key}_up)"
+            matched="$(xml_int "$OUT/explicit-probe.xml" explicit_${key}_matched)"
+            printf '%s down=%s up=%s matched=%s\n' "$key" "$down" "$up" "$matched" | tee -a "$OUT/summary.txt"
+            test "$down" = 1
+            test "$up" = 1
+            test "$matched" = 1
+          done
+          adb shell pidof "$PKG" > "$OUT/explicit-pid.txt"
+          printf '%s\n' \
+            'no_player=PASS_NON_FATAL_AND_PREF_RESTORED' \
+            'explicit_player=PASS_DOWN_UP_MATCHED_AND_PREF_RESTORED' \
+            'publication_media_edge_isolated=PASS' \
+            >> "$OUT/summary.txt"
+          cat "$OUT/summary.txt"
+
+      - name: Upload media edge evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-media-edge-isolated-evidence
+          path: |
+            runtime-evidence/
+            media-edge-emulator.log
+            isolated-media-edge-apk-sha256.txt
+          if-no-files-found: warn
