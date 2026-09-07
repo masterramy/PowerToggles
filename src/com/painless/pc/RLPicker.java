@@ -70,6 +70,13 @@ public class RLPicker extends AlertActivity implements OnClickListener {
     } else {
       rotation = landscapeDefault ? Surface.ROTATION_0 : Surface.ROTATION_90;
     }
+
+    // Re-enter auto before selecting a new locked angle. On Android 16, changing
+    // USER_ROTATION while rotation is already locked can rotate momentarily but
+    // then normalize back to the previous lock when a fixed-orientation surface
+    // (for example the launcher) resumes. Relatching through Auto makes the new
+    // public USER_ROTATION value durable before freezing rotation again.
+    Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1);
     Settings.System.putInt(c.getContentResolver(), Settings.System.USER_ROTATION, rotation);
     Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
   }
