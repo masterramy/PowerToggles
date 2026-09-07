@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -u
+set -euo pipefail
 
 OUT="runtime-evidence/screen-on-card"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs" "$OUT/ui"
@@ -37,6 +37,7 @@ fi
 printf 'original_post_notifications=%s\n' "$had_post_notifications" > "$OUT/state/permission-original.txt"
 
 cleanup() {
+  local cleanup_rc=$?
   run_probe screen_on_disable >/dev/null 2>&1 || true
   run_probe screen_on_restore_notification_pref >/dev/null 2>&1 || true
   if [ "$had_post_notifications" = "true" ]; then
@@ -45,6 +46,7 @@ cleanup() {
     adb shell pm revoke "$PKG" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
   fi
   adb shell cmd statusbar collapse >/dev/null 2>&1 || true
+  return "$cleanup_rc"
 }
 trap cleanup EXIT
 
@@ -69,12 +71,34 @@ fi
 
 adb shell cmd statusbar expand-notifications >/dev/null 2>&1 || true
 sleep 2
-dump_ui screen-on-card-shade
+
+visible=false
+for attempt in $(seq 1 20); do
+  slug="screen-on-card-shade-attempt-${attempt}"
+  if dump_ui "$slug"; then
+    cp "$OUT/ui/${slug}.xml" "$OUT/ui/screen-on-card-shade.xml"
+    if grep -Fq 'text="Wake lock active"' "$OUT/ui/screen-on-card-shade.xml" \
+        && grep -Fq 'text="Click to deactivate"' "$OUT/ui/screen-on-card-shade.xml"; then
+      visible=true
+      break
+    fi
+  fi
+  if [ "$attempt" -eq 5 ] || [ "$attempt" -eq 10 ] || [ "$attempt" -eq 15 ]; then
+    adb shell input swipe 500 1100 500 350 300 >/dev/null 2>&1 || true
+  fi
+  sleep 1
+ done
+
 adb exec-out screencap -p > "$OUT/screens/screen-on-card-shade.png"
 adb shell dumpsys window windows > "$OUT/state/screen-on-card-shade.windows.txt" 2>&1 || true
 adb shell dumpsys activity activities > "$OUT/state/screen-on-card-shade.activities.txt" 2>&1 || true
 
 grep -q 'package="com.android.systemui"' "$OUT/ui/screen-on-card-shade.xml"
+if [ "$visible" != "true" ]; then
+  echo 'Screen Always On foreground notification exists but exact visible card text was not found in the notification shade after bounded polling.'
+  grep -oE 'text="[^"]*"' "$OUT/ui/screen-on-card-shade.xml" > "$OUT/state/screen-on-card-visible-text.txt" 2>/dev/null || true
+  exit 1
+fi
 grep -Fq 'text="Wake lock active"' "$OUT/ui/screen-on-card-shade.xml"
 grep -Fq 'text="Click to deactivate"' "$OUT/ui/screen-on-card-shade.xml"
 
