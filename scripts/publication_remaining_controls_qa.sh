@@ -70,9 +70,9 @@ xml_int() {
 # admin only as bounded QA setup, invoke the exact tracker again, and require
 # DevicePolicyManager.lockNow() to make the device non-interactive / screen-off.
 # API-36 emulator dumps can retain top-level mWakefulness=Awake while the
-# Wakefulness Session Observer correctly reports mIsInteractive=false, so the
-# assertion accepts that public interactive-state signal as equivalent lock
-# evidence. The emulator is ephemeral; removal is attempted after collection.
+# Wakefulness Session Observer reports either mIsInteractive=false or
+# mIsInteractive: false, so both dumpsys formats are accepted as equivalent
+# lock evidence. The emulator is ephemeral; removal is attempted after collection.
 adb shell am force-stop "$PKG" || true
 adb shell dpm remove-active-admin --user 0 "$ADMIN" > "$OUT/state/screen-lock-preclean.txt" 2>&1 || true
 adb logcat -c || true
@@ -110,7 +110,7 @@ else
   if app_fatal "$OUT/logs/56-screen-lock-active.logcat.txt"; then
     screen_lock_result="${screen_lock_result}+FAIL_LOCK_FATAL"
     fail=1
-  elif grep -Eq "Wakefulness=Asleep|mWakefulness=Asleep|Display Power: state=OFF|state=OFF|mIsInteractive=false" "$OUT/state/screen-lock-after-lock-power.txt"; then
+  elif grep -Eq "Wakefulness=Asleep|mWakefulness=Asleep|Display Power: state=OFF|state=OFF|mIsInteractive[=:][[:space:]]*false" "$OUT/state/screen-lock-after-lock-power.txt"; then
     screen_lock_result="PASS_CONSENT_AND_LOCK"
   else
     screen_lock_result="${screen_lock_result}+FAIL_NOT_LOCKED"
@@ -167,8 +167,7 @@ status_after_first="$(xml_bool "$OUT/state/notify-widget-after-first.xml" status
 run_probe notify_widget_toggle || true
 adb exec-out run-as "$PKG" cat shared_prefs/widget_preference.xml > "$OUT/state/notify-widget-after-second.xml" 2>/dev/null || true
 status_after_second="$(xml_bool "$OUT/state/notify-widget-after-second.xml" status_bar_widget)"
-if [ "$original_status" = "missing" ] || [ "$status_after_first" = "missing" ] || \
-   [ "$status_after_second" = "missing" ]; then
+if [ "$original_status" = "missing" ] || [ "$status_after_first" = "missing" ] || [ "$status_after_second" = "missing" ]; then
   notify_widget_result="FAIL_STATE_MISSING"
   fail=1
 elif [ "$status_after_first" = "$original_status" ] || [ "$status_after_second" != "$original_status" ]; then
@@ -184,8 +183,7 @@ two_row_after_first="$(xml_bool "$OUT/state/two-row-after-first.xml" nofity_two_
 run_probe two_row_toggle || true
 adb exec-out run-as "$PKG" cat shared_prefs/widget_preference.xml > "$OUT/state/two-row-after-second.xml" 2>/dev/null || true
 two_row_after_second="$(xml_bool "$OUT/state/two-row-after-second.xml" nofity_two_row)"
-if [ "$original_two_row" = "missing" ] || [ "$two_row_after_first" = "missing" ] || \
-   [ "$two_row_after_second" = "missing" ]; then
+if [ "$original_two_row" = "missing" ] || [ "$two_row_after_first" = "missing" ] || [ "$two_row_after_second" = "missing" ]; then
   two_row_result="FAIL_STATE_MISSING"
   fail=1
 elif [ "$two_row_after_first" = "$original_two_row" ] || [ "$two_row_after_second" != "$original_two_row" ]; then
