@@ -29,7 +29,7 @@ public abstract class MediaButton extends AbstractCommand {
 	  try {
       long eventtime = SystemClock.uptimeMillis();
       KeyEvent down = new KeyEvent(eventtime, eventtime, KeyEvent.ACTION_DOWN, keyCode, 0);
-      KeyEvent up = new KeyEvent(eventtime + 2, eventtime + 2, KeyEvent.ACTION_UP, keyCode, 0);
+      KeyEvent up = new KeyEvent(eventtime, eventtime + 2, KeyEvent.ACTION_UP, keyCode, 0);
 
       if (TextUtils.isEmpty(player) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
         AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
