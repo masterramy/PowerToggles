@@ -111,31 +111,46 @@ jobs:
 
       - name: Full API 36 runtime QA and screenshots
         run: |
-          bash scripts/publication_runtime_qa.sh
-          bash scripts/publication_settings_route_qa.sh
-          bash scripts/publication_write_settings_qa.sh
-          bash scripts/publication_media_ui_qa.sh
-          bash scripts/publication_media_behavior_qa.sh
-          bash scripts/publication_rotation_setting_qa.sh
-          bash scripts/publication_api36_compat_qa.sh
-          bash scripts/publication_rotation_picker_qa.sh
+          overall_rc=0
+          run_suite() {
+            local script="$1"
+            echo "=== RUN ${script} ==="
+            bash "$script"
+            local rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "=== RED ${script} rc=${rc} ==="
+              overall_rc=1
+            else
+              echo "=== PASS ${script} ==="
+            fi
+            return 0
+          }
+
+          # Publication closure must retain evidence from every independent tranche
+          # even when an earlier tranche is red. The step still returns failure if
+          # any suite fails; this only prevents one defect from hiding later evidence.
+          set +e
+          run_suite scripts/publication_runtime_qa.sh
+          run_suite scripts/publication_settings_route_qa.sh
+          run_suite scripts/publication_write_settings_qa.sh
+          run_suite scripts/publication_media_ui_qa.sh
+          run_suite scripts/publication_media_behavior_qa.sh
+          run_suite scripts/publication_rotation_setting_qa.sh
+          run_suite scripts/publication_api36_compat_qa.sh
+          run_suite scripts/publication_rotation_picker_qa.sh
+
           original_stay_on="$(adb shell settings get global stay_on_while_plugged_in | tr -d '\r')"
           adb shell settings put global stay_on_while_plugged_in 0
-          set +e
-          bash scripts/publication_remaining_controls_qa.sh
-          remaining_rc=$?
-          bash scripts/publication_next_controls_qa.sh
-          next_controls_rc=$?
-          set -e
+          run_suite scripts/publication_remaining_controls_qa.sh
+          run_suite scripts/publication_next_controls_qa.sh
           if [ "$original_stay_on" = "null" ] || [ -z "$original_stay_on" ]; then
             adb shell settings delete global stay_on_while_plugged_in
           else
             adb shell settings put global stay_on_while_plugged_in "$original_stay_on"
           fi
-          if [ "$remaining_rc" -ne 0 ]; then
-            exit "$remaining_rc"
-          fi
-          exit "$next_controls_rc"
+          set -e
+
+          exit "$overall_rc"
 
       - name: Upload publication runtime evidence
         if: always()
