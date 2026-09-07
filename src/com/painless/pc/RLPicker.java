@@ -77,11 +77,14 @@ public class RLPicker extends Activity implements OnClickListener {
     // Re-enter auto before selecting a new locked angle. On Android 16, changing
     // USER_ROTATION while rotation is already locked can rotate momentarily but
     // then normalize back to the previous lock when a fixed-orientation surface
-    // (for example the launcher) resumes. Relatching through Auto makes the new
-    // public USER_ROTATION value durable before freezing rotation again.
+    // (for example the launcher) resumes. Relatch through Auto, freeze rotation,
+    // then assert the same desired angle once more after the lock is active. The
+    // final same-angle write closes the observed launcher-resume normalization
+    // race without changing the requested orientation or using hidden APIs.
     Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1);
     Settings.System.putInt(c.getContentResolver(), Settings.System.USER_ROTATION, rotation);
     Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
+    Settings.System.putInt(c.getContentResolver(), Settings.System.USER_ROTATION, rotation);
   }
 
   public static void setAutoRotate(Context c, int value) {
