@@ -127,11 +127,11 @@ public final class PublicationWidgetHostProbeActivity extends Activity {
           PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
       new Handler(Looper.getMainLooper()).postDelayed(() -> {
         try {
+          // Keep this resumed host alive long enough for Android 16 to attribute
+          // the receiver-triggered config launch to a visible user-facing action.
+          // The QA script force-stops before every later probe, which provides a
+          // fresh lifecycle without racing this PendingIntent dispatch.
           pending.send();
-          // Do not leave this no-UI debug host beneath WidgetConfigActivity.
-          // Finishing here makes every later probe a fresh lifecycle invocation
-          // and prevents Android 16 from reusing a stale top activity after BACK.
-          finish();
         } catch (PendingIntent.CanceledException e) {
           out.edit().putString("reopen_dispatch_error",
               e.getClass().getName() + ":" + String.valueOf(e.getMessage())).commit();
