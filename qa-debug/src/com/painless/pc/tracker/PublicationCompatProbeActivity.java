@@ -231,6 +231,35 @@ public final class PublicationCompatProbeActivity extends Activity {
       return;
     }
 
+    if ("rotation_picker_prepare".equals(probe)) {
+      qaPrefs.edit()
+          .putBoolean(HAD_ROTATION_PROMPT_PREF, appPrefs.contains("rotation_lock_prompt"))
+          .putBoolean(ORIGINAL_ROTATION_PROMPT_PREF,
+              appPrefs.getBoolean("rotation_lock_prompt", true))
+          .commit();
+      appPrefs.edit().putBoolean("rotation_lock_prompt", true).commit();
+      finish();
+      return;
+    }
+
+    if ("rotation_picker_open".equals(probe)) {
+      new RotationLockTracker(38, appPrefs).toggleState(this);
+      return;
+    }
+
+    if ("rotation_picker_restore".equals(probe)) {
+      final SharedPreferences.Editor editor = appPrefs.edit();
+      if (qaPrefs.getBoolean(HAD_ROTATION_PROMPT_PREF, false)) {
+        editor.putBoolean("rotation_lock_prompt",
+            qaPrefs.getBoolean(ORIGINAL_ROTATION_PROMPT_PREF, true));
+      } else {
+        editor.remove("rotation_lock_prompt");
+      }
+      editor.commit();
+      finish();
+      return;
+    }
+
     if ("pulse_prepare".equals(probe)) {
       final String original = Settings.System.getString(
           getContentResolver(), "notification_light_pulse");
