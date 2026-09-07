@@ -16,5 +16,9 @@
             android:name="com.painless.pc.tracker.PublicationRemainingProbeActivity"
             android:exported="true"
             android:excludeFromRecents="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationWidgetHostProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true" />
     </application>
 </manifest>
