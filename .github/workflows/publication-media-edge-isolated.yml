@@ -106,6 +106,22 @@ jobs:
             sed -n "s/.*<int name=\"${key}\" value=\"\([^\"]*\)\".*/\1/p" "$file" | head -n 1
           }
 
+          wait_for_probe_bool() {
+            local key="$1" file="$2" timeout_seconds="$3"
+            local i
+            for i in $(seq 1 "$timeout_seconds"); do
+              if adb exec-out run-as "$PKG" cat shared_prefs/publication_media_edge_probe.xml > "$file" 2>/dev/null; then
+                if [ "$(xml_bool "$file" "$key")" = true ]; then
+                  return 0
+                fi
+              fi
+              sleep 1
+            done
+            adb exec-out run-as "$PKG" cat shared_prefs/publication_media_edge_probe.xml > "$file" 2>/dev/null || true
+            echo "Timed out waiting for probe boolean: $key" >&2
+            return 1
+          }
+
           # Fresh emulator, no QA-created MediaSession. Retain the framework state
           # before invocation so the no-player claim is evidence-bounded.
           adb shell am force-stop "$PKG" || true
@@ -116,9 +132,8 @@ jobs:
           fi
           adb logcat -c || true
           adb shell am start -W -n "$PROBE" --es probe no_player > "$OUT/no-player-start.txt" 2>&1
-          sleep 1
+          wait_for_probe_bool no_player_completed "$OUT/no-player-probe.xml" 10
           adb logcat -d > "$OUT/no-player.logcat.txt"
-          adb exec-out run-as "$PKG" cat shared_prefs/publication_media_edge_probe.xml > "$OUT/no-player-probe.xml"
           if app_fatal "$OUT/no-player.logcat.txt"; then
             echo "No-player media invocation produced an app fatal/ANR" >&2
             exit 1
@@ -128,19 +143,21 @@ jobs:
           test "$(xml_bool "$OUT/no-player-probe.xml" no_player_pref_restored)" = true
           adb shell pidof "$PKG" > "$OUT/no-player-pid.txt"
 
-          # Configured-player branch: the debug Activity registers an in-process
-          # receiver, stores its Intent URI exactly where shipping MediaButton reads
-          # the user-selected player, and requires DOWN+UP with matching downTime.
+          # Configured-player branch: the debug manifest receiver is a controlled
+          # endpoint. The probe first proves its serialized Intent reaches that
+          # endpoint, then invokes the unchanged shipping MediaButton path and
+          # requires DOWN+UP delivery with matching downTime for all three keys.
           adb shell am force-stop "$PKG" || true
           adb logcat -c || true
           adb shell am start -W -n "$PROBE" --es probe explicit_player > "$OUT/explicit-start.txt" 2>&1
-          sleep 2
+          wait_for_probe_bool explicit_completed "$OUT/explicit-probe.xml" 20
           adb logcat -d > "$OUT/explicit.logcat.txt"
-          adb exec-out run-as "$PKG" cat shared_prefs/publication_media_edge_probe.xml > "$OUT/explicit-probe.xml"
           if app_fatal "$OUT/explicit.logcat.txt"; then
             echo "Configured-player media invocation produced an app fatal/ANR" >&2
             exit 1
           fi
+          test "$(xml_bool "$OUT/explicit-probe.xml" explicit_uri_round_trip)" = true
+          test "$(xml_bool "$OUT/explicit-probe.xml" explicit_control_delivered)" = true
           test "$(xml_bool "$OUT/explicit-probe.xml" explicit_completed)" = true
           test "$(xml_bool "$OUT/explicit-probe.xml" explicit_threw)" = false
           test "$(xml_bool "$OUT/explicit-probe.xml" explicit_pref_restored)" = true
