@@ -10,7 +10,8 @@
             android:name="com.painless.pc.tracker.PublicationCompatProbeActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:noHistory="true" />
+            android:noHistory="true"
+            android:configChanges="orientation|screenSize" />
         <activity
             android:name="com.painless.pc.tracker.PublicationRemainingProbeActivity"
             android:exported="true"
