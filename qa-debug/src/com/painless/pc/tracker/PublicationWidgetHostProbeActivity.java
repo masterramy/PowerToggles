@@ -128,6 +128,10 @@ public final class PublicationWidgetHostProbeActivity extends Activity {
       new Handler(Looper.getMainLooper()).postDelayed(() -> {
         try {
           pending.send();
+          // Do not leave this no-UI debug host beneath WidgetConfigActivity.
+          // Finishing here makes every later probe a fresh lifecycle invocation
+          // and prevents Android 16 from reusing a stale top activity after BACK.
+          finish();
         } catch (PendingIntent.CanceledException e) {
           out.edit().putString("reopen_dispatch_error",
               e.getClass().getName() + ":" + String.valueOf(e.getMessage())).commit();
