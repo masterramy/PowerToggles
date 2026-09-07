@@ -1,11 +1,15 @@
 package com.painless.pc.tracker;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
+import android.view.KeyEvent;
 
 import com.painless.pc.singleton.Globals;
 
@@ -67,13 +71,109 @@ public final class PublicationMediaEdgeProbeActivity extends Activity {
     final boolean hadPlayer = appPrefs.contains(MediaButton.KEY_PLAYER_INTENT);
     final String originalPlayer = appPrefs.getString(MediaButton.KEY_PLAYER_INTENT, "");
 
-    // Reset only the explicit-player counters. The debug-only manifest receiver
-    // persists each exact ordered-broadcast event, so receiver delivery survives
-    // Activity lifecycle timing and proves MediaButton's configured Intent path.
+    resetExplicitEventCounters(qaPrefs);
     qaPrefs.edit()
         .putBoolean("explicit_completed", false)
         .putBoolean("explicit_threw", false)
         .putString("explicit_error", "")
+        .putBoolean("explicit_uri_round_trip", false)
+        .putBoolean("explicit_control_delivered", false)
+        .putString("explicit_player_uri", "")
+        .putString("explicit_parsed_component", "")
+        .commit();
+
+    try {
+      final Intent playerIntent = new Intent(ACTION_EXPLICIT_PLAYER)
+          .setComponent(new ComponentName(this, PublicationMediaEdgeReceiver.class));
+      final String playerUri = playerIntent.toUri(0);
+      final Intent parsedIntent = Intent.parseUri(playerUri, 0);
+      final boolean uriRoundTrip = ACTION_EXPLICIT_PLAYER.equals(parsedIntent.getAction())
+          && playerIntent.getComponent().equals(parsedIntent.getComponent());
+
+      qaPrefs.edit()
+          .putBoolean("explicit_uri_round_trip", uriRoundTrip)
+          .putString("explicit_player_uri", playerUri)
+          .putString("explicit_parsed_component",
+              String.valueOf(parsedIntent.getComponent()))
+          .commit();
+
+      if (!uriRoundTrip) {
+        throw new IllegalStateException("Configured-player Intent URI did not preserve action/component");
+      }
+
+      // Harness control: prove the exact parsed explicit Intent can reach the
+      // debug-only manifest receiver before attributing any later zero delivery
+      // to shipping MediaButton. The ordered-broadcast result receiver runs only
+      // after the target chain has completed.
+      long controlTime = SystemClock.uptimeMillis();
+      Intent control = new Intent(parsedIntent).putExtra(
+          Intent.EXTRA_KEY_EVENT,
+          new KeyEvent(controlTime, controlTime, KeyEvent.ACTION_DOWN,
+              KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, 0));
+      sendOrderedBroadcast(control, null, new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+          boolean controlDelivered =
+              qaPrefs.getInt("explicit_play_pause_down", 0) == 1;
+          qaPrefs.edit()
+              .putBoolean("explicit_control_delivered", controlDelivered)
+              .commit();
+
+          if (!controlDelivered) {
+            completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+                true, "QA_CONTROL_RECEIVER_NOT_DELIVERED");
+            return;
+          }
+
+          // Remove the one control event. From this point onward every retained
+          // count is attributable only to the unchanged shipping MediaButton path.
+          resetExplicitEventCounters(qaPrefs);
+          appPrefs.edit().putString(MediaButton.KEY_PLAYER_INTENT, playerUri).commit();
+
+          boolean threw = false;
+          String error = "";
+          try {
+            new MediaPlayPause(18, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
+            new MediaNext(19, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
+            new MediaPrev(20, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
+          } catch (Throwable t) {
+            threw = true;
+            error = t.getClass().getName() + ":" + String.valueOf(t.getMessage());
+          }
+
+          final boolean probeThrew = threw;
+          final String probeError = error;
+          new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+              completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+                  probeThrew, probeError);
+            }
+          }, 1000L);
+        }
+      }, null, RESULT_OK, null, null);
+    } catch (Throwable t) {
+      completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+          true, t.getClass().getName() + ":" + String.valueOf(t.getMessage()));
+    }
+  }
+
+  private void completeExplicitProbe(SharedPreferences appPrefs,
+      SharedPreferences qaPrefs, boolean hadPlayer, String originalPlayer,
+      boolean threw, String error) {
+    restorePlayerPreference(appPrefs, hadPlayer, originalPlayer);
+    qaPrefs.edit()
+        .putBoolean("explicit_completed", true)
+        .putBoolean("explicit_threw", threw)
+        .putString("explicit_error", error)
+        .putBoolean("explicit_pref_restored",
+            playerPreferenceMatches(appPrefs, hadPlayer, originalPlayer))
+        .commit();
+    finish();
+  }
+
+  private static void resetExplicitEventCounters(SharedPreferences prefs) {
+    prefs.edit()
         .putInt("explicit_play_pause_down", 0)
         .putInt("explicit_play_pause_up", 0)
         .putInt("explicit_play_pause_matched", 0)
@@ -87,38 +187,6 @@ public final class PublicationMediaEdgeProbeActivity extends Activity {
         .putLong("explicit_next_down_time", -1L)
         .putLong("explicit_prev_down_time", -1L)
         .commit();
-
-    boolean threw = false;
-    String error = "";
-    try {
-      Intent playerIntent = new Intent(ACTION_EXPLICIT_PLAYER)
-          .setComponent(new ComponentName(this, PublicationMediaEdgeReceiver.class));
-      String playerUri = playerIntent.toUri(0);
-      appPrefs.edit().putString(MediaButton.KEY_PLAYER_INTENT, playerUri).commit();
-      new MediaPlayPause(18, appPrefs).toggleState(this);
-      new MediaNext(19, appPrefs).toggleState(this);
-      new MediaPrev(20, appPrefs).toggleState(this);
-    } catch (Throwable t) {
-      threw = true;
-      error = t.getClass().getName() + ":" + String.valueOf(t.getMessage());
-    }
-
-    final boolean probeThrew = threw;
-    final String probeError = error;
-    new Handler().postDelayed(new Runnable() {
-      @Override
-      public void run() {
-        restorePlayerPreference(appPrefs, hadPlayer, originalPlayer);
-        qaPrefs.edit()
-            .putBoolean("explicit_completed", true)
-            .putBoolean("explicit_threw", probeThrew)
-            .putString("explicit_error", probeError)
-            .putBoolean("explicit_pref_restored",
-                playerPreferenceMatches(appPrefs, hadPlayer, originalPlayer))
-            .commit();
-        finish();
-      }
-    }, 1000L);
   }
 
   private static void restorePlayerPreference(SharedPreferences prefs,
