@@ -2,10 +2,13 @@ package com.painless.pc;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.view.Surface;
 
@@ -13,7 +16,12 @@ import com.painless.pc.tracker.AbstractSystemSettingsTracker;
 import com.painless.pc.tracker.RotationLockTracker;
 import com.painless.pc.util.SectionAdapter;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class RLPicker extends Activity implements OnClickListener {
+
+  private static final AtomicInteger ROTATION_WRITE_GENERATION = new AtomicInteger();
+  private static final long ROTATION_SETTLE_REASSERT_MS = 750L;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -61,13 +69,16 @@ public class RLPicker extends Activity implements OnClickListener {
       return;
     }
 
+    final int generation = ROTATION_WRITE_GENERATION.incrementAndGet();
+    final ContentResolver resolver = c.getContentResolver();
+
     if (mode == 0) {
-      Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1);
+      Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 1);
       return;
     }
 
     boolean landscapeDefault = RotationLockTracker.isLandScapeDefault(c);
-    int rotation;
+    final int rotation;
     if (mode == 1) {
       rotation = landscapeDefault ? Surface.ROTATION_90 : Surface.ROTATION_0;
     } else {
@@ -78,13 +89,33 @@ public class RLPicker extends Activity implements OnClickListener {
     // USER_ROTATION while rotation is already locked can rotate momentarily but
     // then normalize back to the previous lock when a fixed-orientation surface
     // (for example the launcher) resumes. Relatch through Auto, freeze rotation,
-    // then assert the same desired angle once more after the lock is active. The
-    // final same-angle write closes the observed launcher-resume normalization
-    // race without changing the requested orientation or using hidden APIs.
-    Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1);
-    Settings.System.putInt(c.getContentResolver(), Settings.System.USER_ROTATION, rotation);
-    Settings.System.putInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 0);
-    Settings.System.putInt(c.getContentResolver(), Settings.System.USER_ROTATION, rotation);
+    // and assert the requested angle immediately.
+    Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 1);
+    Settings.System.putInt(resolver, Settings.System.USER_ROTATION, rotation);
+    Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0);
+    Settings.System.putInt(resolver, Settings.System.USER_ROTATION, rotation);
+
+    // A synchronous reassert can still race the launcher/activity orientation
+    // settle on Android 16. Reinforce once after that settle window, but only if
+    // this is still the newest rotation command and the user remains in locked
+    // mode. A later Auto/Portrait/Landscape command increments the generation and
+    // invalidates this runnable, so a stale choice can never be resurrected.
+    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+      @Override
+      public void run() {
+        if (ROTATION_WRITE_GENERATION.get() != generation) {
+          return;
+        }
+        try {
+          if (Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 1) == 0) {
+            Settings.System.putInt(resolver, Settings.System.USER_ROTATION, rotation);
+          }
+        } catch (SecurityException ignored) {
+          // The immediate public-settings write already ran while permission was
+          // present. If the user revokes it during the settle window, do nothing.
+        }
+      }
+    }, ROTATION_SETTLE_REASSERT_MS);
   }
 
   public static void setAutoRotate(Context c, int value) {
