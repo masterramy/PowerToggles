@@ -137,6 +137,7 @@ jobs:
           run_suite scripts/publication_media_behavior_qa.sh
           run_suite scripts/publication_rotation_setting_qa.sh
           run_suite scripts/publication_api36_compat_qa.sh
+          run_suite scripts/publication_screen_on_card_qa.sh
           run_suite scripts/publication_rotation_picker_qa.sh
 
           original_stay_on="$(adb shell settings get global stay_on_while_plugged_in | tr -d '\r')"
