@@ -3,6 +3,8 @@ package com.painless.pc.tracker;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyEvent;
@@ -25,16 +27,24 @@ public abstract class MediaButton extends AbstractCommand {
 	public void toggleState(Context context) {
 	  String player = Globals.getAppPrefs(context).getString(KEY_PLAYER_INTENT, "");
 	  try {
-      Intent mediaIntent = TextUtils.isEmpty(player) ? new Intent(Intent.ACTION_MEDIA_BUTTON) : Intent.parseUri(player, 0);
       long eventtime = SystemClock.uptimeMillis();
+      KeyEvent down = new KeyEvent(eventtime, eventtime, KeyEvent.ACTION_DOWN, keyCode, 0);
+      KeyEvent up = new KeyEvent(eventtime + 2, eventtime + 2, KeyEvent.ACTION_UP, keyCode, 0);
 
-      // Down intent
-      context.sendOrderedBroadcast(new Intent(mediaIntent).putExtra(Intent.EXTRA_KEY_EVENT,
-              new KeyEvent(eventtime, eventtime, KeyEvent.ACTION_DOWN, keyCode, 0)), null);
+      if (TextUtils.isEmpty(player) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+        AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        if (audio != null) {
+          // Modern Android routes media keys through the active media-session consumer.
+          audio.dispatchMediaKeyEvent(down);
+          audio.dispatchMediaKeyEvent(up);
+          return;
+        }
+      }
 
-      // Up intent
-      context.sendOrderedBroadcast(new Intent(mediaIntent).putExtra(Intent.EXTRA_KEY_EVENT,
-              new KeyEvent(eventtime + 2, eventtime + 2, KeyEvent.ACTION_UP, keyCode, 0)), null);
+      // Preserve the configured explicit-player path and the pre-KitKat fallback.
+      Intent mediaIntent = TextUtils.isEmpty(player) ? new Intent(Intent.ACTION_MEDIA_BUTTON) : Intent.parseUri(player, 0);
+      context.sendOrderedBroadcast(new Intent(mediaIntent).putExtra(Intent.EXTRA_KEY_EVENT, down), null);
+      context.sendOrderedBroadcast(new Intent(mediaIntent).putExtra(Intent.EXTRA_KEY_EVENT, up), null);
     } catch (Exception e) {
       Debug.log(e);
     }
