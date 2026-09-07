@@ -1,6 +1,7 @@
 package com.painless.pc.tracker;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -22,6 +23,13 @@ public final class PublicationRemainingProbeActivity extends Activity {
   protected void onCreate(Bundle state) {
     super.onCreate(state);
     runProbe(getIntent().getStringExtra("probe"));
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    runProbe(intent.getStringExtra("probe"));
   }
 
   private void runProbe(String probe) {
