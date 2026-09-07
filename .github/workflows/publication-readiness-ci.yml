@@ -144,6 +144,7 @@ jobs:
           adb shell settings put global stay_on_while_plugged_in 0
           run_suite scripts/publication_remaining_controls_qa.sh
           run_suite scripts/publication_next_controls_qa.sh
+          run_suite scripts/publication_widget_settings_qa.sh
           if [ "$original_stay_on" = "null" ] || [ -z "$original_stay_on" ]; then
             adb shell settings delete global stay_on_while_plugged_in
           else
