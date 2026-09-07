@@ -51,7 +51,7 @@ if app_fatal "$OUT/logs/rotation-picker.logcat.txt"; then
 elif [ ! -s "$ui" ]; then
   result="FAIL_UI_MISSING"
   fail=1
-elif ! grep -q 'text="Auto Rotate"' "$ui"; then
+elif ! grep -Eq 'text="Auto Rotate[^\"]*"' "$ui"; then
   result="FAIL_AUTO_CHOICE_MISSING"
   fail=1
 elif ! grep -Eq 'text="Portrait[^\"]*"' "$ui"; then
