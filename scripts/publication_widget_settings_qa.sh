@@ -18,6 +18,12 @@ trap cleanup EXIT
 probe() {
   local action="$1"
   shift || true
+  # Every debug-host probe must get a fresh Activity/process lifecycle. In
+  # particular, the genuine reopen leaves the foreground host underneath
+  # WidgetConfigActivity so Android 16 will permit the receiver-driven launch;
+  # force-stopping only before the *next* probe removes that stale host without
+  # deleting the framework AppWidget ID or its persisted widget settings.
+  adb shell am force-stop com.painless.pc >/dev/null
   adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
     --es probe "$action" "$@"
 }
