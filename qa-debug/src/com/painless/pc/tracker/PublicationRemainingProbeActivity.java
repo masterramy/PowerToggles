@@ -1,10 +1,16 @@
 package com.painless.pc.tracker;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.view.KeyEvent;
 
 import com.painless.pc.notify.NotifyStatus;
 import com.painless.pc.singleton.Globals;
@@ -111,6 +117,114 @@ public final class PublicationRemainingProbeActivity extends Activity {
           .putBoolean("restored_two_row", NotifyStatus.isTwoRowEnabled(this))
           .commit();
       finish();
+      return;
+    }
+
+    if ("battery_info".equals(probe)) {
+      new BatteryTracker(15, appPrefs).toggleState(this);
+      return;
+    }
+
+    if ("volume_toggle".equals(probe)) {
+      final AudioManager audio = (AudioManager) getSystemService(AUDIO_SERVICE);
+      final int before = audio == null ? -1 : audio.getRingerMode();
+      boolean policyAccess = false;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        final NotificationManager notification =
+            (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        policyAccess = notification != null && notification.isNotificationPolicyAccessGranted();
+      }
+      boolean threw = false;
+      String error = "";
+      int after = before;
+      boolean restoreThrew = false;
+      int restored = before;
+      if (audio != null) {
+        final VolumeTracker tracker = new VolumeTracker(10, appPrefs);
+        tracker.init(appPrefs);
+        try {
+          tracker.toggleState(this);
+        } catch (Throwable t) {
+          threw = true;
+          error = t.getClass().getName() + ":" + String.valueOf(t.getMessage());
+        }
+        after = audio.getRingerMode();
+        if (after != before) {
+          try {
+            audio.setRingerMode(before);
+          } catch (Throwable t) {
+            restoreThrew = true;
+          }
+        }
+        restored = audio.getRingerMode();
+      }
+      qaPrefs.edit()
+          .putInt("volume_before", before)
+          .putInt("volume_after", after)
+          .putInt("volume_restored", restored)
+          .putBoolean("volume_policy_access", policyAccess)
+          .putBoolean("volume_threw", threw)
+          .putBoolean("volume_restore_threw", restoreThrew)
+          .putString("volume_error", error)
+          .commit();
+      finish();
+      return;
+    }
+
+    if ("media_transport".equals(probe)) {
+      qaPrefs.edit()
+          .putInt("media_play_pause_count", 0)
+          .putInt("media_next_count", 0)
+          .putInt("media_prev_count", 0)
+          .putBoolean("media_session_supported", Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+          .commit();
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+        finish();
+        return;
+      }
+
+      final MediaSession session = new MediaSession(this, "PublicationMediaTransportProbe");
+      session.setCallback(new MediaSession.Callback() {
+        @Override
+        public boolean onMediaButtonEvent(Intent mediaButtonIntent) {
+          final KeyEvent event = mediaButtonIntent == null ? null :
+              (KeyEvent) mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+          if (event != null && event.getAction() == KeyEvent.ACTION_DOWN) {
+            final SharedPreferences.Editor edit = qaPrefs.edit();
+            if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+              edit.putInt("media_play_pause_count",
+                  qaPrefs.getInt("media_play_pause_count", 0) + 1);
+            } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_NEXT) {
+              edit.putInt("media_next_count", qaPrefs.getInt("media_next_count", 0) + 1);
+            } else if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PREVIOUS) {
+              edit.putInt("media_prev_count", qaPrefs.getInt("media_prev_count", 0) + 1);
+            }
+            edit.commit();
+          }
+          return true;
+        }
+      });
+      final long actions = PlaybackState.ACTION_PLAY_PAUSE |
+          PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE |
+          PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+      session.setPlaybackState(new PlaybackState.Builder()
+          .setActions(actions)
+          .setState(PlaybackState.STATE_PLAYING, 0, 1.0f)
+          .build());
+      session.setActive(true);
+
+      new MediaPlayPause(18, appPrefs).toggleState(this);
+      new MediaNext(19, appPrefs).toggleState(this);
+      new MediaPrev(20, appPrefs).toggleState(this);
+
+      new Handler().postDelayed(new Runnable() {
+        @Override
+        public void run() {
+          session.setActive(false);
+          session.release();
+          finish();
+        }
+      }, 2000);
       return;
     }
 
