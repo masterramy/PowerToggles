@@ -1,6 +1,7 @@
 package com.painless.pc.tracker;
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.appwidget.AppWidgetHost;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProviderInfo;
@@ -9,6 +10,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.painless.pc.PCWidgetActivity;
 import com.painless.pc.singleton.Globals;
@@ -111,9 +114,26 @@ public final class PublicationWidgetHostProbeActivity extends Activity {
       out.edit()
           .putInt("reopen_widget_id", widgetId)
           .putString("reopen_uri", data.toString())
+          .putString("reopen_dispatch_error", "")
           .commit();
-      sendBroadcast(click);
-      finish();
+
+      // RemoteViews invokes this route through a PendingIntent as a user-facing
+      // widget action. A raw sendBroadcast() from onCreate can be treated as a
+      // background-activity launch on Android 16 and incorrectly strand the QA
+      // probe on Launcher. Dispatch the same immutable broadcast PendingIntent
+      // once this debug host is visibly resumed so the certification exercises
+      // the shipping receiver/data/category transport without changing release.
+      final PendingIntent pending = PendingIntent.getBroadcast(this, 0, click,
+          PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+      new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        try {
+          pending.send();
+        } catch (PendingIntent.CanceledException e) {
+          out.edit().putString("reopen_dispatch_error",
+              e.getClass().getName() + ":" + String.valueOf(e.getMessage())).commit();
+          finish();
+        }
+      }, 500L);
       return;
     }
 
