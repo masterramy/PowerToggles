@@ -233,9 +233,14 @@ public final class PublicationRemainingProbeActivity extends Activity {
           .build());
       session.setActive(true);
 
-      new MediaPlayPause(18, appPrefs).toggleState(this);
-      new MediaNext(19, appPrefs).toggleState(this);
-      new MediaPrev(20, appPrefs).toggleState(this);
+      new Handler().postDelayed(new Runnable() {
+        @Override
+        public void run() {
+          new MediaPlayPause(18, appPrefs).toggleState(PublicationRemainingProbeActivity.this);
+          new MediaNext(19, appPrefs).toggleState(PublicationRemainingProbeActivity.this);
+          new MediaPrev(20, appPrefs).toggleState(PublicationRemainingProbeActivity.this);
+        }
+      }, 500);
 
       new Handler().postDelayed(new Runnable() {
         @Override
@@ -244,7 +249,7 @@ public final class PublicationRemainingProbeActivity extends Activity {
           session.release();
           finish();
         }
-      }, 2000);
+      }, 2500);
       return;
     }
 
