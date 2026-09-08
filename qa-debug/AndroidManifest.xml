@@ -25,6 +25,11 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:noHistory="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationFolderProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
         <receiver
             android:name="com.painless.pc.tracker.PublicationMediaEdgeReceiver"
             android:exported="false" />
