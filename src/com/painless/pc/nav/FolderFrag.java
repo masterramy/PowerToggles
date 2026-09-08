@@ -1,7 +1,9 @@
 package com.painless.pc.nav;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -11,12 +13,14 @@ import java.util.zip.ZipOutputStream;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.text.TextUtils;
@@ -32,6 +36,7 @@ import android.widget.ShareActionProvider;
 import android.widget.ShareActionProvider.OnShareTargetSelectedListener;
 import android.widget.Toast;
 
+import com.painless.pc.FileProvider;
 import com.painless.pc.R;
 import com.painless.pc.folder.FolderAdapter;
 import com.painless.pc.folder.FolderPick;
@@ -45,7 +50,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
 
   private static final int REQUEST_BACKUP = 10;
   private static final int REQUEST_RESTORE = 11;
-  private static final String SHARE_FILE_NAME = "folder.pcf";
+  private static final String BACKUP_FILE_NAME = "power-toggles-folders.pcf";
 
   private Context mContext;
   private ArrayList<String> mFolderList;
@@ -70,10 +75,9 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
     mFolderList = new ArrayList<String>();
     mSelectedList = new ArrayList<String>();
     mAdapter = new FolderAdapter(mContext);
-    
+
     getListView().setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
     getListView().setMultiChoiceModeListener(this);
-
 
     refreshList();
     setListAdapter(mAdapter);
@@ -121,36 +125,68 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
   @Override
   public boolean onOptionsItemSelected(MenuItem item) {
     if (item.getItemId() == R.id.mnu_restore) {
-      startActivityForResult(new Intent(mContext, FilePicker.class)
-          .putExtra("savemode", false)
-          .putExtra("title", getString(R.string.wp_restore))
-          .putExtra("filter", ".pcf"),
-      REQUEST_RESTORE);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+        startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("application/zip"), REQUEST_RESTORE);
+      } else {
+        startActivityForResult(new Intent(mContext, FilePicker.class)
+            .putExtra("savemode", false)
+            .putExtra("title", getString(R.string.wp_restore))
+            .putExtra("filter", ".pcf"), REQUEST_RESTORE);
+      }
     }
     return true;
   }
 
   @Override
   public void onActivityResult(int requestCode, int resultCode, Intent data) {
-    if (resultCode != Activity.RESULT_OK) {
+    if (resultCode != Activity.RESULT_OK || data == null) {
       return;
     }
-    String fileName = data.getStringExtra("file");
     if (requestCode == REQUEST_BACKUP) {
       String[] msgArray = getResources().getStringArray(R.array.wc_export_msg);
       try {
-        saveFolders(new FileOutputStream(fileName));
-        String msg = String.format(msgArray[1], fileName);
+        Uri destination = data.getData();
+        String displayDestination;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && destination != null) {
+          OutputStream out = mContext.getContentResolver().openOutputStream(destination, "w");
+          if (out == null) {
+            throw new Exception("Unable to open folder backup destination");
+          }
+          saveFolders(out);
+          displayDestination = destination.toString();
+        } else {
+          String fileName = data.getStringExtra("file");
+          if (fileName == null) {
+            throw new Exception("Folder backup destination missing");
+          }
+          saveFolders(new FileOutputStream(fileName));
+          displayDestination = fileName;
+        }
+        String msg = String.format(msgArray[1], displayDestination);
         Toast.makeText(mContext, msg, Toast.LENGTH_LONG).show();
-        mMode.finish();
+        if (mMode != null) {
+          mMode.finish();
+        }
       } catch (Throwable e) {
         Debug.log(e);
         Toast.makeText(mContext, msgArray[2], Toast.LENGTH_LONG).show();
       }
     } else if (requestCode == REQUEST_RESTORE) {
-      // Restore backup
       try {
-        Toast.makeText(mContext, getString(R.string.folder_restore_msg, restoreBackup(fileName)), Toast.LENGTH_LONG).show();
+        Uri source = data.getData();
+        int restored;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && source != null) {
+          restored = restoreBackup(source);
+        } else {
+          String fileName = data.getStringExtra("file");
+          if (fileName == null) {
+            throw new Exception("Folder restore source missing");
+          }
+          restored = restoreBackup(fileName);
+        }
+        Toast.makeText(mContext, getString(R.string.folder_restore_msg, restored), Toast.LENGTH_LONG).show();
       } catch (Exception e) {
         Debug.log(e);
         Toast.makeText(mContext, R.string.folder_restore_error, Toast.LENGTH_LONG).show();
@@ -159,18 +195,62 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
     }
   }
 
-  private int restoreBackup(String fileName) throws Exception {
-    ZipFile zip = new ZipFile(fileName);
-    BufferedReader reader = new BufferedReader(new InputStreamReader(zip.getInputStream(zip.getEntry("folders.txt"))));
-    FolderZipReader folderReader = new FolderZipReader(mContext, zip);
-    String line;
-    int count = 0;
-    while ((line = reader.readLine()) != null) {
-      folderReader.readEntry(line, count);
-      count++;
+  private int restoreBackup(Uri source) throws Exception {
+    File temp = File.createTempFile("power_toggles_folder_restore_", ".pcf", mContext.getCacheDir());
+    InputStream in = null;
+    FileOutputStream out = null;
+    try {
+      in = mContext.getContentResolver().openInputStream(source);
+      if (in == null) {
+        throw new Exception("Unable to open folder restore source");
+      }
+      out = new FileOutputStream(temp);
+      BackupUtil.copy(in, out);
+      out.flush();
+      out.close();
+      out = null;
+      in.close();
+      in = null;
+      return restoreBackup(temp.getAbsolutePath());
+    } finally {
+      if (out != null) {
+        try { out.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      if (in != null) {
+        try { in.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      if (temp.exists() && !temp.delete()) {
+        Debug.log(new Exception("Unable to delete temporary folder restore file"));
+      }
     }
-    reader.close();
-    return folderReader.writeAll();
+  }
+
+  private int restoreBackup(String fileName) throws Exception {
+    ZipFile zip = null;
+    BufferedReader reader = null;
+    try {
+      zip = new ZipFile(fileName);
+      ZipEntry namesEntry = zip.getEntry("folders.txt");
+      if (namesEntry == null) {
+        throw new Exception("Folder backup is missing folders.txt");
+      }
+      reader = new BufferedReader(new InputStreamReader(zip.getInputStream(namesEntry), "UTF-8"));
+      FolderZipReader folderReader = new FolderZipReader(mContext, zip);
+      String line;
+      int count = 0;
+      while ((line = reader.readLine()) != null) {
+        folderReader.readEntry(line, count);
+        count++;
+      }
+      return folderReader.writeAll();
+    } finally {
+      if (reader != null) {
+        try { reader.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      if (zip != null) {
+        try { zip.close(); } catch (Exception e) { Debug.log(e); }
+      }
+    }
   }
 
   private void saveFolders(OutputStream os) throws Exception {
@@ -188,7 +268,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
       }
 
       outStream.putNextEntry(new ZipEntry("folders.txt"));
-      outStream.write(TextUtils.join("\n", dbNames).getBytes());
+      outStream.write(TextUtils.join("\n", dbNames).getBytes("UTF-8"));
       outStream.closeEntry();
     } finally {
       if (outStream != null) {
@@ -209,12 +289,29 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
     }
   }
 
+  private Intent buildShareIntent() {
+    Uri shareUri = Uri.parse(FileProvider.FOLDER_SHARE_URI);
+    Intent intent = new Intent(Intent.ACTION_SEND)
+        .setType("application/zip")
+        .putExtra(Intent.EXTRA_STREAM, shareUri)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+      intent.setClipData(ClipData.newRawUri("Power Toggles folder backup", shareUri));
+    }
+    return intent;
+  }
+
   @Override
   public boolean onShareTargetSelected(ShareActionProvider source, Intent intent) {
     setSelectedList();
+    if (mSelectedList.size() < 1) {
+      return false;
+    }
     try {
-      saveFolders(mContext.openFileOutput(SHARE_FILE_NAME, Context.MODE_WORLD_READABLE));
-      mMode.finish();
+      saveFolders(new FileOutputStream(FileProvider.folderShareFile(mContext)));
+      if (mMode != null) {
+        mMode.finish();
+      }
       return true;
     } catch (Exception e) {
       Debug.log(e);
@@ -228,9 +325,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
     mode.getMenuInflater().inflate(R.menu.folder_menu, menu);
     ShareActionProvider shareAction = (ShareActionProvider) menu.findItem(R.id.mnu_share).getActionProvider();
     shareAction.setOnShareTargetSelectedListener(this);
-    shareAction.setShareIntent(new Intent(Intent.ACTION_SEND)
-        .setType("application/zip")
-        .putExtra(Intent.EXTRA_STREAM, Uri.fromFile(mContext.getFileStreamPath(SHARE_FILE_NAME))));
+    shareAction.setShareIntent(buildShareIntent());
     mMode = mode;
     return true;
   }
@@ -249,17 +344,27 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
         .setPositiveButton(R.string.act_yes, this)
         .show();
     } else if (item.getItemId() == R.id.mnu_backup) {
-      startActivityForResult(new Intent(mContext, FilePicker.class)
-          .putExtra("savemode", true)
-          .putExtra("title", getString(R.string.wp_backup))
-          .putExtra("filter", ".pcf"),
-        REQUEST_BACKUP);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+        startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("application/zip")
+            .putExtra(Intent.EXTRA_TITLE, BACKUP_FILE_NAME), REQUEST_BACKUP);
+      } else {
+        startActivityForResult(new Intent(mContext, FilePicker.class)
+            .putExtra("savemode", true)
+            .putExtra("title", getString(R.string.wp_backup))
+            .putExtra("filter", ".pcf"), REQUEST_BACKUP);
+      }
     }
     return true;
   }
 
   @Override
-  public void onDestroyActionMode(ActionMode mode) { }
+  public void onDestroyActionMode(ActionMode mode) {
+    if (mMode == mode) {
+      mMode = null;
+    }
+  }
 
   @Override
   public void onItemCheckedStateChanged(ActionMode mode, int position, long id, boolean checked) { }
@@ -280,7 +385,9 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
       mContext.deleteDatabase(folderId);
     }
     editor.commit();
-    mMode.finish();
+    if (mMode != null) {
+      mMode.finish();
+    }
     refreshList();
   }
 }

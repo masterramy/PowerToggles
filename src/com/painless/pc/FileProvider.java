@@ -3,9 +3,15 @@ package com.painless.pc;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.ParcelFileDescriptor;
+import android.os.Process;
+import android.provider.OpenableColumns;
 
 import com.painless.pc.singleton.Debug;
 
@@ -17,8 +23,12 @@ import java.io.FileNotFoundException;
  */
 public class FileProvider extends ContentProvider {
 
+  public static final String FOLDER_SHARE_URI = "content://com.painless.pc.file/folder-share";
+
   private static final String TEMP_BACK_IMAGE_NAME = "cback";
   private static final String BACK_IMAGE_PREFIX = "back_";
+  private static final String FOLDER_SHARE_FILE_NAME = "folder.pcf";
+  private static final String FOLDER_SHARE_PATH = "/folder-share";
 
   @Override
   public boolean onCreate() {
@@ -28,12 +38,33 @@ public class FileProvider extends ContentProvider {
   @Override
   public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
     Debug.log(uri);
-    return null;
+    if (!FOLDER_SHARE_PATH.equals(uri.getPath())) {
+      return null;
+    }
+
+    String[] columns = projection;
+    if (columns == null) {
+      columns = new String[] { OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE };
+    }
+    MatrixCursor result = new MatrixCursor(columns, 1);
+    Object[] row = new Object[columns.length];
+    File file = folderShareFile(getContext());
+    for (int i = 0; i < columns.length; i++) {
+      if (OpenableColumns.DISPLAY_NAME.equals(columns[i])) {
+        row[i] = FOLDER_SHARE_FILE_NAME;
+      } else if (OpenableColumns.SIZE.equals(columns[i])) {
+        row[i] = file.length();
+      } else {
+        row[i] = null;
+      }
+    }
+    result.addRow(row);
+    return result;
   }
 
   @Override
   public String getType(Uri uri) {
-    return "image/png";
+    return FOLDER_SHARE_PATH.equals(uri.getPath()) ? "application/zip" : "image/png";
   }
 
   @Override
@@ -55,20 +86,41 @@ public class FileProvider extends ContentProvider {
   public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
     String path = uri.getPath();
     File result;
-    if (path.startsWith("/back")) {
+    if (FOLDER_SHARE_PATH.equals(path)) {
+      if (!"r".equals(mode)) {
+        throw new FileNotFoundException("Folder share is read-only");
+      }
+      enforceFolderShareGrant(uri);
+      result = folderShareFile(getContext());
+    } else if (path != null && path.startsWith("/back")) {
       try {
         result = widgetBackFile(getContext(), Integer.parseInt(uri.getQuery()));
       } catch (Exception e) {
         throw new FileNotFoundException();
       }
-    } else if (path.startsWith("/config")) {
+    } else if (path != null && path.startsWith("/config")) {
       result = tempBackImage(getContext());
-    } else if (path.startsWith("/crop")) {
+    } else if (path != null && path.startsWith("/crop")) {
       result = new File(getContext().getCacheDir(), "crop.png");
     } else {
       throw new FileNotFoundException();
     }
     return ParcelFileDescriptor.open(result, modeToMode(mode));
+  }
+
+  private void enforceFolderShareGrant(Uri uri) {
+    int callerUid = Binder.getCallingUid();
+    if (callerUid == Process.myUid()) {
+      return;
+    }
+    Context context = getContext();
+    if (context == null || context.checkUriPermission(
+        uri,
+        Binder.getCallingPid(),
+        callerUid,
+        Intent.FLAG_GRANT_READ_URI_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+      throw new SecurityException("Read grant required for folder share");
+    }
   }
 
   /**
@@ -109,5 +161,9 @@ public class FileProvider extends ContentProvider {
 
   public static File widgetBackFile(Context context, int widgetId) {
     return new File(context.getFilesDir(), backFileName(widgetId));
+  }
+
+  public static File folderShareFile(Context context) {
+    return new File(context.getFilesDir(), FOLDER_SHARE_FILE_NAME);
   }
 }
