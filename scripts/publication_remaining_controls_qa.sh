@@ -11,6 +11,7 @@ screen_lock_result="UNKNOWN"
 sync_now_result="UNKNOWN"
 notify_widget_result="UNKNOWN"
 two_row_result="UNKNOWN"
+home_shortcut_result="UNKNOWN"
 
 run_probe() {
   local name="$1"
@@ -214,6 +215,47 @@ if app_fatal "$OUT/logs/58-notification-command-restored.logcat.txt"; then
   fail=1
 fi
 
+# ID 43 Home Shortcut: resolve Android's actual HOME target, then invoke the
+# exact shipping HomeCommand through the debug probe. Shell is observation-only:
+# it must not press HOME or launch the resolved component as a substitute.
+home_component="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null | tr -d '\r' | tail -n 1)"
+printf '%s\n' "$home_component" > "$OUT/state/home-shortcut-resolved-component.txt"
+home_package="${home_component%%/*}"
+if [ -z "$home_component" ] || [ "$home_package" = "$home_component" ]; then
+  home_shortcut_result="FAIL_HOME_RESOLVE"
+  fail=1
+else
+  adb shell am force-stop "$PKG" || true
+  adb logcat -c || true
+  run_probe home_shortcut || true
+  sleep 2
+  capture_log 59-home-shortcut
+  dump_ui 59-home-shortcut || true
+  adb exec-out screencap -p > "$OUT/screens/59-home-shortcut.png"
+  adb exec-out run-as "$PKG" cat shared_prefs/publication_remaining_probe.xml > "$OUT/state/home-shortcut-probe.xml" 2>/dev/null || true
+  home_invoked=false
+  if grep -Eq '<long name="home_shortcut_invoked_at_ms" value="[0-9]+"' "$OUT/state/home-shortcut-probe.xml" 2>/dev/null; then
+    home_invoked=true
+  fi
+  home_foreground=false
+  if { grep -E "mResumedActivity|topResumedActivity|ResumedActivity" "$OUT/state/59-home-shortcut-activities.txt" 2>/dev/null || true; \
+       grep -E "mCurrentFocus|mFocusedApp" "$OUT/state/59-home-shortcut-windows.txt" 2>/dev/null || true; } | grep -F "$home_package" >/dev/null 2>&1; then
+    home_foreground=true
+  fi
+  if app_fatal "$OUT/logs/59-home-shortcut.logcat.txt"; then
+    home_shortcut_result="FAIL_FATAL"
+    fail=1
+  elif [ "$home_invoked" != "true" ]; then
+    home_shortcut_result="FAIL_PROBE_NOT_INVOKED"
+    fail=1
+  elif [ "$home_foreground" != "true" ]; then
+    home_shortcut_result="FAIL_HOME_NOT_FOREGROUND"
+    fail=1
+  else
+    home_shortcut_result="PASS_EXACT_HOME_COMMAND_TO_RESOLVED_HOME"
+  fi
+fi
+
 printf '%s\n' \
   "screen_lock=$screen_lock_result" \
   "sync_now=$sync_now_result" \
@@ -227,6 +269,11 @@ printf '%s\n' \
   "two_row_original=$original_two_row" \
   "two_row_after_first=$two_row_after_first" \
   "two_row_after_second=$two_row_after_second" \
+  "home_shortcut=$home_shortcut_result" \
+  "home_component=$home_component" \
+  "home_package=$home_package" \
+  "home_probe_invoked=${home_invoked:-false}" \
+  "home_foreground=${home_foreground:-false}" \
   > "$OUT/summary.txt"
 
 cat "$OUT/summary.txt"
