@@ -10,7 +10,7 @@ python3 - <<'PY'
 from pathlib import Path
 
 fatal_old = r'FATAL EXCEPTION|Process: com\\.painless\\.pc.*has died|ANR in com\\.painless\\.pc|am_crash.*com\\.painless\\.pc|am_anr.*com\\.painless\\.pc'
-fatal_new = r'Process: com\\.painless\\.pc(?:,|[[:space:]])|Process com\\.painless\\.pc.*has died|ANR in com\\.painless\\.pc|am_crash.*com\\.painless\\.pc|am_anr.*com\\.painless\\.pc'
+fatal_new = r'Process: com\\.painless\\.pc(,|[[:space:]])|Process com\\.painless\\.pc.*has died|ANR in com\\.painless\\.pc|am_crash.*com\\.painless\\.pc|am_anr.*com\\.painless\\.pc'
 
 for name in (
     'scripts/gate2a_runtime_qa.sh',
