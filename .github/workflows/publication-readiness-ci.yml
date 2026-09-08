@@ -131,6 +131,7 @@ jobs:
           # any suite fails; this only prevents one defect from hiding later evidence.
           set +e
           run_suite scripts/publication_runtime_qa.sh
+          run_suite scripts/publication_import_export_qa.sh
           run_suite scripts/publication_settings_route_qa.sh
           run_suite scripts/publication_write_settings_qa.sh
           run_suite scripts/publication_media_ui_qa.sh
