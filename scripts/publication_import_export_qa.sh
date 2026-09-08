@@ -85,11 +85,11 @@ launch_config
 tap_node "01-overflow-source" "More options"
 sleep 1
 capture "01-overflow"
-grep -Fq 'text="Backup"' "$OUT/ui/01-overflow.xml"
-grep -Fq 'text="Restore"' "$OUT/ui/01-overflow.xml"
+grep -Fq 'text="Create Backup"' "$OUT/ui/01-overflow.xml"
+grep -Fq 'text="Restore Backup"' "$OUT/ui/01-overflow.xml"
 
 adb logcat -c
-tap_node "02-backup-menu-source" "Backup"
+tap_node "02-backup-menu-source" "Create Backup"
 sleep 2
 capture "02-backup-destination"
 assert_document_picker "02-backup-destination"
@@ -104,7 +104,7 @@ tap_node "04-overflow-source" "More options"
 sleep 1
 capture "04-overflow"
 adb logcat -c
-tap_node "05-restore-menu-source" "Restore"
+tap_node "05-restore-menu-source" "Restore Backup"
 sleep 2
 capture "05-restore-source"
 assert_document_picker "05-restore-source"
