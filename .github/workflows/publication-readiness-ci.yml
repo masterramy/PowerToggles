@@ -135,6 +135,7 @@ jobs:
           set +e
           run_suite scripts/publication_runtime_qa.sh
           run_suite scripts/publication_import_export_qa.sh
+          run_suite scripts/publication_folder_backup_share_qa.sh
           run_suite scripts/publication_settings_route_qa.sh
           run_suite scripts/publication_write_settings_qa.sh
           run_suite scripts/publication_media_ui_qa.sh
