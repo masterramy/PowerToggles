@@ -125,6 +125,12 @@ public final class PublicationRemainingProbeActivity extends Activity {
       return;
     }
 
+    if ("home_shortcut".equals(probe)) {
+      qaPrefs.edit().putLong("home_shortcut_invoked_at_ms", System.currentTimeMillis()).commit();
+      new HomeCommand(43, appPrefs).toggleState(this);
+      return;
+    }
+
     if ("volume_toggle".equals(probe)) {
       final AudioManager audio = (AudioManager) getSystemService(AUDIO_SERVICE);
       final int before = audio == null ? -1 : audio.getRingerMode();
