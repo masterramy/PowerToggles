@@ -126,6 +126,9 @@ jobs:
             return 0
           }
 
+          # Normalize QA transport/attribution only; shipping source is untouched.
+          bash scripts/publication_qa_harness_prepare.sh
+
           # Publication closure must retain evidence from every independent tranche
           # even when an earlier tranche is red. The step still returns failure if
           # any suite fails; this only prevents one defect from hiding later evidence.
