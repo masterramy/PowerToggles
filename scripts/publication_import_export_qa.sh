@@ -48,7 +48,7 @@ tap_node() {
 import re, sys, xml.etree.ElementTree as ET
 path, needle = sys.argv[1:]
 for node in ET.parse(path).iter():
-    if needle not in (node.attrib.get('text',''), node.attrib.get('content-desc','')):
+    if needle not in (node.attrib.get('text',''), node.attrib.get('content-desc',''), node.attrib.get('resource-id','')):
         continue
     m = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds',''))
     if not m:
@@ -251,7 +251,7 @@ adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
   > "$OUT/state/roundtrip-configure-start.txt"
 sleep 2
 capture "10-roundtrip-genuine-create"
-tap_node "11-roundtrip-done-source" "Done"
+tap_node "11-roundtrip-done-source" "com.painless.pc:id/done"
 sleep 2
 fatal_scan "11-roundtrip-initial-save"
 pull_widget_prefs "$OUT/state/widget-prefs-baseline.xml"
@@ -365,7 +365,7 @@ grep -Fq 'package="com.painless.pc"' "$OUT/ui/20-roundtrip-after-import.xml"
 fatal_scan "20-roundtrip-after-import"
 
 # Persist the imported in-memory definition through the real Done control.
-tap_node "21-roundtrip-restored-done-source" "Done"
+tap_node "21-roundtrip-restored-done-source" "com.painless.pc:id/done"
 sleep 3
 fatal_scan "21-roundtrip-restored-save"
 pull_widget_prefs "$OUT/state/widget-prefs-restored.xml"
