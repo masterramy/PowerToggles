@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
@@ -15,6 +16,7 @@ import android.widget.Toast;
 
 import com.painless.pc.R;
 import com.painless.pc.picker.FilePicker;
+import com.painless.pc.singleton.BackupUtil;
 import com.painless.pc.singleton.Debug;
 
 /**
@@ -28,13 +30,12 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 	private static final long MAX_DOCUMENT_IMPORT_BYTES = 16L * 1024L * 1024L;
 
 	private final int menuId;
-
 	private final String fileExtension;
 	private final int exportMsgTitle;
 	private final int exportMsgArray;
-
 	private final int importMsgTitle;
 	private final int importMsgArray;
+	private final ArrayList<ProgressTask<Void, ?>> runningTasks = new ArrayList<ProgressTask<Void, ?>>();
 
 	public ImportExportActivity(int menuId, String fileExtension, int exportMsgTitle, int exportMsgArray,
 			int importMsgTitle, int importMsgArray) {
@@ -46,7 +47,6 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 		this.importMsgArray = importMsgArray;
 	}
 
-	// ************************ Options menu ************************
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(menuId, menu);
@@ -127,20 +127,23 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 		return ".zip".equalsIgnoreCase(fileExtension) ? "application/zip" : "application/octet-stream";
 	}
 
+	private <R> void executeTracked(ProgressTask<Void, R> task) {
+		runningTasks.add(task);
+		task.execute();
+	}
+
 	@Thunk void startExportingInternal(final Uri destination) {
 		final String[] exportArray = getResources().getStringArray(exportMsgArray);
-
-		new ProgressTask<Void, Uri>(this, exportArray[0]) {
+		ProgressTask<Void, Uri> task = new ProgressTask<Void, Uri>(this, exportArray[0]) {
 			@Override
 			protected Uri doInBackground(Void... params) {
 				OutputStream out = null;
 				try {
+					if (Thread.currentThread().isInterrupted()) return null;
 					out = getContentResolver().openOutputStream(destination, "w");
-					if (out == null) {
-						return null;
-					}
+					if (out == null) return null;
 					doExport(out);
-					return destination;
+					return Thread.currentThread().isInterrupted() ? null : destination;
 				} catch (Exception e) {
 					Debug.log(e);
 					return null;
@@ -156,23 +159,20 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				String msg = (result == null) ? exportArray[2] : String.format(exportArray[1], result.toString());
 				Toast.makeText(ImportExportActivity.this, msg, Toast.LENGTH_LONG).show();
 			}
-		}.execute();
+		};
+		executeTracked(task);
 	}
 
 	@Thunk void startExportingInternal(final String filePath) {
 		final String[] exportArray = getResources().getStringArray(exportMsgArray);
-
-		new ProgressTask<String, File>(this, exportArray[0]) {
-
+		ProgressTask<Void, File> task = new ProgressTask<Void, File>(this, exportArray[0]) {
 			@Override
-			protected File doInBackground(String... params) {
+			protected File doInBackground(Void... params) {
 				try {
-					if (filePath == null) {
-						return null;
-					}
+					if (filePath == null || Thread.currentThread().isInterrupted()) return null;
 					File exportFile = new File(filePath);
 					doExport(new FileOutputStream(exportFile));
-					return exportFile;
+					return Thread.currentThread().isInterrupted() ? null : exportFile;
 				} catch (Exception e) {
 					Debug.log(e);
 					return null;
@@ -181,10 +181,8 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 
 			@Override
 			public void onDone(File result) {
-				String msg = (result == null) ? exportArray[2] :
-					String.format(exportArray[1], result.getAbsolutePath());
+				String msg = (result == null) ? exportArray[2] : String.format(exportArray[1], result.getAbsolutePath());
 				Toast.makeText(ImportExportActivity.this, msg, Toast.LENGTH_LONG).show();
-
 				if (result != null) {
 					try {
 						Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
@@ -195,15 +193,15 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 					}
 				}
 			}
-		}.execute();
+		};
+		executeTracked(task);
 	}
 
 	public abstract void doExport(OutputStream out) throws Exception;
 
-	// ************************ Import ************************
 	@Thunk void startImportInternal(final Uri source) {
 		final String[] importArray = getResources().getStringArray(importMsgArray);
-		new ProgressTask<Void, T>(this, importArray[0]) {
+		ProgressTask<Void, T> task = new ProgressTask<Void, T>(this, importArray[0]) {
 			@Override
 			protected T doInBackground(Void... params) {
 				File temp = null;
@@ -212,36 +210,20 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				try {
 					temp = File.createTempFile("power_toggles_import_", fileExtension, getCacheDir());
 					in = getContentResolver().openInputStream(source);
-					if (in == null) {
-						return null;
-					}
+					if (in == null) return null;
 					out = new FileOutputStream(temp);
-					byte[] buffer = new byte[8192];
-					int read;
-					long total = 0;
-					while ((read = in.read(buffer)) != -1) {
-						total += read;
-						if (total > MAX_DOCUMENT_IMPORT_BYTES) {
-							throw new java.io.IOException("Import exceeds maximum supported size");
-						}
-						out.write(buffer, 0, read);
-					}
+					BackupUtil.copy(in, out, MAX_DOCUMENT_IMPORT_BYTES);
 					out.flush();
-					out.close();
-					out = null;
-					in.close();
-					in = null;
+					out.close(); out = null;
+					in.close(); in = null;
+					if (Thread.currentThread().isInterrupted()) return null;
 					return doImportInBackground(temp);
 				} catch (Exception e) {
 					Debug.log(e);
 					return null;
 				} finally {
-					if (out != null) {
-						try { out.close(); } catch (Exception e) { Debug.log(e); }
-					}
-					if (in != null) {
-						try { in.close(); } catch (Exception e) { Debug.log(e); }
-					}
+					if (out != null) try { out.close(); } catch (Exception e) { Debug.log(e); }
+					if (in != null) try { in.close(); } catch (Exception e) { Debug.log(e); }
 					if (temp != null && temp.exists() && !temp.delete()) {
 						Debug.log(new Exception("Unable to delete temporary import file"));
 					}
@@ -250,25 +232,20 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 
 			@Override
 			public void onDone(T result) {
-				if (result == null) {
-					Toast.makeText(ImportExportActivity.this, importArray[1], Toast.LENGTH_LONG).show();
-				} else {
-					onPostImport(result);
-				}
+				if (result == null) Toast.makeText(ImportExportActivity.this, importArray[1], Toast.LENGTH_LONG).show();
+				else onPostImport(result);
 			}
-		}.execute();
+		};
+		executeTracked(task);
 	}
 
 	@Thunk void startImportInternal(final String filePath) {
 		final String[] importArray = getResources().getStringArray(importMsgArray);
-		new ProgressTask<Void, T>(this, importArray[0]) {
-
+		ProgressTask<Void, T> task = new ProgressTask<Void, T>(this, importArray[0]) {
 			@Override
 			protected T doInBackground(Void... params) {
 				try {
-					if (filePath == null) {
-						return null;
-					}
+					if (filePath == null || Thread.currentThread().isInterrupted()) return null;
 					File importFile = new File(filePath);
 					if (!importFile.isFile() || importFile.length() > MAX_DOCUMENT_IMPORT_BYTES) {
 						throw new java.io.IOException("Import exceeds maximum supported size");
@@ -276,23 +253,30 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 					return doImportInBackground(importFile);
 				} catch (Exception e) {
 					Debug.log(e);
+					return null;
 				}
-				return null;
 			}
 
 			@Override
 			public void onDone(T result) {
-				if (result == null) {
-					Toast.makeText(ImportExportActivity.this, importArray[1], Toast.LENGTH_LONG).show();
-				} else {
-					onPostImport(result);
-				}
+				if (result == null) Toast.makeText(ImportExportActivity.this, importArray[1], Toast.LENGTH_LONG).show();
+				else onPostImport(result);
 			}
-		}.execute();
+		};
+		executeTracked(task);
 	}
 
 	public abstract T doImportInBackground(File importFile) throws Exception;
 	public abstract void onPostImport(T result);
+
+	@Override
+	protected void onDestroy() {
+		for (ProgressTask<Void, ?> task : runningTasks) {
+			task.cancel(true);
+		}
+		runningTasks.clear();
+		super.onDestroy();
+	}
 
 	@Override
 	public void onBackPressed() {
@@ -301,8 +285,6 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 	}
 
 	public void maybeShowAnimation() {
-		if (!isTaskRoot()) {
-			overridePendingTransition(R.anim.left_slide_in, R.anim.right_slide_out);
-		}
+		if (!isTaskRoot()) overridePendingTransition(R.anim.left_slide_in, R.anim.right_slide_out);
 	}
 }
