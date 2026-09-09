@@ -18,7 +18,6 @@ import android.app.ListActivity;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -67,6 +66,8 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   private boolean mLocalHeaderAdded = false;
   private int mLocalInsertPosition = 0;
   private int mLocalCount = 0;
+  private volatile boolean mDestroyed = false;
+  private AsyncTask<Void, Void, File> mImportTask;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -133,17 +134,24 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
     if (requestCode != REQUEST_IMPORT_THEME || resultCode != RESULT_OK
-        || data == null || data.getData() == null) {
+        || data == null || data.getData() == null || mDestroyed) {
       return;
     }
     importTheme(data.getData());
   }
 
   private void importTheme(final Uri uri) {
-    new AsyncTask<Void, Void, File>() {
+    if (mImportTask != null) {
+      mImportTask.cancel(true);
+    }
+
+    mImportTask = new AsyncTask<Void, Void, File>() {
 
       @Override
       protected File doInBackground(Void... params) {
+        if (isCancelled()) {
+          return null;
+        }
         try {
           return copyAndValidateTheme(uri);
         } catch (Exception e) {
@@ -154,7 +162,8 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
 
       @Override
       protected void onPostExecute(File imported) {
-        if (isFinishing()) {
+        mImportTask = null;
+        if (mDestroyed || isFinishing()) {
           return;
         }
         if (imported == null) {
@@ -165,13 +174,22 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
         mAdapter.notifyDataSetChanged();
         Toast.makeText(ThemePicker.this, R.string.tm_import_success, Toast.LENGTH_SHORT).show();
       }
-    }.execute();
+
+      @Override
+      protected void onCancelled(File imported) {
+        mImportTask = null;
+      }
+    };
+    mImportTask.execute();
   }
 
   private File copyAndValidateTheme(Uri uri) throws Exception {
     File dir = getImportedThemeDir();
     if (!dir.exists() && !dir.mkdirs()) {
       throw new IOException("Unable to create imported theme directory");
+    }
+    if (countThemeFiles(dir) >= MAX_LOCAL_THEMES) {
+      throw new IOException("Imported theme limit reached");
     }
 
     File temp = File.createTempFile("theme-import-", ".tmp", dir);
@@ -329,6 +347,23 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
     return new File(getFilesDir(), IMPORT_DIR);
   }
 
+  private int countThemeFiles(File themeDir) {
+    if (themeDir == null || !themeDir.isDirectory()) {
+      return 0;
+    }
+    File[] files = themeDir.listFiles();
+    if (files == null) {
+      return 0;
+    }
+    int count = 0;
+    for (File file : files) {
+      if (file.isFile() && file.getName().endsWith(THEME_EXTENSION)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
   private void addThemeFiles(File themeDir) {
     if (mLocalCount >= MAX_LOCAL_THEMES || !themeDir.exists() || !themeDir.isDirectory()) {
       return;
@@ -384,6 +419,11 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
 
   @Override
   protected void onDestroy() {
+    mDestroyed = true;
+    if (mImportTask != null) {
+      mImportTask.cancel(true);
+      mImportTask = null;
+    }
     if (mAdapter != null) {
       mAdapter.mLoader.destroy();
     }
