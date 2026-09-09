@@ -24,11 +24,14 @@ import java.io.FileNotFoundException;
 public class FileProvider extends ContentProvider {
 
   public static final String FOLDER_SHARE_URI = "content://com.painless.pc.file/folder-share";
+  public static final String CROP_URI = "content://com.painless.pc.file/crop";
 
   private static final String TEMP_BACK_IMAGE_NAME = "cback";
   private static final String BACK_IMAGE_PREFIX = "back_";
   private static final String FOLDER_SHARE_FILE_NAME = "folder.pcf";
   private static final String FOLDER_SHARE_PATH = "/folder-share";
+  private static final String CONFIG_PATH = "/config";
+  private static final String CROP_PATH = "/crop";
 
   @Override
   public boolean onCreate() {
@@ -90,25 +93,55 @@ public class FileProvider extends ContentProvider {
       if (!"r".equals(mode)) {
         throw new FileNotFoundException("Folder share is read-only");
       }
-      enforceFolderShareGrant(uri);
+      enforceReadGrant(uri, "folder share");
       result = folderShareFile(getContext());
     } else if (path != null && path.startsWith("/back")) {
+      // Launcher/AppWidget hosts consume this route through RemoteViews. Preserve the
+      // historical read contract until exact host grant behavior can be runtime-certified.
+      if (!"r".equals(mode)) {
+        throw new FileNotFoundException("Widget background is read-only");
+      }
       try {
         result = widgetBackFile(getContext(), Integer.parseInt(uri.getQuery()));
       } catch (Exception e) {
         throw new FileNotFoundException();
       }
-    } else if (path != null && path.startsWith("/config")) {
+    } else if (CONFIG_PATH.equals(path)) {
+      if (!"r".equals(mode)) {
+        throw new FileNotFoundException("Configuration preview is read-only");
+      }
+      enforceSameUid("configuration preview");
       result = tempBackImage(getContext());
-    } else if (path != null && path.startsWith("/crop")) {
-      result = new File(getContext().getCacheDir(), "crop.png");
+    } else if (CROP_PATH.equals(path)) {
+      int callerUid = Binder.getCallingUid();
+      if (callerUid == Process.myUid()) {
+        if (!"r".equals(mode)) {
+          throw new FileNotFoundException("App crop result is read-only");
+        }
+      } else {
+        // The selected crop activity receives an exact temporary READ grant to this
+        // app-owned output URI via ClipData. Treat that grant as the capability token
+        // for a write-only crop result, avoiding a broad WRITE grant that would also
+        // propagate to the user's source image in Intent data.
+        if (!("w".equals(mode) || "wt".equals(mode))) {
+          throw new FileNotFoundException("External crop output is write-only");
+        }
+        enforceReadGrant(uri, "crop output");
+      }
+      result = cropFile(getContext());
     } else {
       throw new FileNotFoundException();
     }
     return ParcelFileDescriptor.open(result, modeToMode(mode));
   }
 
-  private void enforceFolderShareGrant(Uri uri) {
+  private void enforceSameUid(String route) {
+    if (Binder.getCallingUid() != Process.myUid()) {
+      throw new SecurityException("Same-UID access required for " + route);
+    }
+  }
+
+  private void enforceReadGrant(Uri uri, String route) {
     int callerUid = Binder.getCallingUid();
     if (callerUid == Process.myUid()) {
       return;
@@ -119,7 +152,7 @@ public class FileProvider extends ContentProvider {
         Binder.getCallingPid(),
         callerUid,
         Intent.FLAG_GRANT_READ_URI_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
-      throw new SecurityException("Read grant required for folder share");
+      throw new SecurityException("Read grant required for " + route);
     }
   }
 
@@ -157,6 +190,10 @@ public class FileProvider extends ContentProvider {
 
   public static File tempBackImage(Context context) {
     return new File(context.getCacheDir(), TEMP_BACK_IMAGE_NAME);
+  }
+
+  public static File cropFile(Context context) {
+    return new File(context.getCacheDir(), "crop.png");
   }
 
   public static File widgetBackFile(Context context, int widgetId) {
