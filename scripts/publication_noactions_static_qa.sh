@@ -20,6 +20,7 @@ GLOBALS="$ROOT/src/com/painless/pc/singleton/Globals.java"
 TASKER_SETUP="$ROOT/src/com/painless/pc/settings/TaskerToggleSetup.java"
 TASKER_REFRESH="$ROOT/src/com/painless/pc/settings/TaskerRefresh.java"
 THEME="$ROOT/src/com/painless/pc/picker/ThemePicker.java"
+THEME_ENTRY="$ROOT/src/com/painless/pc/picker/theme/ThemeEntry.java"
 THEME_ADAPTER="$ROOT/src/com/painless/pc/picker/theme/ThemeAdapter.java"
 THEME_LOADER="$ROOT/src/com/painless/pc/picker/theme/ThemeLoader.java"
 
@@ -131,19 +132,25 @@ grep -q 'SDK_INT >= Build.VERSION_CODES.KITKAT' "$FILE_PICKER" || fail "Legacy f
 ! grep -q 'Manifest.permission.WRITE_EXTERNAL_STORAGE' "$FILE_PICKER" || fail "Legacy file picker still contains modern storage permission flow"
 grep -A2 'android:name="android.permission.WRITE_EXTERNAL_STORAGE"' "$MANIFEST" | grep -q 'android:maxSdkVersion="18"' || fail "WRITE_EXTERNAL_STORAGE is not capped to pre-SAF Android"
 
-# Modern ThemePicker must provide scoped local import and explicit degraded
-# states instead of target-36 shared-root discovery/permanent spinners.
+# Theme browsing is now local/system plus explicit SAF import. The retired
+# remote Google Drive gallery must not reappear or make screen launch network-bound.
 grep -q 'Intent.ACTION_OPEN_DOCUMENT' "$THEME" || fail "Theme SAF import missing"
 grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT' "$THEME" || fail "Legacy shared-root discovery is not pre-SAF bounded"
 grep -q 'imported-themes' "$THEME" || fail "Imported themes are not persisted app-private"
 grep -q 'validateThemeFile' "$THEME" || fail "Theme archive validation missing"
 grep -q 'MAX_THEME_BYTES' "$THEME" || fail "Theme archive size bound missing"
-grep -q 'tm_remote_unavailable' "$THEME" || fail "Remote degraded-state UI missing"
-grep -q 'setConnectTimeout' "$THEME" || fail "Remote catalog connect timeout missing"
-grep -q 'setReadTimeout' "$THEME" || fail "Remote catalog read timeout missing"
-grep -q 'TYPE_FAILED' "$THEME_ADAPTER" || fail "Failed preview terminal row missing"
+grep -q 'MAX_LOCAL_THEMES' "$THEME" || fail "Theme inventory count bound missing"
+! grep -q 'googledrive.com' "$THEME" || fail "Dead remote theme endpoint restored"
+! grep -q 'BASE_URL' "$THEME" || fail "Remote theme catalog constant restored"
+! grep -q 'URLConnection' "$THEME" || fail "Theme screen performs network catalog I/O"
+! grep -q 'HttpResponseCache' "$THEME" || fail "Obsolete theme network cache restored"
+! grep -q 'remoteUrl' "$THEME_ENTRY" || fail "Remote theme entry capability restored"
+! grep -q 'RemoteThemeLoader' "$THEME_LOADER" || fail "Remote theme loader restored"
+! grep -q 'URLConnection' "$THEME_LOADER" || fail "Theme loader performs network I/O"
+grep -q 'MAX_THEME_IMAGE_BYTES' "$THEME_LOADER" || fail "Local theme image archive bound missing"
+grep -q 'BitmapImportUtils.decode' "$THEME_LOADER" || fail "Local theme image decode is not bounds-first"
+grep -q 'TYPE_FAILED' "$THEME_ADAPTER" || fail "Corrupt local theme terminal row missing"
 grep -q 'shutdownNow' "$THEME_LOADER" || fail "Theme loader teardown is not interruptible"
-grep -q 'MAX_REMOTE_IMAGE_BYTES' "$THEME_LOADER" || fail "Remote image bound missing"
 grep -q 'mDestroyed' "$THEME_LOADER" || fail "Post-destroy delivery guard missing"
 
 echo "PASS: no-Actions publication static hardening contract"
