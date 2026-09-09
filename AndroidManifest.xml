@@ -63,9 +63,6 @@
         <receiver android:name=".PCWidgetActivity" android:exported="true" android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.buzzpia.aqua.appwidget.GET_VERSION" />
-                <action android:name="com.buzzpia.aqua.appwidget.GET_CONFIG_DATA" />
-                <action android:name="com.buzzpia.aqua.appwidget.SET_CONFIG_DATA" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widgetprovider" />
         </receiver>
