@@ -287,7 +287,7 @@ grep -Fq "text=\"$QA_NAME\"" "$OUT/ui/00-folder-list.xml"
 long_press_node "01-folder-longpress-source" "$QA_NAME"
 sleep 1
 capture "01-folder-action-mode"
-grep -Eq 'text="Share"|content-desc="Share"' "$OUT/ui/01-folder-action-mode.xml"
+grep -Eq 'text="Share"|content-desc="Share( with)?"' "$OUT/ui/01-folder-action-mode.xml"
 
 adb shell run-as "$CONSUMER_PKG" rm -f files/result.txt >/dev/null 2>&1 || true
 adb logcat -c
