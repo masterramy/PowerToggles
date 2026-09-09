@@ -257,16 +257,37 @@ public class Globals {
 	}
 
 	public static final String TASKER_KEY_PREFIX = "tasker_";
+  private static final int MAX_TASKER_TASKS = 256;
+  private static final int MAX_TASKER_TASK_NAME_CHARS = 256;
+
 	public static ArrayList<String> getTaskerTasks(Context context) {
 		ArrayList<String> tasks = new ArrayList<String>();
-		Cursor c = context.getContentResolver().query(Uri.parse( "content://net.dinglisch.android.tasker/tasks" ), null, null, null, null );
-		if (c != null) {
-			int nameCol = c.getColumnIndex("name");
-			while (c.moveToNext()) {
-				tasks.add(c.getString( nameCol ));
-			}
-			c.close();
-		}
+    Cursor c = null;
+    try {
+      c = context.getContentResolver().query(
+          Uri.parse("content://net.dinglisch.android.tasker/tasks"), null, null, null, null);
+      if (c == null) {
+        return tasks;
+      }
+      int nameCol = c.getColumnIndex("name");
+      if (nameCol < 0) {
+        return tasks;
+      }
+      while (tasks.size() < MAX_TASKER_TASKS && c.moveToNext()) {
+        String name = c.getString(nameCol);
+        if (name == null || name.length() == 0) {
+          continue;
+        }
+        tasks.add(name.length() <= MAX_TASKER_TASK_NAME_CHARS
+            ? name : name.substring(0, MAX_TASKER_TASK_NAME_CHARS));
+      }
+    } catch (Throwable e) {
+      Debug.log(e);
+    } finally {
+      if (c != null) {
+        try { c.close(); } catch (Throwable e) { Debug.log(e); }
+      }
+    }
 		return tasks;
 	}
 
