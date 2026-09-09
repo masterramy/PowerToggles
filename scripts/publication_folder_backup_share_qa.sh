@@ -274,7 +274,11 @@ adb shell am start -W -a android.intent.action.SEND -t application/zip \
   --eu android.intent.extra.STREAM "$SHARE_URI" > "$OUT/state/share-negative-start.txt" 2>&1 || true
 sleep 1
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-negative-result.txt"
-grep -Eq '^FAIL .*SecurityException' "$OUT/state/share-negative-result.txt"
+# Android 16 may hide an ungranted provider from the external caller entirely,
+# producing FileNotFoundException:No content provider instead of SecurityException.
+# Either result proves denial here; the positive share below must then prove that
+# the explicit customer-path URI grant makes the same exact URI readable cross-UID.
+grep -Eq '^FAIL (java\.lang\.SecurityException|java\.io\.FileNotFoundException:No content provider: content://com\.painless\.pc\.file/folder-share)' "$OUT/state/share-negative-result.txt"
 
 # Exact rendered Folder list and action mode, then real cross-UID Share selection.
 launch_folder
