@@ -41,8 +41,10 @@
         android:name="android.permission.CAMERA"
         android:maxSdkVersion="22" />
 
-    <!-- Platform dependent -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Legacy direct shared-storage fallback is pre-SAF only. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="18" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
@@ -103,11 +105,12 @@
         <activity android:name=".picker.IconPackPicker" android:configChanges="orientation|screenSize" android:exported="false" android:label="@string/ip_app_icons" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/icon_search" />
         </activity>
-        <activity android:name=".picker.FilePicker" android:theme="@style/activityTheme" />
+        <activity android:name=".picker.FilePicker" android:exported="false" android:theme="@style/activityTheme" />
         <activity android:name=".picker.ThemePicker" android:label="@string/tm_title" android:theme="@style/configTheme" />
         <activity android:name=".cfg.WidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="true" android:launchMode="singleTop" android:theme="@style/configTheme" >
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
+        <activity android:name=".cfg.EditWidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:launchMode="singleTop" android:theme="@style/configTheme" />
         <activity android:name=".cfg.IconThemeEditor" android:theme="@style/activityTheme" />
         <activity android:name=".cfg.BatteryIconEditor" android:theme="@style/activityTheme" />
         <activity android:name=".cfg.NinePatchEditor" android:label="@string/npe_title" android:theme="@style/activityTheme" />
