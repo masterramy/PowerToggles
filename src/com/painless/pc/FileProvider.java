@@ -48,9 +48,11 @@ public class FileProvider extends ContentProvider {
     File file;
     String displayName;
     if (FOLDER_SHARE_PATH.equals(path)) {
+      enforceReadGrant(uri, "folder share metadata");
       file = folderShareFile(getContext());
       displayName = FOLDER_SHARE_FILE_NAME;
     } else if (WIDGET_SHARE_PATH.equals(path)) {
+      enforceReadGrant(uri, "widget share metadata");
       file = widgetShareFile(getContext());
       displayName = WIDGET_SHARE_FILE_NAME;
     } else {
@@ -94,7 +96,7 @@ public class FileProvider extends ContentProvider {
   }
 
   @Override
-  public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+  public int update(Uri uri, ContentValues values, String[] selectionArgs) {
     return 0;
   }
 
