@@ -1,11 +1,13 @@
 package com.painless.pc.nav;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -51,6 +53,10 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
   private static final int REQUEST_BACKUP = 10;
   private static final int REQUEST_RESTORE = 11;
   private static final String BACKUP_FILE_NAME = "power-toggles-folders.pcf";
+  private static final long MAX_FOLDER_ARCHIVE_BYTES = 32L * 1024L * 1024L;
+  private static final long MAX_FOLDER_NAMES_BYTES = 256L * 1024L;
+  private static final int MAX_FOLDER_COUNT = 256;
+  private static final int MAX_FOLDER_NAME_CHARS = 512;
 
   private Context mContext;
   private ArrayList<String> mFolderList;
@@ -205,7 +211,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
         throw new Exception("Unable to open folder restore source");
       }
       out = new FileOutputStream(temp);
-      BackupUtil.copy(in, out);
+      BackupUtil.copy(in, out, MAX_FOLDER_ARCHIVE_BYTES);
       out.flush();
       out.close();
       out = null;
@@ -226,19 +232,38 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
   }
 
   private int restoreBackup(String fileName) throws Exception {
+    File archive = new File(fileName);
+    if (!archive.isFile() || archive.length() > MAX_FOLDER_ARCHIVE_BYTES) {
+      throw new Exception("Folder backup is invalid or too large");
+    }
+
     ZipFile zip = null;
     BufferedReader reader = null;
+    InputStream namesIn = null;
+    ByteArrayOutputStream namesOut = null;
     try {
-      zip = new ZipFile(fileName);
+      zip = new ZipFile(archive);
       ZipEntry namesEntry = zip.getEntry("folders.txt");
       if (namesEntry == null) {
         throw new Exception("Folder backup is missing folders.txt");
       }
-      reader = new BufferedReader(new InputStreamReader(zip.getInputStream(namesEntry), "UTF-8"));
+      if (namesEntry.getSize() > MAX_FOLDER_NAMES_BYTES) {
+        throw new Exception("Folder backup names list is too large");
+      }
+      namesIn = zip.getInputStream(namesEntry);
+      namesOut = new ByteArrayOutputStream();
+      BackupUtil.copy(namesIn, namesOut, MAX_FOLDER_NAMES_BYTES);
+      namesIn.close();
+      namesIn = null;
+      reader = new BufferedReader(new StringReader(new String(namesOut.toByteArray(), "UTF-8")));
+
       FolderZipReader folderReader = new FolderZipReader(mContext, zip);
       String line;
       int count = 0;
       while ((line = reader.readLine()) != null) {
+        if (count >= MAX_FOLDER_COUNT || line.length() > MAX_FOLDER_NAME_CHARS) {
+          throw new Exception("Folder backup metadata exceeds supported limits");
+        }
         folderReader.readEntry(line, count);
         count++;
       }
@@ -246,6 +271,12 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
     } finally {
       if (reader != null) {
         try { reader.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      if (namesIn != null) {
+        try { namesIn.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      if (namesOut != null) {
+        try { namesOut.close(); } catch (Exception e) { Debug.log(e); }
       }
       if (zip != null) {
         try { zip.close(); } catch (Exception e) { Debug.log(e); }
