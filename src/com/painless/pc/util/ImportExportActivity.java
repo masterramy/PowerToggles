@@ -20,10 +20,12 @@ import com.painless.pc.singleton.Debug;
 /**
  * An abstract activity with utilities functions to start new activities and direct the result accordingly.
  * This activity also abstract outs some out the import/export functionality.
- * 
+ *
  * @param <T> Import settings type
  */
 public abstract class ImportExportActivity<T> extends CallerActivity {
+
+	private static final long MAX_DOCUMENT_IMPORT_BYTES = 16L * 1024L * 1024L;
 
 	private final int menuId;
 
@@ -209,7 +211,12 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 					out = new FileOutputStream(temp);
 					byte[] buffer = new byte[8192];
 					int read;
+					long total = 0;
 					while ((read = in.read(buffer)) != -1) {
+						total += read;
+						if (total > MAX_DOCUMENT_IMPORT_BYTES) {
+							throw new java.io.IOException("Import exceeds maximum supported size");
+						}
 						out.write(buffer, 0, read);
 					}
 					out.flush();
