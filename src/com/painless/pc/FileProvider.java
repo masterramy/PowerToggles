@@ -24,12 +24,15 @@ import java.io.FileNotFoundException;
 public class FileProvider extends ContentProvider {
 
   public static final String FOLDER_SHARE_URI = "content://com.painless.pc.file/folder-share";
+  public static final String WIDGET_SHARE_URI = "content://com.painless.pc.file/widget-share";
   public static final String CROP_URI = "content://com.painless.pc.file/crop";
 
   private static final String TEMP_BACK_IMAGE_NAME = "cback";
   private static final String BACK_IMAGE_PREFIX = "back_";
   private static final String FOLDER_SHARE_FILE_NAME = "folder.pcf";
+  private static final String WIDGET_SHARE_FILE_NAME = "widget.zip";
   private static final String FOLDER_SHARE_PATH = "/folder-share";
+  private static final String WIDGET_SHARE_PATH = "/widget-share";
   private static final String CONFIG_PATH = "/config";
   private static final String CROP_PATH = "/crop";
 
@@ -41,7 +44,16 @@ public class FileProvider extends ContentProvider {
   @Override
   public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
     Debug.log(uri);
-    if (!FOLDER_SHARE_PATH.equals(uri.getPath())) {
+    String path = uri.getPath();
+    File file;
+    String displayName;
+    if (FOLDER_SHARE_PATH.equals(path)) {
+      file = folderShareFile(getContext());
+      displayName = FOLDER_SHARE_FILE_NAME;
+    } else if (WIDGET_SHARE_PATH.equals(path)) {
+      file = widgetShareFile(getContext());
+      displayName = WIDGET_SHARE_FILE_NAME;
+    } else {
       return null;
     }
 
@@ -51,10 +63,9 @@ public class FileProvider extends ContentProvider {
     }
     MatrixCursor result = new MatrixCursor(columns, 1);
     Object[] row = new Object[columns.length];
-    File file = folderShareFile(getContext());
     for (int i = 0; i < columns.length; i++) {
       if (OpenableColumns.DISPLAY_NAME.equals(columns[i])) {
-        row[i] = FOLDER_SHARE_FILE_NAME;
+        row[i] = displayName;
       } else if (OpenableColumns.SIZE.equals(columns[i])) {
         row[i] = file.length();
       } else {
@@ -67,7 +78,9 @@ public class FileProvider extends ContentProvider {
 
   @Override
   public String getType(Uri uri) {
-    return FOLDER_SHARE_PATH.equals(uri.getPath()) ? "application/zip" : "image/png";
+    String path = uri.getPath();
+    return (FOLDER_SHARE_PATH.equals(path) || WIDGET_SHARE_PATH.equals(path))
+        ? "application/zip" : "image/png";
   }
 
   @Override
@@ -95,6 +108,12 @@ public class FileProvider extends ContentProvider {
       }
       enforceReadGrant(uri, "folder share");
       result = folderShareFile(getContext());
+    } else if (WIDGET_SHARE_PATH.equals(path)) {
+      if (!"r".equals(mode)) {
+        throw new FileNotFoundException("Widget share is read-only");
+      }
+      enforceReadGrant(uri, "widget share");
+      result = widgetShareFile(getContext());
     } else if (path != null && path.startsWith("/back")) {
       // Launcher/AppWidget hosts consume this route through RemoteViews. Preserve the
       // historical read contract until exact host grant behavior can be runtime-certified.
@@ -202,5 +221,9 @@ public class FileProvider extends ContentProvider {
 
   public static File folderShareFile(Context context) {
     return new File(context.getFilesDir(), FOLDER_SHARE_FILE_NAME);
+  }
+
+  public static File widgetShareFile(Context context) {
+    return new File(context.getFilesDir(), WIDGET_SHARE_FILE_NAME);
   }
 }
