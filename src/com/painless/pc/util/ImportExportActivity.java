@@ -86,7 +86,9 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				requestResult(10, intent, new CallerActivity.ResultReceiver() {
 					@Override
 					public void onResult(int requestCode, Intent data) {
-						startExportingInternal(data.getStringExtra("file"));
+						if (data != null) {
+							startExportingInternal(data.getStringExtra("file"));
+						}
 					}
 				});
 			}
@@ -111,7 +113,9 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				requestResult(10, intent, new CallerActivity.ResultReceiver() {
 					@Override
 					public void onResult(int requestCode, Intent data) {
-						startImportInternal(data.getStringExtra("file"));
+						if (data != null) {
+							startImportInternal(data.getStringExtra("file"));
+						}
 					}
 				});
 			}
@@ -163,6 +167,9 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 			@Override
 			protected File doInBackground(String... params) {
 				try {
+					if (filePath == null) {
+						return null;
+					}
 					File exportFile = new File(filePath);
 					doExport(new FileOutputStream(exportFile));
 					return exportFile;
@@ -259,7 +266,14 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 			@Override
 			protected T doInBackground(Void... params) {
 				try {
-					return doImportInBackground(new File(filePath));
+					if (filePath == null) {
+						return null;
+					}
+					File importFile = new File(filePath);
+					if (!importFile.isFile() || importFile.length() > MAX_DOCUMENT_IMPORT_BYTES) {
+						throw new java.io.IOException("Import exceeds maximum supported size");
+					}
+					return doImportInBackground(importFile);
 				} catch (Exception e) {
 					Debug.log(e);
 				}
