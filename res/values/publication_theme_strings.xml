@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tm_import">Import theme</string>
+    <string name="tm_import_success">Theme imported</string>
+    <string name="tm_import_failed">Unable to import this theme</string>
+    <string name="tm_remote_unavailable">Online themes are currently unavailable</string>
+    <string name="tm_theme_failed">Theme preview unavailable</string>
+</resources>
