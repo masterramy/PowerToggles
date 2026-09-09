@@ -18,6 +18,7 @@ import com.painless.pc.picker.IconPicker;
 import com.painless.pc.singleton.BitmapUtils;
 import com.painless.pc.singleton.Globals;
 import com.painless.pc.theme.BatteryImageProvider;
+import com.painless.pc.util.BitmapImportUtils;
 import com.painless.pc.util.ImportExportActivity;
 import com.painless.pc.view.RectView;
 import com.painless.pc.view.RectView.RectListener;
@@ -89,9 +90,12 @@ public class BatteryIconEditor extends ImportExportActivity<Bitmap>
 
 	@Override
 	public Bitmap doImportInBackground(File importFile) throws Exception {
-		Bitmap image = BitmapFactory.decodeFile(importFile.getAbsolutePath());
+		Bitmap image = BitmapImportUtils.decode(importFile);
+		if (image == null) {
+			return null;
+		}
 		image = BitmapUtils.resizeToIconSize(image, this, false);
-		return (image.getWidth() > 0 && image.getHeight() > 0) ? image : null;
+		return (image != null && image.getWidth() > 0 && image.getHeight() > 0) ? image : null;
 	}
 
 	@Override
