@@ -25,6 +25,14 @@ public final class BluetoothTracker extends AbstractDoubleClickTracker  {
 
 	@Override
 	public int getActualState(Context context) {
+		// Android 12+ protects adapter state with BLUETOOTH_CONNECT. Power Toggles
+		// deliberately avoids adding a Nearby Devices runtime-permission burden for
+		// a control that modern Android no longer allows third-party apps to switch
+		// directly anyway. Report UNKNOWN rather than prompting or faking state.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+			return STATE_UNKNOWN;
+		}
+
 		final BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 		if (adapter == null) {
 			return STATE_UNKNOWN;
@@ -43,20 +51,18 @@ public final class BluetoothTracker extends AbstractDoubleClickTracker  {
 					return STATE_UNKNOWN;
 			}
 		} catch (SecurityException e) {
-			// Android 12+ protects adapter state with Nearby Devices permission.
-			// A power-control widget must not fake a known state when access is denied.
 			return STATE_UNKNOWN;
 		}
 	}
 
 	@Override
 	protected void requestStateChange(Context context, boolean desiredState) {
-		// Apps targeting Android 13+ can no longer directly enable/disable Bluetooth.
-		// Preserve truthful behavior with user-mediated system UI instead.
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-			Globals.startIntent(context, desiredState
-					? new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-					: new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+		// Android 12+ requires BLUETOOTH_CONNECT even for the legacy request-enable
+		// activity, and Android 13+ also blocks direct enable/disable for ordinary
+		// apps. Use the system Bluetooth settings UI for a truthful, permission-free
+		// user-mediated control on modern Android.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+			Globals.startIntent(context, new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
 			return;
 		}
 
