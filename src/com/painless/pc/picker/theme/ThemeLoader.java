@@ -9,7 +9,10 @@ import static com.painless.pc.util.SettingsDecoder.KEY_PADDING;
 import static com.painless.pc.util.SettingsDecoder.KEY_STRETCH;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URLConnection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -38,16 +41,22 @@ import com.painless.pc.util.WidgetSetting;
 public class ThemeLoader implements Callback {
 
   private static final int CONFIG_LOADED = 1;
+  private static final int NETWORK_TIMEOUT_MS = 5000;
+  private static final int MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024;
+  private static final int MAX_REMOTE_IMAGE_DIMENSION = 2048;
+  private static final long MAX_REMOTE_IMAGE_PIXELS = 4L * 1024L * 1024L;
+  private static final int MAX_RENDER_DIMENSION = 4096;
 
   private final Set<ThemeEntry> mPendingTasks;
   private final BitmapCache mCache;
   private final ThemeAdapter mNotifier;
-  
+
   private final ExecutorService mLocalService;
   private final ExecutorService mRemoteService;
   @Thunk final Handler mResponseHandler;
 
   private final int mDensity;
+  private volatile boolean mDestroyed = false;
 
   public ThemeLoader(ThemeAdapter loadCallback) {
     mNotifier = loadCallback;
@@ -61,8 +70,8 @@ public class ThemeLoader implements Callback {
   }
 
   public synchronized void submic(ThemeEntry request) {
-    if (mPendingTasks.contains(request) || request.failed) {
-      // Request already pending.
+    if (mDestroyed || mPendingTasks.contains(request) || request.failed) {
+      // Request already pending or loader is gone.
       return;
     }
 
@@ -76,7 +85,9 @@ public class ThemeLoader implements Callback {
   }
 
   public void destroy() {
-    mRemoteService.shutdown();
+    mDestroyed = true;
+    mResponseHandler.removeCallbacksAndMessages(null);
+    mRemoteService.shutdownNow();
     mLocalService.shutdownNow();
     mCache.evictAll();
   }
@@ -87,6 +98,12 @@ public class ThemeLoader implements Callback {
     if (msg.what == CONFIG_LOADED) {
       Pair<ThemeEntry, Bitmap> result = (Pair<ThemeEntry, Bitmap>) msg.obj;
       ThemeEntry request = result.first;
+      if (mDestroyed) {
+        if (result.second != null) {
+          result.second.recycle();
+        }
+        return true;
+      }
       request.background = result.second;
       if (result.second != null) {
         mCache.put(result.second, request);
@@ -103,6 +120,16 @@ public class ThemeLoader implements Callback {
    */
   public void register(Bitmap img) {
     mCache.get(img);
+  }
+
+  private void deliver(ThemeEntry request, Bitmap image) {
+    if (mDestroyed) {
+      if (image != null) {
+        image.recycle();
+      }
+      return;
+    }
+    Message.obtain(mResponseHandler, CONFIG_LOADED, Pair.create(request, image)).sendToTarget();
   }
 
   /**
@@ -122,15 +149,18 @@ public class ThemeLoader implements Callback {
       ZipFile zip = null;
       try {
         zip = new ZipFile(mRequest.themeFile);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(zip.getInputStream(zip.getEntry("theme.txt"))));
+        ZipEntry configEntry = zip.getEntry("theme.txt");
+        ZipEntry backImage = zip.getEntry("back.png");
+        if (configEntry == null || backImage == null) {
+          throw new IllegalArgumentException("Theme archive is incomplete");
+        }
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(zip.getInputStream(configEntry)));
         String config = reader.readLine();
         reader.close();
- 
+
         mRequest.config = new JSONObject(config);
-        ZipEntry backImage = zip.getEntry("back.png");
-        if (backImage != null) {
-          image = parseConfig(mRequest, BitmapFactory.decodeStream(zip.getInputStream(backImage)));
-        }
+        image = parseConfig(mRequest, BitmapFactory.decodeStream(zip.getInputStream(backImage)));
       } catch (Exception e) {
         Debug.log(e);
         mRequest.failed = true;
@@ -138,11 +168,13 @@ public class ThemeLoader implements Callback {
         if (zip != null) {
           try {
             zip.close();
-          } catch (Exception e) { }
+          } catch (Exception e) {
+            Debug.log(e);
+          }
         }
       }
 
-      Message.obtain(mResponseHandler, CONFIG_LOADED, Pair.create(mRequest, image)).sendToTarget();
+      deliver(mRequest, image);
     }
   }
 
@@ -161,31 +193,86 @@ public class ThemeLoader implements Callback {
     public void run() {
       Bitmap image = null;
       try {
-        image = parseConfig(mRequest, BitmapFactory.decodeStream(mRequest.remoteUrl.openStream()));
+        image = parseConfig(mRequest, loadRemoteBitmap(mRequest));
       } catch (Exception e) {
         Debug.log(e);
         mRequest.failed = true;
       }
-      Message.obtain(mResponseHandler, CONFIG_LOADED, Pair.create(mRequest, image)).sendToTarget();
+      deliver(mRequest, image);
     }
   }
 
+  private Bitmap loadRemoteBitmap(ThemeEntry request) throws Exception {
+    URLConnection connection = request.remoteUrl.openConnection();
+    connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
+    connection.setReadTimeout(NETWORK_TIMEOUT_MS);
+
+    InputStream in = null;
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      in = connection.getInputStream();
+      byte[] buffer = new byte[8192];
+      int total = 0;
+      int read;
+      while ((read = in.read(buffer)) != -1) {
+        total += read;
+        if (total > MAX_REMOTE_IMAGE_BYTES) {
+          throw new IllegalArgumentException("Remote theme image is too large");
+        }
+        out.write(buffer, 0, read);
+      }
+    } finally {
+      if (in != null) {
+        try { in.close(); } catch (Exception e) { Debug.log(e); }
+      }
+    }
+
+    byte[] data = out.toByteArray();
+    BitmapFactory.Options bounds = new BitmapFactory.Options();
+    bounds.inJustDecodeBounds = true;
+    BitmapFactory.decodeByteArray(data, 0, data.length, bounds);
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0
+        || bounds.outWidth > MAX_REMOTE_IMAGE_DIMENSION || bounds.outHeight > MAX_REMOTE_IMAGE_DIMENSION
+        || ((long) bounds.outWidth * (long) bounds.outHeight) > MAX_REMOTE_IMAGE_PIXELS) {
+      throw new IllegalArgumentException("Invalid remote theme image dimensions");
+    }
+
+    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+    if (bitmap == null) {
+      throw new IllegalArgumentException("Unable to decode remote theme image");
+    }
+    return bitmap;
+  }
+
   @Thunk Bitmap parseConfig(ThemeEntry entry, Bitmap loadedIcon) {
+    if (loadedIcon == null) {
+      throw new IllegalArgumentException("Theme image is missing");
+    }
     SettingsDecoder decoder = new SettingsDecoder(entry.config);
     int density = decoder.getValue(KEY_DENSITY, mDensity);
+    if (density <= 0) {
+      throw new IllegalArgumentException("Invalid theme density");
+    }
+
+    long scaledWidth = (long) loadedIcon.getWidth() * (long) mDensity / density;
+    long scaledHeight = (long) loadedIcon.getHeight() * (long) mDensity / density;
+    if (scaledWidth <= 0 || scaledHeight <= 0
+        || scaledWidth > MAX_RENDER_DIMENSION || scaledHeight > MAX_RENDER_DIMENSION) {
+      throw new IllegalArgumentException("Theme render dimensions are invalid");
+    }
 
     Bitmap resized = Bitmap.createScaledBitmap(loadedIcon,
-            loadedIcon.getWidth() * mDensity / density,
-            loadedIcon.getHeight() * mDensity / density,
+            (int) scaledWidth,
+            (int) scaledHeight,
             true);
     if (resized != loadedIcon) {
       loadedIcon.recycle();
     }
-    
+
     entry.padding = notmalizeRect(decoder, KEY_PADDING, density);
-    
+
     entry.stretch = new float[4];
-    
+
     float[] sizes = new float[] {resized.getWidth(), resized.getHeight()};
     int[] stretch = notmalizeRect(decoder, KEY_STRETCH, density);
     for (int i = 0; i < 4; i++) {
