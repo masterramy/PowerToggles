@@ -9,12 +9,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.app.ListActivity;
@@ -23,7 +20,6 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.net.http.HttpResponseCache;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -39,15 +35,22 @@ import android.widget.Toast;
 import com.painless.pc.R;
 import com.painless.pc.picker.theme.ThemeAdapter;
 import com.painless.pc.picker.theme.ThemeEntry;
+import com.painless.pc.singleton.BackupUtil;
 import com.painless.pc.singleton.Debug;
+import com.painless.pc.util.BitmapImportUtils;
 import com.painless.pc.util.SettingsDecoder;
 import com.painless.pc.util.Thunk;
 import com.painless.pc.util.WidgetSetting;
 
+/**
+ * Theme browser for built-in, imported, and pre-SAF legacy local themes.
+ *
+ * The original online catalog was hosted on a retired Google Drive endpoint and
+ * is intentionally no longer contacted. Modern Android exposes explicit SAF
+ * import instead, so opening this screen never waits on a known-dead network
+ * service or suggests that a remote gallery is still available.
+ */
 public class ThemePicker extends ListActivity implements OnItemClickListener {
-
-  private static final String BASE_URL = "https://b4ed1c0ec81643f5b9ce1c461688fb066bf383db-www.googledrive.com/host/0B94XoKFv6ejBZ3VkTzhYX05SOGc/";
-  private static final String IMAGE_URL = BASE_URL + "bg/";
 
   private static final String THEME_EXTENSION = ".pttheme";
   private static final String IMPORT_DIR = "imported-themes";
@@ -57,17 +60,13 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   private static final int MAX_CONFIG_CHARS = 64 * 1024;
   private static final int MAX_THEME_DIMENSION = 2048;
   private static final long MAX_THEME_PIXELS = 4L * 1024L * 1024L;
-  private static final int MAX_REMOTE_ENTRIES = 100;
-  private static final int NETWORK_TIMEOUT_MS = 5000;
+  private static final int MAX_LOCAL_THEMES = 256;
 
   @Thunk ThemeAdapter mAdapter;
-  @Thunk boolean mRemoteHeaderAdded = false;
-  @Thunk ThemeEntry mServerLoadEntry;
 
   private boolean mLocalHeaderAdded = false;
   private int mLocalInsertPosition = 0;
   private int mLocalCount = 0;
-  private int mRemoteCount = 0;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -75,8 +74,6 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
     setResult(RESULT_CANCELED);
 
     mAdapter = new ThemeAdapter(this);
-
-    final String themeUrl;
 
     if (getIntent().getBooleanExtra("folders", false)) {
       ThemeEntry header = new ThemeEntry();
@@ -88,109 +85,24 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
         entry.config = new JSONObject(SettingsDecoder.CONFIG_DARK);
         entry.backgroundRes = R.drawable.folder_back;
         entry.hideDividers = true;
-        WidgetSetting.parseColors(new SettingsDecoder(entry.config), KEY_COLORS, entry.buttonColors, entry.buttonAlphas);
+        WidgetSetting.parseColors(new SettingsDecoder(entry.config), KEY_COLORS,
+            entry.buttonColors, entry.buttonAlphas);
         mAdapter.add(entry);
       } catch (Exception e) {
         Debug.log(e);
       }
-
-      themeUrl = BASE_URL + "folders.txt";
-    } else {
-      themeUrl = BASE_URL + "themes.txt";
     }
 
     mLocalInsertPosition = mAdapter.getCount();
     addThemeFiles(getImportedThemeDir());
 
-    // Preserve the legacy shared-root discovery contract only for pre-SAF devices.
-    // Modern Android uses explicit document import into app-private storage below.
+    // Preserve discovery of historical /Power Toggles files only on devices
+    // predating Storage Access Framework. Android 4.4+ uses explicit import.
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
       addThemeFiles(new File(Environment.getExternalStorageDirectory(), "Power Toggles"));
     }
 
     setListAdapter(mAdapter);
-
-    // Install http cache
-    try {
-      File httpCacheDir = new File(getCacheDir(), "http");
-      long httpCacheSize = 4 * 1024 * 1024; // 4 MiB
-      HttpResponseCache.install(httpCacheDir, httpCacheSize);
-    } catch (IOException e) {
-      Debug.log(e);
-    }
-
-    mServerLoadEntry = new ThemeEntry();
-    mAdapter.add(mServerLoadEntry);
-
-    // Load the legacy remote catalog defensively. The remote service is optional;
-    // local/system themes remain usable and failure becomes an explicit terminal state.
-    new AsyncTask<Void, ThemeEntry, Boolean>() {
-
-      @Override
-      protected Boolean doInBackground(Void... arg0) {
-        BufferedReader reader = null;
-        try {
-          URLConnection connection = new URL(themeUrl).openConnection();
-          connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
-          connection.setReadTimeout(NETWORK_TIMEOUT_MS);
-          reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-          String line;
-          int accepted = 0;
-          while (accepted < MAX_REMOTE_ENTRIES && (line = readBoundedLine(reader)) != null) {
-            try {
-              ThemeEntry entry = new ThemeEntry();
-              entry.config = new JSONObject(line);
-              String themeId = entry.config.getString("id");
-              if (!themeId.matches("[A-Za-z0-9_-]{1,80}")) {
-                continue;
-              }
-              entry.remoteUrl = new URL(IMAGE_URL + themeId + ".png");
-              publishProgress(entry);
-              accepted++;
-            } catch (JSONException e) {
-              Debug.log(e);
-            }
-          }
-          return true;
-        } catch (Exception e) {
-          Debug.log(e);
-          return false;
-        } finally {
-          if (reader != null) {
-            try {
-              reader.close();
-            } catch (Exception e) {
-              Debug.log(e);
-            }
-          }
-        }
-      }
-
-      @Override
-      protected void onProgressUpdate(ThemeEntry... objs) {
-        mAdapter.remove(mServerLoadEntry);
-        if (!mRemoteHeaderAdded) {
-          ThemeEntry header = new ThemeEntry();
-          header.title = R.string.tm_remote;
-          mAdapter.add(header);
-          mRemoteHeaderAdded = true;
-        }
-        mRemoteCount++;
-        mAdapter.add(objs[0]);
-      }
-
-      @Override
-      protected void onPostExecute(Boolean catalogReached) {
-        mAdapter.remove(mServerLoadEntry);
-        if (mRemoteCount == 0) {
-          ThemeEntry unavailable = new ThemeEntry();
-          unavailable.title = R.string.tm_remote_unavailable;
-          mAdapter.add(unavailable);
-        }
-        mAdapter.notifyDataSetChanged();
-      }
-    }.execute();
-
     getListView().setOnItemClickListener(this);
   }
 
@@ -208,8 +120,8 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
           ? Intent.ACTION_OPEN_DOCUMENT
           : Intent.ACTION_GET_CONTENT);
       intent.addCategory(Intent.CATEGORY_OPENABLE);
-      // .pttheme is a ZIP container without a registered MIME type. Validate the
-      // selected content rather than trusting provider extension/MIME metadata.
+      // .pttheme is a ZIP container without a registered MIME type. Validate
+      // content rather than trusting provider extension/MIME metadata.
       intent.setType("*/*");
       startActivityForResult(intent, REQUEST_IMPORT_THEME);
       return true;
@@ -220,7 +132,8 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
-    if (requestCode != REQUEST_IMPORT_THEME || resultCode != RESULT_OK || data == null || data.getData() == null) {
+    if (requestCode != REQUEST_IMPORT_THEME || resultCode != RESULT_OK
+        || data == null || data.getData() == null) {
       return;
     }
     importTheme(data.getData());
@@ -241,6 +154,9 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
 
       @Override
       protected void onPostExecute(File imported) {
+        if (isFinishing()) {
+          return;
+        }
         if (imported == null) {
           Toast.makeText(ThemePicker.this, R.string.tm_import_failed, Toast.LENGTH_LONG).show();
           return;
@@ -269,16 +185,8 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
           throw new IOException("Unable to open selected theme");
         }
         out = new FileOutputStream(temp);
-        byte[] buffer = new byte[8192];
-        long total = 0;
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-          total += read;
-          if (total > MAX_THEME_BYTES) {
-            throw new IOException("Theme archive is too large");
-          }
-          out.write(buffer, 0, read);
-        }
+        BackupUtil.copy(in, out, MAX_THEME_BYTES);
+        out.flush();
       } finally {
         if (out != null) {
           try { out.close(); } catch (Exception e) { Debug.log(e); }
@@ -297,13 +205,17 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
       promoted = true;
       return destination;
     } finally {
-      if (!promoted) {
-        temp.delete();
+      if (!promoted && temp.exists() && !temp.delete()) {
+        Debug.log(new Exception("Unable to delete rejected theme import"));
       }
     }
   }
 
   private void validateThemeFile(File file) throws Exception {
+    if (file == null || !file.isFile() || file.length() > MAX_THEME_BYTES) {
+      throw new IOException("Theme archive is invalid or too large");
+    }
+
     ZipFile zip = null;
     try {
       zip = new ZipFile(file);
@@ -316,7 +228,7 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
       BufferedReader configReader = null;
       String configLine;
       try {
-        configReader = new BufferedReader(new InputStreamReader(zip.getInputStream(configEntry)));
+        configReader = new BufferedReader(new InputStreamReader(zip.getInputStream(configEntry), "UTF-8"));
         configLine = readBoundedLine(configReader);
       } finally {
         if (configReader != null) {
@@ -334,39 +246,16 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
         throw new IOException("Invalid theme density");
       }
 
-      BitmapFactory.Options bounds = new BitmapFactory.Options();
-      bounds.inJustDecodeBounds = true;
-      InputStream boundsStream = null;
-      try {
-        boundsStream = zip.getInputStream(backEntry);
-        BitmapFactory.decodeStream(boundsStream, null, bounds);
-      } finally {
-        if (boundsStream != null) {
-          try { boundsStream.close(); } catch (Exception e) { Debug.log(e); }
-        }
-      }
-      if (bounds.outWidth <= 0 || bounds.outHeight <= 0
-          || bounds.outWidth > MAX_THEME_DIMENSION || bounds.outHeight > MAX_THEME_DIMENSION
-          || ((long) bounds.outWidth * (long) bounds.outHeight) > MAX_THEME_PIXELS) {
-        throw new IOException("Invalid or oversized theme image");
-      }
-
-      InputStream imageStream = null;
-      Bitmap image = null;
-      try {
-        imageStream = zip.getInputStream(backEntry);
-        image = BitmapFactory.decodeStream(imageStream);
-        if (image == null) {
-          throw new IOException("Unable to decode theme image");
-        }
-      } finally {
+      byte[] imageBytes = readEntry(zip, backEntry, MAX_THEME_BYTES);
+      Bitmap image = BitmapImportUtils.decode(imageBytes);
+      if (image == null || image.getWidth() > MAX_THEME_DIMENSION || image.getHeight() > MAX_THEME_DIMENSION
+          || ((long) image.getWidth() * (long) image.getHeight()) > MAX_THEME_PIXELS) {
         if (image != null) {
           image.recycle();
         }
-        if (imageStream != null) {
-          try { imageStream.close(); } catch (Exception e) { Debug.log(e); }
-        }
+        throw new IOException("Invalid or oversized theme image");
       }
+      image.recycle();
     } finally {
       if (zip != null) {
         try { zip.close(); } catch (Exception e) { Debug.log(e); }
@@ -374,10 +263,26 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
     }
   }
 
+  private static byte[] readEntry(ZipFile zip, ZipEntry entry, long maxBytes) throws Exception {
+    InputStream in = null;
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    try {
+      in = zip.getInputStream(entry);
+      BackupUtil.copy(in, out, maxBytes);
+      return out.toByteArray();
+    } finally {
+      if (in != null) {
+        try { in.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      try { out.close(); } catch (Exception e) { Debug.log(e); }
+    }
+  }
+
   private String getDisplayName(Uri uri) {
     Cursor cursor = null;
     try {
-      cursor = getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
+      cursor = getContentResolver().query(uri,
+          new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
       if (cursor != null && cursor.moveToFirst()) {
         int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
         if (index >= 0) {
@@ -388,13 +293,13 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
       Debug.log(e);
     } finally {
       if (cursor != null) {
-        cursor.close();
+        try { cursor.close(); } catch (Exception e) { Debug.log(e); }
       }
     }
     return uri.getLastPathSegment();
   }
 
-  private File uniqueThemeDestination(File dir, String displayName) {
+  private File uniqueThemeDestination(File dir, String displayName) throws IOException {
     String name = displayName == null ? "imported-theme" : displayName;
     name = name.replaceAll("[^A-Za-z0-9._ -]", "_");
     if (name.length() == 0) {
@@ -410,9 +315,12 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
     String stem = name.substring(0, name.length() - THEME_EXTENSION.length());
     File candidate = new File(dir, name);
     int suffix = 1;
-    while (candidate.exists()) {
+    while (candidate.exists() && suffix <= MAX_LOCAL_THEMES) {
       candidate = new File(dir, stem + "-" + suffix + THEME_EXTENSION);
       suffix++;
+    }
+    if (candidate.exists()) {
+      throw new IOException("Too many imported themes with the same name");
     }
     return candidate;
   }
@@ -422,14 +330,18 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   }
 
   private void addThemeFiles(File themeDir) {
-    if (!themeDir.exists() || !themeDir.isDirectory()) {
+    if (mLocalCount >= MAX_LOCAL_THEMES || !themeDir.exists() || !themeDir.isDirectory()) {
       return;
     }
     File[] files = themeDir.listFiles();
     if (files == null) {
       return;
     }
+    java.util.Arrays.sort(files);
     for (File f : files) {
+      if (mLocalCount >= MAX_LOCAL_THEMES) {
+        break;
+      }
       if (f.isFile() && f.getName().endsWith(THEME_EXTENSION)) {
         addLocalTheme(f);
       }
@@ -437,6 +349,9 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   }
 
   private void addLocalTheme(File file) {
+    if (file == null || mLocalCount >= MAX_LOCAL_THEMES) {
+      return;
+    }
     if (!mLocalHeaderAdded) {
       ThemeEntry header = new ThemeEntry();
       header.title = R.string.tm_local;
@@ -468,15 +383,6 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   }
 
   @Override
-  protected void onPause() {
-    HttpResponseCache cache = HttpResponseCache.getInstalled();
-    if (cache != null) {
-      cache.flush();
-    }
-    super.onPause();
-  }
-
-  @Override
   protected void onDestroy() {
     if (mAdapter != null) {
       mAdapter.mLoader.destroy();
@@ -487,7 +393,7 @@ public class ThemePicker extends ListActivity implements OnItemClickListener {
   @Override
   public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
     ThemeEntry entry = mAdapter.getItem(position);
-    if (entry.isLoaded()) {
+    if (entry != null && entry.isLoaded() && entry.config != null) {
       setResult(RESULT_OK, new Intent()
           .putExtra("config", entry.config.toString())
           .putExtra("icon", entry.background));
