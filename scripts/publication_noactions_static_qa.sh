@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MANIFEST="$ROOT/AndroidManifest.xml"
+WIDGET="$ROOT/src/com/painless/pc/PCWidgetActivity.java"
+PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
+ICON="$ROOT/src/com/painless/pc/picker/IconPicker.java"
+THEME="$ROOT/src/com/painless/pc/picker/ThemePicker.java"
+THEME_ADAPTER="$ROOT/src/com/painless/pc/picker/theme/ThemeAdapter.java"
+THEME_LOADER="$ROOT/src/com/painless/pc/picker/theme/ThemeLoader.java"
+
+fail() {
+  echo "FAIL: $*" >&2
+  exit 1
+}
+
+# Legacy Buzz path-based IPC must be retired both from implicit discovery and
+# from explicit-broadcast execution on the still-exported AppWidget receiver.
+! grep -q 'com\.buzzpia\.aqua\.appwidget\.GET_VERSION' "$MANIFEST" || fail "Buzz GET_VERSION still exported"
+! grep -q 'com\.buzzpia\.aqua\.appwidget\.GET_CONFIG_DATA' "$MANIFEST" || fail "Buzz GET_CONFIG_DATA still exported"
+! grep -q 'com\.buzzpia\.aqua\.appwidget\.SET_CONFIG_DATA' "$MANIFEST" || fail "Buzz SET_CONFIG_DATA still exported"
+grep -q 'startsWith(BUZZPIA_ACTION)' "$WIDGET" || fail "Explicit Buzz broadcasts are not denied"
+grep -q 'Ignoring retired Buzzpia widget IPC action' "$WIDGET" || fail "Buzz deny-only retirement marker missing"
+! grep -q 'FileOutputStream' "$WIDGET" || fail "Widget receiver still performs direct path output"
+! grep -q 'BackupUtil\.importBackup' "$WIDGET" || fail "Widget receiver still performs path-based restore"
+
+# Folder share remains grant-gated/read-only; config becomes same-UID/read-only;
+# crop is exact-grant capability-gated and external write-only. Launcher /back is
+# deliberately preserved as a separate read-only compatibility path.
+grep -q 'FOLDER_SHARE_URI' "$PROVIDER" || fail "Folder share route missing"
+grep -q 'enforceSameUid("configuration preview")' "$PROVIDER" || fail "Config route not same-UID gated"
+grep -q 'Configuration preview is read-only' "$PROVIDER" || fail "Config write modes not denied"
+grep -q 'External crop output is write-only' "$PROVIDER" || fail "Crop read/read-write modes not denied"
+grep -q 'enforceReadGrant(uri, "crop output")' "$PROVIDER" || fail "Crop output lacks exact temporary-grant gate"
+grep -q 'Widget background is read-only' "$PROVIDER" || fail "Launcher background route permits writes"
+
+grep -q 'PICK_CROP_RESULT' "$ICON" || fail "Dedicated crop-result request path missing"
+grep -q 'FileProvider.CROP_URI' "$ICON" || fail "Known app-owned crop output is not used"
+grep -q 'setCropOutputExtra' "$ICON" || fail "Crop output grant helper missing"
+! grep -q 'FLAG_GRANT_WRITE_URI_PERMISSION' "$ICON" || fail "Broad WRITE grant would propagate to source image"
+
+# Modern ThemePicker must provide scoped local import and explicit degraded
+# states instead of target-36 shared-root discovery/permanent spinners.
+grep -q 'Intent.ACTION_OPEN_DOCUMENT' "$THEME" || fail "Theme SAF import missing"
+grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT' "$THEME" || fail "Legacy shared-root discovery is not pre-SAF bounded"
+grep -q 'imported-themes' "$THEME" || fail "Imported themes are not persisted app-private"
+grep -q 'validateThemeFile' "$THEME" || fail "Theme archive validation missing"
+grep -q 'MAX_THEME_BYTES' "$THEME" || fail "Theme archive size bound missing"
+grep -q 'tm_remote_unavailable' "$THEME" || fail "Remote degraded-state UI missing"
+grep -q 'setConnectTimeout' "$THEME" || fail "Remote catalog connect timeout missing"
+grep -q 'setReadTimeout' "$THEME" || fail "Remote catalog read timeout missing"
+grep -q 'TYPE_FAILED' "$THEME_ADAPTER" || fail "Failed preview terminal row missing"
+grep -q 'shutdownNow' "$THEME_LOADER" || fail "Theme loader teardown is not interruptible"
+grep -q 'MAX_REMOTE_IMAGE_BYTES' "$THEME_LOADER" || fail "Remote image bound missing"
+grep -q 'mDestroyed' "$THEME_LOADER" || fail "Post-destroy delivery guard missing"
+
+echo "PASS: no-Actions publication static hardening contract"
