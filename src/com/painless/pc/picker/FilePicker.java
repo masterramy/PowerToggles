@@ -5,14 +5,11 @@ import java.io.FileFilter;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import android.Manifest;
-import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -32,9 +29,11 @@ import com.painless.pc.util.SectionAdapter;
 import com.painless.pc.util.Thunk;
 import com.painless.pc.util.UiUtils;
 
+/**
+ * Legacy direct-filesystem picker retained only for the pre-SAF compatibility
+ * lane. Android 4.4+ callers must use Storage Access Framework instead.
+ */
 public class FilePicker extends ListActivity implements OnItemClickListener, android.view.View.OnClickListener {
-
-  private static final int PERMISSION_REQUEST_CODE = 1;
 
   @Thunk String mFilter;
   private boolean mSaveMode;
@@ -52,6 +51,13 @@ public class FilePicker extends ListActivity implements OnItemClickListener, and
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+
+    // Direct shared-storage browsing is a legacy fallback only. Every modern
+    // customer path is required to use ACTION_OPEN_DOCUMENT/CREATE_DOCUMENT.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      finish();
+      return;
+    }
 
     setContentView(R.layout.file_picker);
     setTitle(getIntent().getStringExtra("title"));
@@ -76,31 +82,7 @@ public class FilePicker extends ListActivity implements OnItemClickListener, and
     }
 
     setResult(RESULT_CANCELED);
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-      initFolders();
-    } else {
-      initMarshMallow();
-    }
-  }
-
-  @TargetApi(23)
-  private void initMarshMallow() {
-    if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-      initFolders();
-    } else {
-      requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
-    }
-  }
-
-  @Override
-  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-    if (requestCode == PERMISSION_REQUEST_CODE) {
-      if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permissions[0]) && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        initFolders();
-      } else {
-        finish();
-      }
-    }
+    initFolders();
   }
 
   private void initFolders() {
