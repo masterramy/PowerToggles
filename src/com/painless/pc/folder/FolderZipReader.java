@@ -11,12 +11,17 @@ import java.util.zip.ZipFile;
 import android.content.Context;
 
 import com.painless.pc.singleton.BackupUtil;
+import com.painless.pc.singleton.Debug;
 import com.painless.pc.util.Thunk;
 
 /**
  * A helper class to reading folder backups from zip.
  */
 public class FolderZipReader {
+
+  private static final int MAX_FOLDER_COUNT = 256;
+  private static final long MAX_FOLDER_DB_BYTES = 16L * 1024L * 1024L;
+  private static final long MAX_TOTAL_FOLDER_DB_BYTES = 64L * 1024L * 1024L;
 
   private final ArrayList<ParseData> mParsedList = new ArrayList<ParseData>();
   private final HashSet<String> mIgnoreDbNames = new HashSet<String>();
@@ -33,11 +38,15 @@ public class FolderZipReader {
    * Reads the folder entry and returns the destination db name.
    */
   public String readEntry(String folderName, int folderId) throws Exception {
+    if (mParsedList.size() >= MAX_FOLDER_COUNT) {
+      throw new Exception("Folder backup contains too many folders");
+    }
+
     String dbName = FolderUtils.getDbName(folderId);
     ZipEntry folderEntry = zip.getEntry(dbName);
     if (folderEntry == null) {
       // Folder data not present.
-      throw new Exception();
+      throw new Exception("Folder database entry missing");
     }
 
     ParseData parseData = new ParseData();
@@ -52,18 +61,49 @@ public class FolderZipReader {
   }
 
   public int writeAll() throws Exception {
-    for (ParseData parseData : mParsedList) {
-      File targetFile = context.getDatabasePath(parseData.destName);
-      FileOutputStream out = new FileOutputStream(targetFile);
-      InputStream in = zip.getInputStream(parseData.srcEntry);
-      BackupUtil.copy(in, out);
-      in.close();
-      out.close();
-      FolderUtils.setName(parseData.folderName, parseData.destName, context);
+    ArrayList<File> writtenFiles = new ArrayList<File>();
+    long totalBytes = 0;
+    try {
+      for (ParseData parseData : mParsedList) {
+        File targetFile = context.getDatabasePath(parseData.destName);
+        FileOutputStream out = null;
+        InputStream in = null;
+        try {
+          out = new FileOutputStream(targetFile);
+          in = zip.getInputStream(parseData.srcEntry);
+          long remainingTotal = MAX_TOTAL_FOLDER_DB_BYTES - totalBytes;
+          if (remainingTotal <= 0) {
+            throw new Exception("Folder backup exceeds total database size limit");
+          }
+          long copied = BackupUtil.copy(in, out, Math.min(MAX_FOLDER_DB_BYTES, remainingTotal));
+          out.flush();
+          totalBytes += copied;
+          writtenFiles.add(targetFile);
+        } finally {
+          if (in != null) {
+            try { in.close(); } catch (Exception e) { Debug.log(e); }
+          }
+          if (out != null) {
+            try { out.close(); } catch (Exception e) { Debug.log(e); }
+          }
+        }
+      }
+
+      // Publish names only after every embedded database has copied successfully.
+      for (ParseData parseData : mParsedList) {
+        FolderUtils.setName(parseData.folderName, parseData.destName, context);
+      }
+      return mParsedList.size();
+    } catch (Exception e) {
+      for (File writtenFile : writtenFiles) {
+        if (writtenFile.exists() && !writtenFile.delete()) {
+          Debug.log(new Exception("Unable to remove partial restored folder database"));
+        }
+      }
+      throw e;
     }
-    return mParsedList.size();
   }
-  
+
   /**
    * A holder class to keep the parse list.
    */
