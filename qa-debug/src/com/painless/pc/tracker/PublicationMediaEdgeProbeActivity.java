@@ -18,6 +18,8 @@ public final class PublicationMediaEdgeProbeActivity extends Activity {
 
   private static final String PROBE_PREFS = "publication_media_edge_probe";
   private static final String ACTION_EXPLICIT_PLAYER = "com.painless.pc.qa.MEDIA_EDGE_PLAYER";
+  private static final int EXPLICIT_DELIVERY_POLL_MS = 100;
+  private static final int EXPLICIT_DELIVERY_MAX_POLLS = 50;
 
   @Override
   protected void onCreate(Bundle state) {
@@ -130,32 +132,77 @@ public final class PublicationMediaEdgeProbeActivity extends Activity {
           resetExplicitEventCounters(qaPrefs);
           appPrefs.edit().putString(MediaButton.KEY_PLAYER_INTENT, playerUri).commit();
 
-          boolean threw = false;
-          String error = "";
-          try {
-            new MediaPlayPause(18, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
-            new MediaNext(19, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
-            new MediaPrev(20, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
-          } catch (Throwable t) {
-            threw = true;
-            error = t.getClass().getName() + ":" + String.valueOf(t.getMessage());
-          }
-
-          final boolean probeThrew = threw;
-          final String probeError = error;
-          new Handler().postDelayed(new Runnable() {
+          // Do not nest the shipping ordered broadcasts inside this control
+          // broadcast's result callback. Android may serialize ordered broadcasts
+          // until this callback returns, which can make a timer observe zero
+          // deliveries even though the target is healthy. Queue the shipping path
+          // on the main loop so this result callback returns first.
+          new Handler().post(new Runnable() {
             @Override
             public void run() {
-              completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
-                  probeThrew, probeError);
+              boolean threw = false;
+              String error = "";
+              try {
+                new MediaPlayPause(18, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
+                new MediaNext(19, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
+                new MediaPrev(20, appPrefs).toggleState(PublicationMediaEdgeProbeActivity.this);
+              } catch (Throwable t) {
+                threw = true;
+                error = t.getClass().getName() + ":" + String.valueOf(t.getMessage());
+              }
+
+              if (threw) {
+                completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+                    true, error);
+                return;
+              }
+
+              waitForExplicitDelivery(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+                  0);
             }
-          }, 1000L);
+          });
         }
       }, null, RESULT_OK, null, null);
     } catch (Throwable t) {
       completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
           true, t.getClass().getName() + ":" + String.valueOf(t.getMessage()));
     }
+  }
+
+  private void waitForExplicitDelivery(final SharedPreferences appPrefs,
+      final SharedPreferences qaPrefs, final boolean hadPlayer,
+      final String originalPlayer, final int poll) {
+    if (explicitDeliveryComplete(qaPrefs)) {
+      completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+          false, "");
+      return;
+    }
+
+    if (poll >= EXPLICIT_DELIVERY_MAX_POLLS) {
+      completeExplicitProbe(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+          false, "DELIVERY_TIMEOUT");
+      return;
+    }
+
+    new Handler().postDelayed(new Runnable() {
+      @Override
+      public void run() {
+        waitForExplicitDelivery(appPrefs, qaPrefs, hadPlayer, originalPlayer,
+            poll + 1);
+      }
+    }, EXPLICIT_DELIVERY_POLL_MS);
+  }
+
+  private static boolean explicitDeliveryComplete(SharedPreferences prefs) {
+    return exactDeliveryFor(prefs, "explicit_play_pause")
+        && exactDeliveryFor(prefs, "explicit_next")
+        && exactDeliveryFor(prefs, "explicit_prev");
+  }
+
+  private static boolean exactDeliveryFor(SharedPreferences prefs, String prefix) {
+    return prefs.getInt(prefix + "_down", 0) == 1
+        && prefs.getInt(prefix + "_up", 0) == 1
+        && prefs.getInt(prefix + "_matched", 0) == 1;
   }
 
   private void completeExplicitProbe(SharedPreferences appPrefs,
