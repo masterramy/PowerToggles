@@ -52,6 +52,7 @@ public class HomeFrag extends AbsListFrag {
   private static final int REQUEST_BACKUP = 10;
   private static final int REQUEST_RESTORE = 11;
   private static final String DEFAULT_BACKUP_NAME = "power-toggles-widget.zip";
+  private static final long MAX_WIDGET_BACKUP_BYTES = 32L * 1024L * 1024L;
 
   @Thunk Context mContext;
   @Thunk LayoutInflater mLf;
@@ -269,7 +270,7 @@ public class HomeFrag extends AbsListFrag {
         return false;
       }
       out = new FileOutputStream(temp);
-      BackupUtil.copy(in, out);
+      BackupUtil.copy(in, out, MAX_WIDGET_BACKUP_BYTES);
       out.close();
       out = null;
       in.close();
