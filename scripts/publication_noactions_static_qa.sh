@@ -8,6 +8,17 @@ PLUGIN_RECEIVER="$ROOT/src/com/painless/pc/PluginUpdateReceiver.java"
 PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
 ICON="$ROOT/src/com/painless/pc/picker/IconPicker.java"
 HOME="$ROOT/src/com/painless/pc/nav/HomeFrag.java"
+FOLDER="$ROOT/src/com/painless/pc/nav/FolderFrag.java"
+FOLDER_READER="$ROOT/src/com/painless/pc/folder/FolderZipReader.java"
+CONFIG="$ROOT/src/com/painless/pc/cfg/WidgetConfigActivity.java"
+EDIT_CONFIG="$ROOT/src/com/painless/pc/cfg/EditWidgetConfigActivity.java"
+FILE_PICKER="$ROOT/src/com/painless/pc/picker/FilePicker.java"
+IMPORT_EXPORT="$ROOT/src/com/painless/pc/util/ImportExportActivity.java"
+BITMAP_IMPORT="$ROOT/src/com/painless/pc/util/BitmapImportUtils.java"
+BACKUP="$ROOT/src/com/painless/pc/singleton/BackupUtil.java"
+GLOBALS="$ROOT/src/com/painless/pc/singleton/Globals.java"
+TASKER_SETUP="$ROOT/src/com/painless/pc/settings/TaskerToggleSetup.java"
+TASKER_REFRESH="$ROOT/src/com/painless/pc/settings/TaskerRefresh.java"
 THEME="$ROOT/src/com/painless/pc/picker/ThemePicker.java"
 THEME_ADAPTER="$ROOT/src/com/painless/pc/picker/theme/ThemeAdapter.java"
 THEME_LOADER="$ROOT/src/com/painless/pc/picker/theme/ThemeLoader.java"
@@ -35,6 +46,14 @@ grep -q '!TASK_COMPLETE_INTENT.equals(action)' "$PLUGIN_RECEIVER" || fail "Plugi
 grep -q '!"task".equals(data.getScheme())' "$PLUGIN_RECEIVER" || fail "Task completion data is not scheme-validated"
 grep -q 'MAX_VAR_ID_LENGTH' "$PLUGIN_RECEIVER" || fail "Plugin var ID bound missing"
 grep -q 'MAX_COUNT' "$PLUGIN_RECEIVER" || fail "Plugin count bound missing"
+
+# Exported Locale/Tasker edit activities must only honor the documented edit
+# action, and task-provider/extras enumeration must be bounded.
+grep -q 'EDIT_SETTING_ACTION.equals(launchIntent.getAction())' "$TASKER_SETUP" || fail "Tasker setup accepts arbitrary launch action"
+grep -q 'MAX_INPUT_CHARS' "$TASKER_SETUP" || fail "Tasker setup input bound missing"
+grep -q 'EDIT_SETTING_ACTION.equals(launchIntent.getAction())' "$TASKER_REFRESH" || fail "Tasker refresh accepts arbitrary launch action"
+grep -q 'MAX_TASKER_TASKS' "$GLOBALS" || fail "Tasker provider row bound missing"
+grep -q 'MAX_TASKER_TASK_NAME_CHARS' "$GLOBALS" || fail "Tasker provider name bound missing"
 
 # Folder/widget share remain grant-gated/read-only; config becomes same-UID/read-only;
 # crop is exact-grant capability-gated and external write-only. Launcher /back is
@@ -64,7 +83,53 @@ grep -q 'ClipData.newRawUri' "$HOME" || fail "Home widget share ClipData grant p
 ! grep -q 'MODE_WORLD_READABLE' "$HOME" || fail "Home widget share still world-readable"
 ! grep -q 'Uri.fromFile' "$HOME" || fail "Home widget share still uses file URI"
 grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT' "$HOME" || fail "Home modern/legacy storage boundary missing"
-grep -q 'File.createTempFile("power_toggles_widget_restore_"' "$HOME" || fail "Home SAF restore private staging missing"
+grep -q 'MAX_WIDGET_BACKUP_BYTES' "$HOME" || fail "Home restore compressed archive bound missing"
+grep -q 'BackupUtil.copy(in, out, MAX_WIDGET_BACKUP_BYTES)' "$HOME" || fail "Home SAF restore copy is unbounded"
+
+# Folder backup/restore/share must also use modern document/content-URI paths
+# and bound both the compressed archive and expanded embedded databases.
+grep -q 'Intent.ACTION_CREATE_DOCUMENT' "$FOLDER" || fail "Folder backup SAF create missing"
+grep -q 'Intent.ACTION_OPEN_DOCUMENT' "$FOLDER" || fail "Folder restore SAF open missing"
+grep -q 'FileProvider.FOLDER_SHARE_URI' "$FOLDER" || fail "Folder share content URI missing"
+grep -q 'MAX_FOLDER_ARCHIVE_BYTES' "$FOLDER" || fail "Folder compressed archive bound missing"
+grep -q 'MAX_FOLDER_NAMES_BYTES' "$FOLDER" || fail "Folder metadata bound missing"
+grep -q 'MAX_FOLDER_COUNT' "$FOLDER" || fail "Folder count bound missing"
+grep -q 'MAX_FOLDER_DB_BYTES' "$FOLDER_READER" || fail "Folder DB entry bound missing"
+grep -q 'MAX_TOTAL_FOLDER_DB_BYTES' "$FOLDER_READER" || fail "Folder aggregate DB bound missing"
+grep -q 'BackupUtil.copy(in, out, Math.min(MAX_FOLDER_DB_BYTES, remainingTotal))' "$FOLDER_READER" || fail "Expanded folder DB copy is unbounded"
+
+# Shared document import staging and image decode must reject oversized data
+# before allocating attacker-controlled bitmap dimensions.
+grep -q 'MAX_DOCUMENT_IMPORT_BYTES' "$IMPORT_EXPORT" || fail "Generic document import size bound missing"
+grep -q 'total > MAX_DOCUMENT_IMPORT_BYTES' "$IMPORT_EXPORT" || fail "Generic document import copy is unbounded"
+grep -q 'MAX_DIMENSION' "$BITMAP_IMPORT" || fail "Bitmap dimension bound missing"
+grep -q 'MAX_PIXELS' "$BITMAP_IMPORT" || fail "Bitmap pixel bound missing"
+grep -q 'inJustDecodeBounds = true' "$BITMAP_IMPORT" || fail "Bitmap decode does not inspect bounds first"
+grep -q 'decode(byte\[\] data)' "$BITMAP_IMPORT" || fail "Archive bitmap bounded decoder missing"
+grep -q 'MAX_CONFIG_BYTES' "$BACKUP" || fail "Widget config ZIP entry bound missing"
+grep -q 'MAX_IMAGE_BYTES' "$BACKUP" || fail "Widget image ZIP entry bound missing"
+grep -q 'readZipEntry' "$BACKUP" || fail "Widget ZIP bounded entry reader missing"
+grep -q 'copy(InputStream in, OutputStream out, long maxBytes)' "$BACKUP" || fail "Shared bounded copy primitive missing"
+
+# Existing-widget editing is internal-only. The exported framework config entry
+# must verify that a supplied widget ID really belongs to this provider.
+grep -q 'EditWidgetConfigActivity' "$EDIT_CONFIG" || fail "Internal widget edit activity missing"
+grep -q 'android:name=".cfg.EditWidgetConfigActivity"' "$MANIFEST" || fail "Internal widget edit activity not declared"
+grep 'android:name=".cfg.EditWidgetConfigActivity"' "$MANIFEST" | grep -q 'android:exported="false"' || fail "Internal widget edit activity is exported"
+grep -q 'this instanceof EditWidgetConfigActivity' "$CONFIG" || fail "Exported config still accepts edit_widget directly"
+grep -q 'isOwnedAppWidgetId' "$CONFIG" || fail "Exported widget configuration ownership check missing"
+grep -q 'getAppWidgetInfo(widgetId)' "$CONFIG" || fail "Widget provider ownership is not framework-verified"
+grep -q 'new Intent(context, EditWidgetConfigActivity.class)' "$GLOBALS" || fail "Existing-widget edits still target exported config activity"
+
+# Widget theme export must use SAF on modern Android; the raw file picker is a
+# pre-KitKat-only compatibility implementation and broad storage permission may
+# therefore exist only through API 18.
+grep -q 'Intent.ACTION_CREATE_DOCUMENT' "$CONFIG" || fail "Widget theme export SAF create missing"
+grep -q 'DEFAULT_THEME_NAME' "$CONFIG" || fail "Widget theme export default document name missing"
+grep -q 'SDK_INT >= Build.VERSION_CODES.KITKAT' "$FILE_PICKER" || fail "Legacy file picker is not modern-Android gated"
+! grep -q 'requestPermissions' "$FILE_PICKER" || fail "Legacy file picker still requests runtime storage permission"
+! grep -q 'Manifest.permission.WRITE_EXTERNAL_STORAGE' "$FILE_PICKER" || fail "Legacy file picker still contains modern storage permission flow"
+grep -A2 'android:name="android.permission.WRITE_EXTERNAL_STORAGE"' "$MANIFEST" | grep -q 'android:maxSdkVersion="18"' || fail "WRITE_EXTERNAL_STORAGE is not capped to pre-SAF Android"
 
 # Modern ThemePicker must provide scoped local import and explicit degraded
 # states instead of target-36 shared-root discovery/permanent spinners.
