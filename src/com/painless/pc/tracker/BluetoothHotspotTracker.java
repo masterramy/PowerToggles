@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.provider.Settings;
 
 import com.painless.pc.R;
@@ -19,6 +20,14 @@ public class BluetoothHotspotTracker extends AbstractTracker {
 
   @Override
   public int getActualState(Context context) {
+    // There is no supported ordinary-app public API for Bluetooth PAN tethering,
+    // and Android 12+ also protects adapter state behind BLUETOOTH_CONNECT.
+    // Keep the modern control truthful and permission-free: state is unknown,
+    // while customer action opens the system tethering surface below.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      return STATE_UNKNOWN;
+    }
+
     BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
     if (adapter == null) {
       return STATE_UNKNOWN;
@@ -30,8 +39,6 @@ public class BluetoothHotspotTracker extends AbstractTracker {
     } catch (SecurityException e) {
       return STATE_UNKNOWN;
     }
-    // There is no supported ordinary-app public API for the Bluetooth PAN
-    // tethering switch. Do not read it through hidden profile methods.
     return STATE_UNKNOWN;
   }
 
