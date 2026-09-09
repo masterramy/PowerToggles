@@ -21,7 +21,7 @@ import android.telephony.TelephonyManager;
 import android.widget.Toast;
 
 import com.painless.pc.R;
-import com.painless.pc.cfg.WidgetConfigActivity;
+import com.painless.pc.cfg.EditWidgetConfigActivity;
 import com.painless.pc.nav.NotifyFrag;
 import com.painless.pc.settings.LaunchActivity;
 import com.painless.pc.util.ReflectionUtil;
@@ -128,7 +128,7 @@ public class Globals {
 				try {
 					final Intent intent = context.getApplicationContext().
 							registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-	
+
 					final int level = intent.getIntExtra("level", 0);
 					final int scale = intent.getIntExtra("scale", 100);
 					sLastBattery = level * 100 / scale;
@@ -203,11 +203,11 @@ public class Globals {
 	public static void showWidgetConfig(int widgetId, Context context, boolean newTask) {
 		final Intent intent = isNotificationWidget(widgetId) ?
 		        new Intent(context, LaunchActivity.class).putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, NotifyFrag.class.getName()) :
-		          new Intent(context, WidgetConfigActivity.class).putExtra("edit_widget", widgetId);
+		          new Intent(context, EditWidgetConfigActivity.class).putExtra("edit_widget", widgetId);
 		if (newTask) {
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		}
-		
+
 		collapseStatusBar(context);
 		context.startActivity(intent);
 		if (!newTask && (context instanceof Activity)) {
@@ -237,7 +237,7 @@ public class Globals {
 		if (timedate == 0) {
 			return context.getString(R.string.stat_u_never);
 		}
-	
+
 		long diff = Calendar.getInstance().getTimeInMillis() - timedate;
 		diff = diff / 60000;	// convert to minutes.
 		if (diff <= 1) {
@@ -246,7 +246,7 @@ public class Globals {
 			return context.getString(R.string.stat_u_mins, diff);
 		} else {
 			diff = diff / 60;	// hours
-	
+
 			if (diff < 48) {
 				return context.getString(R.string.stat_u_hours, diff);
 			} else {
@@ -274,7 +274,7 @@ public class Globals {
 		final PendingIntent sender = PendingIntent.getBroadcast(context, 0, target,
 				PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 		final AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-		am.set(AlarmManager.RTC, when.getTimeInMillis(), sender);	
+		am.set(AlarmManager.RTC, when.getTimeInMillis(), sender);
 	}
 
 	public static boolean hasPermission(Context c, String permission) {
@@ -287,7 +287,7 @@ public class Globals {
 //		try {
 //			int currentVersion = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode;
 //			if (currentVersion != version) {
-//				prefs.edit().putInt("current_version", currentVersion).commit();
+//				pref.edit().putInt("current_version", currentVersion).commit();
 //				return true;
 //			}
 //		} catch (NameNotFoundException e) {
