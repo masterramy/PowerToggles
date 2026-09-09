@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="$ROOT/AndroidManifest.xml"
 WIDGET="$ROOT/src/com/painless/pc/PCWidgetActivity.java"
+PLUGIN_RECEIVER="$ROOT/src/com/painless/pc/PluginUpdateReceiver.java"
 PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
 ICON="$ROOT/src/com/painless/pc/picker/IconPicker.java"
 HOME="$ROOT/src/com/painless/pc/nav/HomeFrag.java"
@@ -25,6 +26,15 @@ grep -q 'startsWith(BUZZPIA_ACTION)' "$WIDGET" || fail "Explicit Buzz broadcasts
 grep -q 'Ignoring retired Buzzpia widget IPC action' "$WIDGET" || fail "Buzz deny-only retirement marker missing"
 ! grep -q 'FileOutputStream' "$WIDGET" || fail "Widget receiver still performs direct path output"
 ! grep -q 'BackupUtil\.importBackup' "$WIDGET" || fail "Widget receiver still performs path-based restore"
+
+# The exported plugin receiver remains intentionally interoperable with the
+# three supported Tasker/Locale/plugin actions, but unrelated explicit actions
+# and malformed/unbounded mutation payloads must be rejected.
+grep -q 'PLUGIN_STATE_CHANGED_INTENT' "$PLUGIN_RECEIVER" || fail "Plugin action allowlist missing"
+grep -q '!TASK_COMPLETE_INTENT.equals(action)' "$PLUGIN_RECEIVER" || fail "Plugin receiver does not reject unrelated explicit actions"
+grep -q '!"task".equals(data.getScheme())' "$PLUGIN_RECEIVER" || fail "Task completion data is not scheme-validated"
+grep -q 'MAX_VAR_ID_LENGTH' "$PLUGIN_RECEIVER" || fail "Plugin var ID bound missing"
+grep -q 'MAX_COUNT' "$PLUGIN_RECEIVER" || fail "Plugin count bound missing"
 
 # Folder/widget share remain grant-gated/read-only; config becomes same-UID/read-only;
 # crop is exact-grant capability-gated and external write-only. Launcher /back is
