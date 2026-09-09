@@ -14,6 +14,7 @@ CONFIG="$ROOT/src/com/painless/pc/cfg/WidgetConfigActivity.java"
 EDIT_CONFIG="$ROOT/src/com/painless/pc/cfg/EditWidgetConfigActivity.java"
 FILE_PICKER="$ROOT/src/com/painless/pc/picker/FilePicker.java"
 IMPORT_EXPORT="$ROOT/src/com/painless/pc/util/ImportExportActivity.java"
+PROGRESS_TASK="$ROOT/src/com/painless/pc/util/ProgressTask.java"
 BITMAP_IMPORT="$ROOT/src/com/painless/pc/util/BitmapImportUtils.java"
 BACKUP="$ROOT/src/com/painless/pc/singleton/BackupUtil.java"
 GLOBALS="$ROOT/src/com/painless/pc/singleton/Globals.java"
@@ -100,9 +101,12 @@ grep -q 'MAX_TOTAL_FOLDER_DB_BYTES' "$FOLDER_READER" || fail "Folder aggregate D
 grep -q 'BackupUtil.copy(in, out, Math.min(MAX_FOLDER_DB_BYTES, remainingTotal))' "$FOLDER_READER" || fail "Expanded folder DB copy is unbounded"
 
 # Shared document import staging and image decode must reject oversized data
-# before allocating attacker-controlled bitmap dimensions.
+# before allocating attacker-controlled bitmap dimensions. The shared copy
+# primitive must also stop promptly when lifecycle cancellation interrupts it.
 grep -q 'MAX_DOCUMENT_IMPORT_BYTES' "$IMPORT_EXPORT" || fail "Generic document import size bound missing"
-grep -q 'total > MAX_DOCUMENT_IMPORT_BYTES' "$IMPORT_EXPORT" || fail "Generic document import copy is unbounded"
+grep -q 'BackupUtil.copy(in, out, MAX_DOCUMENT_IMPORT_BYTES)' "$IMPORT_EXPORT" || fail "Generic SAF document import copy is unbounded"
+grep -q 'Thread.currentThread().isInterrupted()' "$BACKUP" || fail "Shared backup/import work ignores interruption"
+grep -q 'InterruptedIOException' "$BACKUP" || fail "Shared bounded copy lacks cancellation exception"
 grep -q 'MAX_DIMENSION' "$BITMAP_IMPORT" || fail "Bitmap dimension bound missing"
 grep -q 'MAX_PIXELS' "$BITMAP_IMPORT" || fail "Bitmap pixel bound missing"
 grep -q 'inJustDecodeBounds = true' "$BITMAP_IMPORT" || fail "Bitmap decode does not inspect bounds first"
@@ -111,6 +115,17 @@ grep -q 'MAX_CONFIG_BYTES' "$BACKUP" || fail "Widget config ZIP entry bound miss
 grep -q 'MAX_IMAGE_BYTES' "$BACKUP" || fail "Widget image ZIP entry bound missing"
 grep -q 'readZipEntry' "$BACKUP" || fail "Widget ZIP bounded entry reader missing"
 grep -q 'copy(InputStream in, OutputStream out, long maxBytes)' "$BACKUP" || fail "Shared bounded copy primitive missing"
+
+# Background task completion must be lifecycle-safe. Import/export tasks are
+# retained by the Activity, cancelled on teardown, and cancelled tasks may not
+# dismiss/publish into a destroyed owner Activity.
+grep -q 'runningTasks' "$IMPORT_EXPORT" || fail "Import/export tasks are not lifecycle-owned"
+grep -q 'task.cancel(true)' "$IMPORT_EXPORT" || fail "Import/export tasks are not cancelled on teardown"
+grep -q 'protected void onDestroy()' "$IMPORT_EXPORT" || fail "Import/export lifecycle teardown hook missing"
+grep -q 'canPublishResult' "$PROGRESS_TASK" || fail "ProgressTask has no owner lifecycle publication gate"
+grep -q 'ownerActivity.isFinishing()' "$PROGRESS_TASK" || fail "ProgressTask does not reject finishing Activity"
+grep -q 'ownerActivity.isDestroyed()' "$PROGRESS_TASK" || fail "ProgressTask does not reject destroyed Activity"
+grep -q 'onCancelled(R result)' "$PROGRESS_TASK" || fail "ProgressTask cancellation cleanup missing"
 
 # Existing-widget editing is internal-only. The exported framework config entry
 # must verify that a supplied widget ID really belongs to this provider.
@@ -140,6 +155,9 @@ grep -q 'imported-themes' "$THEME" || fail "Imported themes are not persisted ap
 grep -q 'validateThemeFile' "$THEME" || fail "Theme archive validation missing"
 grep -q 'MAX_THEME_BYTES' "$THEME" || fail "Theme archive size bound missing"
 grep -q 'MAX_LOCAL_THEMES' "$THEME" || fail "Theme inventory count bound missing"
+grep -q 'mImportTask.cancel(true)' "$THEME" || fail "Theme import task is not cancelled on teardown"
+grep -q 'Thread.currentThread().isInterrupted()' "$THEME" || fail "Theme import does not observe cancellation around promotion"
+grep -q 'Unable to remove cancelled promoted theme' "$THEME" || fail "Cancelled theme promotion rollback missing"
 ! grep -q 'googledrive.com' "$THEME" || fail "Dead remote theme endpoint restored"
 ! grep -q 'BASE_URL' "$THEME" || fail "Remote theme catalog constant restored"
 ! grep -q 'URLConnection' "$THEME" || fail "Theme screen performs network catalog I/O"
