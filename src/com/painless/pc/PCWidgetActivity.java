@@ -2,7 +2,6 @@ package com.painless.pc;
 
 import static com.painless.pc.singleton.Globals.NOTIFICATION_PRIORITY;
 
-import java.io.FileOutputStream;
 import java.util.Calendar;
 
 import android.annotation.TargetApi;
@@ -14,15 +13,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.widget.RemoteViews;
 
 import com.painless.pc.notify.NotifyStatus;
 import com.painless.pc.notify.NotifyUtil;
 import com.painless.pc.qs.QTStorage;
-import com.painless.pc.singleton.BackupUtil;
 import com.painless.pc.singleton.Debug;
 import com.painless.pc.singleton.Globals;
 import com.painless.pc.singleton.SettingStorage;
@@ -33,11 +29,6 @@ public class PCWidgetActivity extends AppWidgetProvider {
   public static final String BATTERY_POLL_ACTION = "com.painless.pc.BATTERY_POLL";
 
   private static final String BUZZPIA_ACTION = "com.buzzpia.aqua.appwidget.";
-  private static final String EXTRA_VERSION = "EXTRA_VERSION";
-  private static final int RESULT_CONFIG_COMPLETE = 100;
-  private static final int RESULT_CONFIG_NEEDED = 200;
-  private static final int RESULT_SUCCESS = 300;
-  private static final int RESULT_FAIL = 400;
 
   public static Runnable sUpdateHook = null;
   public static boolean sPollBattery = false;
@@ -86,55 +77,19 @@ public class PCWidgetActivity extends AppWidgetProvider {
   /**
    * Receives and processes a button pressed intent or state change.
    *
-   * @param intent  Indicates the pressed button.
+   * @param intent Indicates the pressed button.
    */
   @Override
   public void onReceive(Context context, Intent intent) {
     super.onReceive(context, intent);
 
     String action = intent.getAction();
-    if ((action != null)  && action.startsWith(BUZZPIA_ACTION)) {
-      // Buzz homepack.
-      String command = action.substring(BUZZPIA_ACTION.length());
-      Bundle versionExtra = new Bundle();
-      versionExtra.putInt(EXTRA_VERSION, 1);
-      
-      // Version Command.
-      if ("GET_VERSION".equals(command)) {
-        setResultExtras(versionExtra);
-        return;
-      }
-
-      int appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
-      if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-        return;
-      } else {
-        versionExtra.putInt(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-      }
-      setResultExtras(versionExtra);
-
-      Uri configFileUri = intent.getData();
-      if (configFileUri == null) {
-        return;
-      }
-      String filePath = configFileUri.getPath();
-      if (filePath == null) {
-        return;
-      }
-  
-      if ("GET_CONFIG_DATA".equals(command)) {
-        // Return backup
-        try {
-          BackupUtil.createBackup(new FileOutputStream(filePath), appWidgetId, context);
-          setResultCode(RESULT_SUCCESS);
-        } catch (Exception e) {
-          Debug.log(e);
-          setResultCode(RESULT_FAIL);
-        }
-      } else if ("SET_CONFIG_DATA".equals(command)) {
-        // Restore backup
-        setResultCode(BackupUtil.importBackup(filePath, context, appWidgetId) ? RESULT_CONFIG_COMPLETE : RESULT_CONFIG_NEEDED);
-      }
+    if ((action != null) && action.startsWith(BUZZPIA_ACTION)) {
+      // The legacy Buzz Homepack integration accepted caller-controlled filesystem
+      // paths for config export/import. PCWidgetActivity must remain exported for the
+      // Android AppWidget contract, so explicit legacy Buzz broadcasts are denied here
+      // even after their manifest intent filters are removed.
+      Debug.log("Ignoring retired Buzzpia widget IPC action: " + action);
       return;
     }
 
@@ -198,7 +153,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
     }
 
     // Stop service
-    if (sBatteryServiceActive) {     
+    if (sBatteryServiceActive) {
       context.stopService(new Intent(context, BatteryService.class));
       sBatteryServiceActive = false;
     }
@@ -250,7 +205,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
     notification.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONGOING_EVENT;
     notification.tickerText = "";
 
-    RemoteViews nwViews = getRemoteView(context, setting, true,  Globals.STATUS_BAR_WIDGET_ID);
+    RemoteViews nwViews = getRemoteView(context, setting, true, Globals.STATUS_BAR_WIDGET_ID);
     final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.nw_collapsed);
     views.removeAllViews(R.id.big_notify_wrapper_1);
     views.addView(R.id.big_notify_wrapper_1, nwViews.clone());
@@ -275,7 +230,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
       Globals.setAlarm(context, cal, new Intent(context, CommandReceiver.class));
     }
 
-    return setting.batteryEnabled | rowTowBattery || (icon > 3 && icon < 9);	// Battery icon range
+    return setting.batteryEnabled | rowTowBattery || (icon > 3 && icon < 9); // Battery icon range
   }
 
   private static boolean updateSecondRow(Notification notification, Context context, RemoteViews nwViews) {
@@ -295,7 +250,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
     views.removeAllViews(R.id.big_notify_wrapper_1);
     views.addView(R.id.big_notify_wrapper_1, nwViews);
     views.removeAllViews(R.id.big_notify_wrapper_2);
-    views.addView(R.id.big_notify_wrapper_2, getRemoteView(context, settings, true,  Globals.STATUS_BAR_WIDGET_ID));
+    views.addView(R.id.big_notify_wrapper_2, getRemoteView(context, settings, true, Globals.STATUS_BAR_WIDGET_ID));
 
     /**
     Parcel p = Parcel.obtain();
@@ -303,7 +258,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
     Debug.log("Size " + p.dataSize());
     p.recycle();
      **/
-    
+
     notification.bigContentView = views;
     return settings.batteryEnabled;
   }
