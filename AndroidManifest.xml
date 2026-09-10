@@ -41,9 +41,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- System permissions still used by surviving publication controls. -->
+    <!-- Special capabilities still used by surviving publication controls. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS" />
 
     <!-- Flash light permission -->
     <uses-permission android:name="android.permission.FLASHLIGHT" />
