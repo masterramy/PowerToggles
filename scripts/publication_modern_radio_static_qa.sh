@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="$ROOT/AndroidManifest.xml"
 WIFI="$ROOT/src/com/painless/pc/tracker/WifiStateTracker.java"
 ADB_WIFI="$ROOT/src/com/painless/pc/tracker/AdbWirelessTracker.java"
+SETTING_STORAGE="$ROOT/src/com/painless/pc/singleton/SettingStorage.java"
 BT="$ROOT/src/com/painless/pc/tracker/BluetoothTracker.java"
 BT_DISCOVERY="$ROOT/src/com/painless/pc/tracker/BluetoothDiscoveryTracker.java"
 BT_HOTSPOT="$ROOT/src/com/painless/pc/tracker/BluetoothHotspotTracker.java"
@@ -19,14 +20,15 @@ fail() {
 }
 
 # Modern installs must not advertise legacy Bluetooth, account-list, location,
-# direct Wi-Fi mutation, or pre-Marshmallow flashlight-overlay permissions for
-# user-mediated controls / explicitly visible account sync / optional SSID
-# decoration / legacy camera workarounds.
+# direct Wi-Fi mutation, legacy connectivity-state, or pre-Marshmallow
+# flashlight-overlay permissions for user-mediated controls / explicitly visible
+# account sync / optional SSID decoration / legacy refresh paths.
 grep -A2 'android:name="android.permission.BLUETOOTH"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH not capped to Android 11"
 grep -A2 'android:name="android.permission.BLUETOOTH_ADMIN"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH_ADMIN not capped to Android 11"
 grep -A2 'android:name="android.permission.GET_ACCOUNTS"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "GET_ACCOUNTS not capped below Android 8"
 grep -A2 'android:name="android.permission.ACCESS_FINE_LOCATION"' "$MANIFEST" | grep -q 'android:maxSdkVersion="28"' || fail "ACCESS_FINE_LOCATION not capped to Android 9"
 grep -A2 'android:name="android.permission.CHANGE_WIFI_STATE"' "$MANIFEST" | grep -q 'android:maxSdkVersion="28"' || fail "CHANGE_WIFI_STATE not capped to Android 9"
+grep -A2 'android:name="android.permission.ACCESS_NETWORK_STATE"' "$MANIFEST" | grep -q 'android:maxSdkVersion="23"' || fail "ACCESS_NETWORK_STATE not capped to legacy pre-N connectivity refresh"
 grep -A2 'android:name="android.permission.SYSTEM_ALERT_WINDOW"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "SYSTEM_ALERT_WINDOW not capped to legacy pre-Marshmallow flashlight path"
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
@@ -65,6 +67,13 @@ grep -q 'Settings.Panel.ACTION_WIFI' "$ADB_WIFI" || fail "ADB wireless modern Wi
 grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.Q' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi restore is not pre-Q bounded"
 grep -q 'wifiManager.setWifiEnabled(true)' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi enable path unexpectedly removed"
 grep -q 'wifiManager.setWifiEnabled(false)' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi restore path unexpectedly removed"
+
+# Data Network's historical connectivity refresh is a manifest CONNECTIVITY_CHANGE
+# receiver. Android N+ does not deliver that implicit broadcast to manifest
+# receivers for modern-target apps, so the dynamic component must remain disabled
+# there and ACCESS_NETWORK_STATE is retained only for the pre-N compatibility path.
+grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.N && trackerList\[11\] != null' "$SETTING_STORAGE" || fail "Legacy connectivity receiver is not pre-N bounded"
+grep -q 'new ComponentName(context, ConnectivityReceiver.class)' "$SETTING_STORAGE" || fail "Legacy connectivity receiver component path unexpectedly removed"
 
 # Bluetooth state/control on Android 12+ must not touch protected adapter APIs.
 grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.S' "$BT" || fail "Bluetooth modern API boundary missing"
