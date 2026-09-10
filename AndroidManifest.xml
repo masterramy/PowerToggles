@@ -51,8 +51,10 @@
         android:name="android.permission.SYSTEM_ALERT_WINDOW"
         android:maxSdkVersion="22" />
 
-    <!-- Flash light permission -->
-    <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <!-- Legacy flashlight permission is only needed by the pre-M camera path. -->
+    <uses-permission
+        android:name="android.permission.FLASHLIGHT"
+        android:maxSdkVersion="22" />
     <uses-permission
         android:name="android.permission.CAMERA"
         android:maxSdkVersion="22" />
