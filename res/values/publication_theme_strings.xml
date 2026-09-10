@@ -5,4 +5,5 @@
     <string name="tm_import_failed">Unable to import this theme</string>
     <string name="tm_remote_unavailable">Online themes are currently unavailable</string>
     <string name="tm_theme_failed">Theme preview unavailable</string>
+    <string name="wc_folder_import_commit_failed">Unable to finish restoring folder data. Try Done again or cancel this edit.</string>
 </resources>
