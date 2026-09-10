@@ -61,7 +61,7 @@ jobs:
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "AAB=$AAB" >> "$GITHUB_ENV"
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee publication-apk-badging.txt
-          grep -q "package: name='com.painless.pc'" apk-badging.txt 2>/dev/null || grep -q "package: name='com.painless.pc'" publication-apk-badging.txt
+          grep -q "package: name='com.painless.pc'" publication-apk-badging.txt
           grep -q "targetSdkVersion:'36'" publication-apk-badging.txt
           unzip -t "$AAB" | tee publication-aab-integrity.txt
           grep -q "No errors detected" publication-aab-integrity.txt
