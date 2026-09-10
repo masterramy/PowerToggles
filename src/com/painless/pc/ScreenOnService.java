@@ -1,6 +1,7 @@
 package com.painless.pc;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.PowerManager;
 
 import com.painless.pc.singleton.Globals;
@@ -27,13 +28,19 @@ public class ScreenOnService  extends PriorityService {
     SCREEN_ON = true;
     broadcastState();
 
+    // Android O+ requires this long-lived service to actually enter foreground
+    // after startForegroundService(). A legacy "hide notification" preference
+    // cannot override that platform requirement on modern releases.
     maybeShowNotification("wake_lock_notify_hidden", true, R.drawable.icon_toggle_screen_on, R.string.wake_lock_active,
-            R.string.click_to_deactive, Globals.getAppPrefs(this).getBoolean("wake_lock", false));
+            R.string.click_to_deactive, Globals.getAppPrefs(this).getBoolean("wake_lock", false),
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O);
   }
 
   @Override
   public void onDestroy() {
-    lock.release();
+    if (lock != null && lock.isHeld()) {
+      lock.release();
+    }
     SCREEN_ON = false;
     clearNotification();
     broadcastState();
