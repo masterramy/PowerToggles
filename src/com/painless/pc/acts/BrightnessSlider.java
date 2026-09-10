@@ -16,6 +16,7 @@ import android.widget.SeekBar;
 import com.painless.pc.R;
 import com.painless.pc.singleton.Globals;
 import com.painless.pc.singleton.ParseUtil;
+import com.painless.pc.tracker.AbstractSystemSettingsTracker;
 import com.painless.pc.tracker.BacklightTracker;
 import com.painless.pc.view.MultiSeek;
 
@@ -65,19 +66,22 @@ public class BrightnessSlider extends AbstractPopup implements OnClickListener {
 
 	public void onAutoClicked(View v) {
 		int value, drawable, brightnessValue;
+		boolean enableAuto;
 		if (IsAuto()) {
 			value = Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL;
 			drawable = R.drawable.icon_toggle_bright_3;
 			brightnessValue = seekBrightness.getProgress() + mBrightnessMin;
-			seekBrightness.changeLook(false);
+			enableAuto = false;
 		} else {
 			value = Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
 			drawable = R.drawable.icon_toggle_bright_auto;
 			brightnessValue = 30;
-			seekBrightness.changeLook(true);
+			enableAuto = true;
 		}
-		android.provider.Settings.System.putInt(getContentResolver(),
-				android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE, value);
+		if (!putSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE, value)) {
+			return;
+		}
+		seekBrightness.changeLook(enableAuto);
 		btnAuto.setImageResource(drawable);
 		updateBrightness(brightnessValue);
 	}
@@ -93,10 +97,12 @@ public class BrightnessSlider extends AbstractPopup implements OnClickListener {
 	@Override
 	public void onClick(View v) {
 		int bright = (Integer) v.getTag();
-		android.provider.Settings.System.putInt(getContentResolver(),
-				android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
-		android.provider.Settings.System.putInt(getContentResolver(),
-				android.provider.Settings.System.SCREEN_BRIGHTNESS, bright);
+		if (!putSystemSetting(Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)) {
+			return;
+		}
+		if (!putSystemSetting(Settings.System.SCREEN_BRIGHTNESS, bright)) {
+			return;
+		}
 		updateBrightness(bright);
 		finish();
 	}
@@ -132,9 +138,11 @@ public class BrightnessSlider extends AbstractPopup implements OnClickListener {
 
 	@Override
 	public void onStopTrackingTouch(SeekBar seekBar) {
-		android.provider.Settings.System.putInt(getContentResolver(),
-				android.provider.Settings.System.SCREEN_BRIGHTNESS, seekBrightness.getProgress() + mBrightnessMin);
-		updateBrightness(seekBrightness.getProgress() + mBrightnessMin);
+		int brightness = seekBrightness.getProgress() + mBrightnessMin;
+		if (!putSystemSetting(Settings.System.SCREEN_BRIGHTNESS, brightness)) {
+			return;
+		}
+		updateBrightness(brightness);
 	}
 
 	@Override
@@ -150,12 +158,24 @@ public class BrightnessSlider extends AbstractPopup implements OnClickListener {
 		if (val != null) {
 			if (IsAuto()) {
 				onAutoClicked(null);
+				if (isFinishing()) {
+					return true;
+				}
 			}
 			seekBrightness.setProgress(val);
 			onStopTrackingTouch(seekBrightness);
 			return true;
 		}
 		return super.onKeyDown(keyCode, event);
+	}
+
+	private boolean putSystemSetting(String setting, int value) {
+		if (AbstractSystemSettingsTracker.putInt(this, setting, value)) {
+			return true;
+		}
+		AbstractSystemSettingsTracker.showPermissionDialog(this, Settings.ACTION_DISPLAY_SETTINGS);
+		finish();
+		return false;
 	}
 
 	private void updateBrightness(int value) {
