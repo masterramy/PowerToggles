@@ -79,6 +79,10 @@ public class HomeFrag extends AbsListFrag {
   @Override
   public void onResume() {
     super.onResume();
+    refreshWidgetList();
+  }
+
+  private void refreshWidgetList() {
     if (mAdapter != null) {
       mAdapter.clear();
       final AppWidgetManager awm = AppWidgetManager.getInstance(mContext);
@@ -212,7 +216,7 @@ public class HomeFrag extends AbsListFrag {
       if (!restored) {
         Toast.makeText(mContext, getResources().getStringArray(R.array.wc_import_msg)[1], Toast.LENGTH_LONG).show();
       }
-      onResume();
+      refreshWidgetList();
     }
   }
 
