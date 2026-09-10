@@ -43,8 +43,12 @@ grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.S' "$BT_HOTSPOT" || fail "
 grep -q 'return STATE_UNKNOWN' "$BT_HOTSPOT" || fail "Bluetooth hotspot modern state does not degrade to UNKNOWN"
 
 # Share metadata must be protected by the same exact read capability as data.
-grep -q 'enforceReadGrant(uri, "folder share")' "$PROVIDER" || fail "Folder share metadata/data grant gate missing"
-grep -q 'enforceReadGrant(uri, "widget share")' "$PROVIDER" || fail "Widget share metadata/data grant gate missing"
+# Guard the query-specific markers so an openFile-only check cannot satisfy this.
+grep -q 'enforceReadGrant(uri, "folder share metadata")' "$PROVIDER" || fail "Folder share metadata is not grant-gated"
+grep -q 'enforceReadGrant(uri, "widget share metadata")' "$PROVIDER" || fail "Widget share metadata is not grant-gated"
+grep -q 'enforceReadGrant(uri, "folder share")' "$PROVIDER" || fail "Folder share data is not grant-gated"
+grep -q 'enforceReadGrant(uri, "widget share")' "$PROVIDER" || fail "Widget share data is not grant-gated"
 grep -q 'public Cursor query' "$PROVIDER" || fail "FileProvider query override missing"
+grep -Fq 'public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)' "$PROVIDER" || fail "ContentProvider update override signature drifted"
 
 echo "PASS: modern radio/privacy/provider static contract"
