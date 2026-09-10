@@ -9,7 +9,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.SystemProperties;
+import android.provider.Settings;
 import android.widget.Toast;
 
 import com.painless.pc.BootDialog;
@@ -47,6 +49,22 @@ public class AdbWirelessTracker extends AbstractTracker {
 			return;
 		}
 
+		// Android 10+ blocks ordinary applications from directly changing Wi-Fi.
+		// ADB-over-Wi-Fi still needs Wi-Fi to be active, so if the customer is
+		// enabling this legacy/root control while Wi-Fi is off, hand them to the
+		// system Wi-Fi panel and leave the root ADB mutation untouched until retry.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && desiredState) {
+			try {
+				if (wifiManager.getWifiState() != WifiManager.WIFI_STATE_ENABLED) {
+					Globals.startIntent(context, new Intent(Settings.Panel.ACTION_WIFI));
+					return;
+				}
+			} catch (SecurityException e) {
+				Globals.startIntent(context, new Intent(Settings.Panel.ACTION_WIFI));
+				return;
+			}
+		}
+
 		working = true;
 		final UiUpdater updater = new UiUpdater(context);
 		// Execute everything on a separate thread as it can take a while
@@ -59,6 +77,11 @@ public class AdbWirelessTracker extends AbstractTracker {
 					  boolean shouldTurnOffWifiLater = false;
 
 					  if (wifiManager.getWifiState() != WifiManager.WIFI_STATE_ENABLED) {
+					    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+					      // Wi-Fi changed after the preflight. Fail closed rather than
+					      // attempting a restricted direct mutation on modern Android.
+					      return false;
+					    }
 					    int hotSpotState = HotSpotTracker.getFiveState(wifiManager);
 					    if ((hotSpotState != STATE_ENABLED) && (hotSpotState != STATE_TURNING_ON)) {
 					      shouldTurnOffWifiLater = true;
@@ -68,7 +91,12 @@ public class AdbWirelessTracker extends AbstractTracker {
 					  getPref(context).edit().putBoolean(WIFI_STATE_PREF, shouldTurnOffWifiLater).commit();
 
 					} else if (getPref(context).getBoolean(WIFI_STATE_PREF, false)) {
-						wifiManager.setWifiEnabled(false);
+						if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+							wifiManager.setWifiEnabled(false);
+						}
+						// A persisted legacy restore flag must not keep provoking an
+						// impossible modern direct-Wi-Fi restore on later toggles.
+						getPref(context).edit().remove(WIFI_STATE_PREF).commit();
 					}
 
 					String propCommand = "setprop service.adb.tcp.port " + (desiredState ? "5555" : "-1");
@@ -89,7 +117,7 @@ public class AdbWirelessTracker extends AbstractTracker {
 			protected void onPostExecute(Boolean result) {
 				working = false;
 				updater.refresh();
-				if (!result) {
+				if (!Boolean.TRUE.equals(result)) {
 					Intent prompt = new Intent(context, BootDialog.class);
 					prompt.putExtra("info", true);
 					Globals.startIntent(context, prompt);
