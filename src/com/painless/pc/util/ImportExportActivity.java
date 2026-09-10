@@ -159,6 +159,11 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				String msg = (result == null) ? exportArray[2] : String.format(exportArray[1], result.toString());
 				Toast.makeText(ImportExportActivity.this, msg, Toast.LENGTH_LONG).show();
 			}
+
+			@Override
+			protected void onFinished() {
+				runningTasks.remove(this);
+			}
 		};
 		executeTracked(task);
 	}
@@ -192,6 +197,11 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 						Debug.log(e);
 					}
 				}
+			}
+
+			@Override
+			protected void onFinished() {
+				runningTasks.remove(this);
 			}
 		};
 		executeTracked(task);
@@ -235,6 +245,11 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				if (result == null) Toast.makeText(ImportExportActivity.this, importArray[1], Toast.LENGTH_LONG).show();
 				else onPostImport(result);
 			}
+
+			@Override
+			protected void onFinished() {
+				runningTasks.remove(this);
+			}
 		};
 		executeTracked(task);
 	}
@@ -261,6 +276,11 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 			public void onDone(T result) {
 				if (result == null) Toast.makeText(ImportExportActivity.this, importArray[1], Toast.LENGTH_LONG).show();
 				else onPostImport(result);
+			}
+
+			@Override
+			protected void onFinished() {
+				runningTasks.remove(this);
 			}
 		};
 		executeTracked(task);
