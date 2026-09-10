@@ -29,6 +29,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
   public static final String BATTERY_POLL_ACTION = "com.painless.pc.BATTERY_POLL";
 
   private static final String BUZZPIA_ACTION = "com.buzzpia.aqua.appwidget.";
+  private static final int MODERN_BATTERY_POLL_MINUTES = 5;
 
   public static Runnable sUpdateHook = null;
   public static boolean sPollBattery = false;
@@ -137,14 +138,18 @@ public class PCWidgetActivity extends AppWidgetProvider {
 
   protected static void setBatteryAlarm(Context context) {
     if (sPollBattery) {
-      // setup alarm callback. The battery will be refreshed every 5 minutes,
-      // as long as there is a battery widget.
+      // Android O+ can reject startService() when widget/receiver work arrives while
+      // the app is backgrounded. Keep the historical event-driven BatteryService on
+      // pre-O devices only; modern devices use the existing alarm-backed poll path.
       int pollTime = Globals.getAppPrefs(context).getInt("battery_poll_inv", 0);
 
-      if (pollTime <= 0) {
+      if (pollTime <= 0 && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
         context.startService(new Intent(context, BatteryService.class));
         sBatteryServiceActive = true;
         return;
+      }
+      if (pollTime <= 0) {
+        pollTime = MODERN_BATTERY_POLL_MINUTES;
       }
 
       final Calendar cal = Calendar.getInstance();
@@ -152,7 +157,8 @@ public class PCWidgetActivity extends AppWidgetProvider {
       Globals.setAlarm(context, cal, new Intent(context, CommandReceiver.class).setAction(BATTERY_POLL_ACTION));
     }
 
-    // Stop service
+    // Stop the legacy service when it is no longer needed, including after an
+    // in-process upgrade from a pre-O/event-driven path to modern alarm polling.
     if (sBatteryServiceActive) {
       context.stopService(new Intent(context, BatteryService.class));
       sBatteryServiceActive = false;
