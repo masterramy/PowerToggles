@@ -22,6 +22,9 @@ public abstract class ProgressTask<P, R> extends AsyncTask<P, Void, R> {
 
 	public void onDone(R result) { }
 
+	/** Called exactly once on the main thread after normal completion or cancellation. */
+	protected void onFinished() { }
+
 	private boolean canPublishResult() {
 		if (ownerActivity == null) {
 			return true;
@@ -47,18 +50,30 @@ public abstract class ProgressTask<P, R> extends AsyncTask<P, Void, R> {
 	@Override
 	protected final void onPostExecute(R result) {
 		dismissDialogSafely();
-		if (canPublishResult()) {
-			onDone(result);
+		try {
+			if (canPublishResult()) {
+				onDone(result);
+			}
+		} finally {
+			onFinished();
 		}
 	}
 
 	@Override
 	protected final void onCancelled(R result) {
-		dismissDialogSafely();
+		try {
+			dismissDialogSafely();
+		} finally {
+			onFinished();
+		}
 	}
 
 	@Override
 	protected final void onCancelled() {
-		dismissDialogSafely();
+		try {
+			dismissDialogSafely();
+		} finally {
+			onFinished();
+		}
 	}
 }
