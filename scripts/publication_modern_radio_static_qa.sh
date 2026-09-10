@@ -7,6 +7,8 @@ WIFI="$ROOT/src/com/painless/pc/tracker/WifiStateTracker.java"
 BT="$ROOT/src/com/painless/pc/tracker/BluetoothTracker.java"
 BT_DISCOVERY="$ROOT/src/com/painless/pc/tracker/BluetoothDiscoveryTracker.java"
 BT_HOTSPOT="$ROOT/src/com/painless/pc/tracker/BluetoothHotspotTracker.java"
+FLASH="$ROOT/src/com/painless/pc/tracker/FlashStateTracker.java"
+LEGACY_FLASH="$ROOT/src/com/painless/pc/FlashService.java"
 PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
 WIDGET_SETTING="$ROOT/src/com/painless/pc/util/WidgetSetting.java"
 
@@ -15,15 +17,22 @@ fail() {
   exit 1
 }
 
-# Modern installs must not advertise legacy Bluetooth, account-list, or location
-# permissions for user-mediated controls / explicitly visible account sync /
-# optional SSID decoration.
+# Modern installs must not advertise legacy Bluetooth, account-list, location,
+# or pre-Marshmallow flashlight-overlay permissions for user-mediated controls /
+# explicitly visible account sync / optional SSID decoration / legacy camera workarounds.
 grep -A2 'android:name="android.permission.BLUETOOTH"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH not capped to Android 11"
 grep -A2 'android:name="android.permission.BLUETOOTH_ADMIN"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH_ADMIN not capped to Android 11"
 grep -A2 'android:name="android.permission.GET_ACCOUNTS"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "GET_ACCOUNTS not capped below Android 8"
 grep -A2 'android:name="android.permission.ACCESS_FINE_LOCATION"' "$MANIFEST" | grep -q 'android:maxSdkVersion="28"' || fail "ACCESS_FINE_LOCATION not capped to Android 9"
+grep -A2 'android:name="android.permission.SYSTEM_ALERT_WINDOW"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "SYSTEM_ALERT_WINDOW not capped to legacy pre-Marshmallow flashlight path"
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
+
+# The only surviving overlay implementation is the legacy flashlight service,
+# and the tracker must route Android M+ to the modern torch service instead.
+grep -q 'WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY' "$LEGACY_FLASH" || fail "Legacy flashlight overlay path unexpectedly removed or drifted"
+grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.M' "$FLASH" || fail "Modern flashlight API boundary missing"
+grep -q 'FlashServiceM.SERVICE_INTENT' "$FLASH" || fail "Modern flashlight service handoff missing"
 
 # UPDATE_DEVICE_STATS is a platform-only signature/privileged/role capability,
 # explicitly not for ordinary third-party apps. Publication source must not
