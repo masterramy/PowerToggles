@@ -2,6 +2,7 @@
 package com.painless.pc.util;
 
 import static com.painless.pc.singleton.Globals.STATUS_BAR_WIDGET_ID;
+import static com.painless.pc.singleton.Globals.STATUS_BAR_WIDGET_ID_2;
 import static com.painless.pc.util.SettingsDecoder.CLICK_TYPE_DEFAULT;
 import static com.painless.pc.util.SettingsDecoder.CLICK_TYPE_KITKAT;
 import static com.painless.pc.util.SettingsDecoder.CLICK_TYPE_RIPPLE;
@@ -111,7 +112,8 @@ public final class WidgetSetting {
 			}
 		}
 		this.hideDividers = decoder.is(KEY_HIDE_DIVIDERS, true);
-		this.rvFactory = RVFactory.get(context, decoder, (widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID));
+		this.rvFactory = RVFactory.get(context, decoder,
+        (widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID_2));
 
 		this.batteryEnabled = batteryEnabled;
 		this.isLockScreenWidget = isLockWidget(context, widgetId);
