@@ -1,5 +1,6 @@
 package com.painless.pc.picker;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -298,6 +299,9 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
             return;
           }
           Uri uri = data.getData();
+          if (!clearCropOutput()) {
+            return;
+          }
           Intent intent = new Intent("com.android.camera.action.CROP").setDataAndType(uri, "image/*");
           setCropOutputExtra(intent);
           intent.putExtra("crop", "true")
@@ -338,6 +342,15 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
     if (icon != null) {
       callback.onIconReceived(icon);
     }
+  }
+
+  private boolean clearCropOutput() {
+    File output = FileProvider.cropFile(main);
+    if (output.exists() && !output.delete()) {
+      Debug.log(new IllegalStateException("Unable to clear stale crop output"));
+      return false;
+    }
+    return true;
   }
 
   private void setCropOutputExtra(Intent intent) {
