@@ -25,6 +25,12 @@ grep -A2 'android:name="android.permission.ACCESS_FINE_LOCATION"' "$MANIFEST" | 
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
 
+# The retired online theme catalog was the remaining outbound network feature.
+# Publication WIP is local/SAF-only, so do not regain INTERNET or direct Java
+# network APIs without an explicit product/privacy review.
+! grep -q 'android.permission.INTERNET' "$MANIFEST" || fail "Retired INTERNET permission reintroduced"
+! grep -R -E -q 'java\.net\.|HttpResponseCache|\.openConnection\(|\.openStream\(' "$ROOT/src" || fail "Outbound Java network path reintroduced"
+
 # Wi-Fi control on Android 10+ must be truthful/user-mediated and SSID identity
 # must degrade without location/nearby permission instead of prompting.
 grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q' "$WIFI" || fail "Wi-Fi modern API boundary missing"
