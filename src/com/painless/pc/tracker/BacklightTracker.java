@@ -91,10 +91,15 @@ public class BacklightTracker extends AbstractTracker {
 			}
 		}
 
-		android.provider.Settings.System.putInt(context.getContentResolver(),
+		boolean brightnessWritten = AbstractSystemSettingsTracker.putInt(context,
 				android.provider.Settings.System.SCREEN_BRIGHTNESS, newState);
-		android.provider.Settings.System.putInt(context.getContentResolver(),
+		boolean modeWritten = brightnessWritten && AbstractSystemSettingsTracker.putInt(context,
 				android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE, auto);
+		if (!modeWritten) {
+			AbstractSystemSettingsTracker.showPermissionDialog(context, Settings.ACTION_DISPLAY_SETTINGS);
+			getActualState(context);
+			return;
+		}
 		current = newState;
 	
 		BrightnessActivity.changeBrightness(context, quick_brightness);
