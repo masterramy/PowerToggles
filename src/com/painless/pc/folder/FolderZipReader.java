@@ -143,10 +143,12 @@ public class FolderZipReader {
         try {
           in = new FileInputStream(parseData.stagedFile);
           out = new FileOutputStream(targetFile);
-          BackupUtil.copy(in, out, MAX_FOLDER_DB_BYTES);
-          out.flush();
+          // Register the destination before copying so a mid-copy failure cannot
+          // strand a partial database outside the transaction rollback set.
           publishedFiles.add(targetFile);
           parseData.publishedFile = targetFile;
+          BackupUtil.copy(in, out, MAX_FOLDER_DB_BYTES);
+          out.flush();
         } finally {
           if (in != null) {
             try { in.close(); } catch (Exception e) { Debug.log(e); }
@@ -182,7 +184,8 @@ public class FolderZipReader {
         parseData.publishedFile = null;
       }
       editor.commit();
-      cleanupStagedFiles();
+      // Keep the private staged files so a transient publication failure can be
+      // retried safely from the editor. rollback() still removes them on exit.
       mCommitted = false;
       throw e;
     }
