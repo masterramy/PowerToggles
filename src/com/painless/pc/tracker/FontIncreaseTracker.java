@@ -4,11 +4,13 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Handler;
+import android.provider.Settings;
 
-import com.painless.pc.CmdFont;
 import com.painless.pc.PCWidgetActivity;
 import com.painless.pc.R;
+import com.painless.pc.singleton.Debug;
 import com.painless.pc.singleton.Globals;
 import com.painless.pc.singleton.RootTools;
 import com.painless.pc.util.Thunk;
@@ -75,9 +77,7 @@ public class FontIncreaseTracker extends AbstractTracker implements Runnable {
 
 			@Override
 			protected Void doInBackground(Void... params) {
-			  if (!(Globals.hasPermission(mContext, Manifest.permission.CHANGE_CONFIGURATION) && CmdFont.run(delta)) && RootTools.isRooted()) {
-          RootTools.runJavaCommand(CmdFont.class, "font", mContext, delta);
-			  }
+				applyFontScale(delta);
 				return null;
 			}
 
@@ -88,6 +88,35 @@ public class FontIncreaseTracker extends AbstractTracker implements Runnable {
 				mContext = null;
 			}
 		}.execute();
+	}
+
+	private boolean applyFontScale(float delta) {
+		float currentScale;
+		try {
+			currentScale = Settings.System.getFloat(
+					mContext.getContentResolver(),
+					Settings.System.FONT_SCALE,
+					mContext.getResources().getConfiguration().fontScale);
+		} catch (Throwable e) {
+			Debug.log(e);
+			currentScale = mContext.getResources().getConfiguration().fontScale;
+		}
+
+		final float targetScale = (delta == 0) ? 1.0f : currentScale + delta;
+		try {
+			final boolean canWrite = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+					? Globals.hasPermission(mContext, Manifest.permission.WRITE_SETTINGS)
+					: Settings.System.canWrite(mContext);
+			if (canWrite && Settings.System.putFloat(
+					mContext.getContentResolver(), Settings.System.FONT_SCALE, targetScale)) {
+				return true;
+			}
+		} catch (Throwable e) {
+			Debug.log(e);
+		}
+
+		return RootTools.isRooted()
+				&& RootTools.runSuCommand("settings put system font_scale " + Float.toString(targetScale));
 	}
 
 	@Override
