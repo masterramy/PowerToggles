@@ -140,14 +140,14 @@
         <activity android:name="ProxyActivity" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name="PermissionDialog" android:excludeFromRecents="true" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
 
-        <service android:name="FlashService" />
-        <service android:name="FlashServiceM" />
-        <service android:name="ImmersiveService" />
-        <service android:name="NoLockService" />
-        <service android:name="ScreenOnService" android:foregroundServiceType="specialUse" >
+        <service android:name="FlashService" android:exported="false" />
+        <service android:name="FlashServiceM" android:exported="false" />
+        <service android:name="ImmersiveService" android:exported="false" />
+        <service android:name="NoLockService" android:exported="false" />
+        <service android:name="ScreenOnService" android:exported="false" android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the screen awake while the user explicitly enables Screen Always On." />
         </service>
-        <service android:name="BatteryService" />
+        <service android:name="BatteryService" android:exported="false" />
 
         <activity android:name=".folder.FolderActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:theme="@style/panelTheme" >
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
