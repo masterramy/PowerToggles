@@ -95,7 +95,8 @@ public class BatteryIconEditor extends ImportExportActivity<Bitmap>
 			return null;
 		}
 		image = BitmapUtils.resizeToIconSize(image, this, false);
-		return (image != null && image.getWidth() > 0 && image.getHeight() > 0) ? image : null;
+		return (image != null && image.getWidth() >= image.getHeight()
+				&& image.getHeight() > 0) ? image : null;
 	}
 
 	@Override
