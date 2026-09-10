@@ -50,10 +50,14 @@ grep -q 'BackupUtil.readSettingsStaged' "$WIDGET_CONFIG" || fail "Widget editor 
 # LaunchActivity is exported, so PreferenceActivity.EXTRA_SHOW_FRAGMENT is an
 # external ingress. It must accept only the complete, source-proven settings
 # navigation set and must never regress to blanket Fragment acceptance.
-! grep -A3 'isValidFragment(String fragmentName)' "$LAUNCH" | grep -Fq 'return true;' || fail "Exported settings Activity blanket-accepts fragment injection"
+LAUNCH_VALIDATION_BLOCK="$(sed -n '/protected boolean isValidFragment(String fragmentName)/,/^[[:space:]]*}/p' "$LAUNCH")"
+[ -n "$LAUNCH_VALIDATION_BLOCK" ] || fail "LaunchActivity fragment-validation method missing"
+! printf '%s\n' "$LAUNCH_VALIDATION_BLOCK" | grep -Eq 'return[[:space:]]+true[[:space:]]*;' || fail "Exported settings Activity blanket-accepts fragment injection"
 for fragment in HomeFrag NotifyFrag FolderFrag SettingsFrag InfoFrag TogglePrefFrag TCacheFrag CFolderFrag; do
-  grep -Fq "${fragment}.class.getName().equals(fragmentName)" "$LAUNCH" || fail "LaunchActivity allowlist missing ${fragment}"
+  printf '%s\n' "$LAUNCH_VALIDATION_BLOCK" | grep -Fq "${fragment}.class.getName().equals(fragmentName)" || fail "LaunchActivity allowlist missing ${fragment}"
 done
-! grep -Fq 'AbsListFrag.class.getName().equals(fragmentName)' "$LAUNCH" || fail "Non-navigation base Fragment unexpectedly exposed"
+fragment_count="$(printf '%s\n' "$LAUNCH_VALIDATION_BLOCK" | grep -oE '[A-Za-z0-9_]+\.class\.getName\(\)\.equals\(fragmentName\)' | wc -l | tr -d '[:space:]')"
+[ "$fragment_count" = "8" ] || fail "LaunchActivity allowlist is not the exact eight-fragment navigation set"
+! printf '%s\n' "$LAUNCH_VALIDATION_BLOCK" | grep -Fq 'AbsListFrag.class.getName().equals(fragmentName)' || fail "Non-navigation base Fragment unexpectedly exposed"
 
 echo "PASS: lifecycle/import static contract"
