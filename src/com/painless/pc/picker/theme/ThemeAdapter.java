@@ -90,7 +90,7 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
         holder.back.setBackgroundColor(Color.TRANSPARENT);
         holder.back.setBitmap(entry.background);
         holder.back.setDim(entry.stretch);
-        holder.back.setPadding(entry.padding[0], entry.padding[1], entry.padding[2], entry.padding[2]);
+        holder.back.setPadding(entry.padding[0], entry.padding[1], entry.padding[2], entry.padding[3]);
       } else {
         holder.back.setBitmap(null);
         holder.back.setBackgroundResource(entry.backgroundRes);
