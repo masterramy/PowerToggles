@@ -93,8 +93,12 @@ public final class TimeoutTracker extends AbstractTracker {
       }
     }
 
-    android.provider.Settings.System.putInt(context.getContentResolver(),
-            android.provider.Settings.System.SCREEN_OFF_TIMEOUT, newState);
+    if (!AbstractSystemSettingsTracker.putInt(context,
+            android.provider.Settings.System.SCREEN_OFF_TIMEOUT, newState)) {
+      AbstractSystemSettingsTracker.showPermissionDialog(context, Settings.ACTION_DISPLAY_SETTINGS);
+      getActualState(context);
+      return;
+    }
     current = newState;
 
     Toast.makeText(context, "Screen timeout set to " + getStateText(0, null, null),
