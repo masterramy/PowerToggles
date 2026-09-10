@@ -38,6 +38,7 @@ import com.painless.pc.cfg.section.ConfigSection;
 import com.painless.pc.cfg.section.ConfigSection.ConfigCallback;
 import com.painless.pc.cfg.section.DividersSection;
 import com.painless.pc.cfg.section.StyleSection;
+import com.painless.pc.folder.FolderZipReader;
 import com.painless.pc.nav.SettingsFrag;
 import com.painless.pc.picker.FilePicker;
 import com.painless.pc.picker.ThemePicker;
@@ -75,6 +76,7 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 	private boolean mIsNotification;
 	private WidgetSetting mRenderSettings;
 	private ConfigExtraData mConfigExtraData;
+  private FolderZipReader mPendingFolderImport;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -345,39 +347,71 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 
   @Override
   public void onDoneClicked() {
-		// Save background image
-    if (!BitmapUtils.saveBitmap(mConfigExtraData.backBitmap,
-            ((BackgroundSection) mSections[2]).getCode(),
-            FileProvider.widgetBackFile(this, mAppWidgetId))) {
-      deleteFile(FileProvider.backFileName(mAppWidgetId));
+    boolean folderCommitCompleted = false;
+    try {
+      if (mPendingFolderImport != null) {
+        mPendingFolderImport.commitAll();
+        folderCommitCompleted = true;
+      }
+
+      // Save background image
+      if (!BitmapUtils.saveBitmap(mConfigExtraData.backBitmap,
+              ((BackgroundSection) mSections[2]).getCode(),
+              FileProvider.widgetBackFile(this, mAppWidgetId))) {
+        deleteFile(FileProvider.backFileName(mAppWidgetId));
+      }
+
+      SettingStorage.clearCache();
+      SettingStorage.addWidget(this, mAppWidgetId, buildWidgetSettings(true));
+      setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId));
+      getSharedPreferences(Globals.EXTRA_PREFS_NAME, MODE_PRIVATE).edit().putLong("last_edit" + mAppWidgetId, System.currentTimeMillis()).commit();
+
+      SettingStorage.cleanupUpUnusedWidgets(this);
+      PCWidgetActivity.updateAllWidgets(this, true);
+      SettingStorage.cleanupCachedPlugins(this);
+      SettingStorage.updateConnectivityReceiver(this);
+
+      // Ownership transfers to the saved widget only after every existing save
+      // operation above has completed without throwing.
+      mPendingFolderImport = null;
+      finish();
+      maybeShowAnimation();
+    } catch (Exception e) {
+      Debug.log(e);
+      if (folderCommitCompleted && mPendingFolderImport != null) {
+        mPendingFolderImport.rollback();
+      }
+      Toast.makeText(this, R.string.wc_folder_import_commit_failed, Toast.LENGTH_LONG).show();
     }
-
-    SettingStorage.clearCache();
-		SettingStorage.addWidget(this, mAppWidgetId, buildWidgetSettings(true));
-		setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId));
-		getSharedPreferences(Globals.EXTRA_PREFS_NAME, MODE_PRIVATE).edit().putLong("last_edit" + mAppWidgetId, System.currentTimeMillis()).commit();
-
-		SettingStorage.cleanupUpUnusedWidgets(this);
-		PCWidgetActivity.updateAllWidgets(this, true);
-		SettingStorage.cleanupCachedPlugins(this);
-		SettingStorage.updateConnectivityReceiver(this);
-
-		finish();
-		maybeShowAnimation();
 	}
 
 	@Override
 	public BackupData doImportInBackground(File importFile) throws Exception {
-	  return BackupUtil.readSettings(importFile, this, mAppWidgetId);
+	  return BackupUtil.readSettingsStaged(importFile, this, mAppWidgetId);
 	}
 
 	@Override
 	public void onPostImport(BackupData result) {
+    rollbackPendingFolderImport();
+    mPendingFolderImport = result.folderImport;
 	  ConfigExtraData extra = new ConfigExtraData();
 	  extra.backBitmap = result.backImage;
 	  extra.decoder = result.decoder;
 		initUI(result.settings, extra, result.icons);
 	}
+
+  private void rollbackPendingFolderImport() {
+    if (mPendingFolderImport != null) {
+      mPendingFolderImport.rollback();
+      mPendingFolderImport = null;
+    }
+  }
+
+  @Override
+  protected void onDestroy() {
+    rollbackPendingFolderImport();
+    super.onDestroy();
+  }
 
   private void exportTheme(Uri destination) throws Exception {
     OutputStream out = getContentResolver().openOutputStream(destination, "w");
