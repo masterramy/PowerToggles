@@ -13,6 +13,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify publication source hardening contracts
+        run: |
+          bash scripts/publication_noactions_static_qa.sh
+          bash scripts/publication_modern_radio_static_qa.sh
+          bash scripts/publication_lifecycle_input_static_qa.sh
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
