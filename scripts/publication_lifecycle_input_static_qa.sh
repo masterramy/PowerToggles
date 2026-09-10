@@ -10,6 +10,13 @@ BACKUP="$ROOT/src/com/painless/pc/singleton/BackupUtil.java"
 FOLDER_READER="$ROOT/src/com/painless/pc/folder/FolderZipReader.java"
 WIDGET_CONFIG="$ROOT/src/com/painless/pc/cfg/WidgetConfigActivity.java"
 LAUNCH="$ROOT/src/com/painless/pc/settings/LaunchActivity.java"
+IMMERSIVE_TRACKER="$ROOT/src/com/painless/pc/tracker/ImmersiveTracker.java"
+NOLOCK_TRACKER="$ROOT/src/com/painless/pc/tracker/NoLockTracker.java"
+NOLOCK_SERVICE="$ROOT/src/com/painless/pc/NoLockService.java"
+SCREEN_TRACKER="$ROOT/src/com/painless/pc/tracker/ScreenOnTracker.java"
+SCREEN_SERVICE="$ROOT/src/com/painless/pc/ScreenOnService.java"
+PRIORITY_SERVICE="$ROOT/src/com/painless/pc/PriorityService.java"
+MANIFEST="$ROOT/AndroidManifest.xml"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -59,5 +66,26 @@ done
 fragment_count="$(printf '%s\n' "$LAUNCH_VALIDATION_BLOCK" | grep -oE '[A-Za-z0-9_]+\.class\.getName\(\)\.equals\(fragmentName\)' | wc -l | tr -d '[:space:]')"
 [ "$fragment_count" = "8" ] || fail "LaunchActivity allowlist is not the exact eight-fragment navigation set"
 ! printf '%s\n' "$LAUNCH_VALIDATION_BLOCK" | grep -Fq 'AbsListFrag.class.getName().equals(fragmentName)' || fail "Non-navigation base Fragment unexpectedly exposed"
+
+# Long-lived service controls must obey modern background-execution rules. The
+# historical Immersive TYPE_TOAST and KeyguardLock controls remain pre-O only;
+# Screen Always On uses the declared special-use foreground service on O+ and
+# cannot honor the legacy hidden-notification preference when foregrounding is
+# mandatory.
+for legacy_tracker in "$IMMERSIVE_TRACKER" "$NOLOCK_TRACKER"; do
+  grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.O' "$legacy_tracker" || fail "Legacy service tracker lacks Android O cutoff: $legacy_tracker"
+  grep -q 'setCurrentState(context, STATE_DISABLED);' "$legacy_tracker" || fail "Legacy service tracker can leave modern toggle in transition: $legacy_tracker"
+done
+grep -q 'catch (SecurityException e)' "$NOLOCK_SERVICE" || fail "Legacy keyguard denial can crash NoLockService"
+grep -q 'mLock != null' "$NOLOCK_SERVICE" || fail "NoLockService teardown assumes keyguard lock acquisition succeeded"
+grep -q 'context.startForegroundService(i);' "$SCREEN_TRACKER" || fail "Screen Always On does not use foreground-service launch on Android O+"
+grep -q 'catch (IllegalStateException e)' "$SCREEN_TRACKER" || fail "Rejected Screen Always On foreground launch can crash caller"
+grep -q 'setCurrentState(context, STATE_DISABLED);' "$SCREEN_TRACKER" || fail "Rejected Screen Always On launch can remain stuck in transition"
+grep -q 'boolean listenToDeviceLock, boolean forceForeground' "$PRIORITY_SERVICE" || fail "PriorityService cannot force a required foreground notification"
+grep -q 'forceForeground || !Globals.getAppPrefs' "$PRIORITY_SERVICE" || fail "Required foreground notification still obeys legacy hide preference"
+grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.O' "$SCREEN_SERVICE" || fail "ScreenOnService does not force modern foreground promotion"
+grep -q 'lock != null && lock.isHeld()' "$SCREEN_SERVICE" || fail "ScreenOnService teardown can release an invalid wake lock"
+grep -q 'android:name="ScreenOnService" android:exported="false" android:foregroundServiceType="specialUse"' "$MANIFEST" || fail "ScreenOnService special-use foreground declaration missing"
+grep -q 'android.permission.FOREGROUND_SERVICE_SPECIAL_USE' "$MANIFEST" || fail "ScreenOnService special-use foreground permission missing"
 
 echo "PASS: lifecycle/import static contract"
