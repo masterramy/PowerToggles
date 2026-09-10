@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="$ROOT/AndroidManifest.xml"
 WIFI="$ROOT/src/com/painless/pc/tracker/WifiStateTracker.java"
+ADB_WIFI="$ROOT/src/com/painless/pc/tracker/AdbWirelessTracker.java"
 BT="$ROOT/src/com/painless/pc/tracker/BluetoothTracker.java"
 BT_DISCOVERY="$ROOT/src/com/painless/pc/tracker/BluetoothDiscoveryTracker.java"
 BT_HOTSPOT="$ROOT/src/com/painless/pc/tracker/BluetoothHotspotTracker.java"
@@ -55,6 +56,15 @@ grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.Q' "$WIFI" || fail "SSID ac
 grep -q 'wifiManager.setWifiEnabled(desiredState)' "$WIFI" || fail "Legacy pre-Q Wi-Fi mutation path unexpectedly removed or drifted"
 grep -q 'wifiManager.getConnectionInfo().getSSID()' "$WIFI" || fail "Legacy SSID path unexpectedly removed"
 grep -q 'catch (SecurityException e)' "$WIFI" || fail "Wi-Fi protected access lacks SecurityException degradation"
+
+# ADB-over-Wi-Fi is a legacy/root control, but Android 10+ still must not attempt
+# ordinary-app direct Wi-Fi mutation. If Wi-Fi is off, hand the user to the system
+# Wi-Fi panel; direct setWifiEnabled calls are retained only inside pre-Q paths.
+grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && desiredState' "$ADB_WIFI" || fail "ADB wireless modern Wi-Fi preflight missing"
+grep -q 'Settings.Panel.ACTION_WIFI' "$ADB_WIFI" || fail "ADB wireless modern Wi-Fi panel handoff missing"
+grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.Q' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi restore is not pre-Q bounded"
+grep -q 'wifiManager.setWifiEnabled(true)' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi enable path unexpectedly removed"
+grep -q 'wifiManager.setWifiEnabled(false)' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi restore path unexpectedly removed"
 
 # Bluetooth state/control on Android 12+ must not touch protected adapter APIs.
 grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.S' "$BT" || fail "Bluetooth modern API boundary missing"
