@@ -74,6 +74,15 @@ grep -q 'PICK_CROP_RESULT' "$ICON" || fail "Dedicated crop-result request path m
 grep -q 'FileProvider.CROP_URI' "$ICON" || fail "Known app-owned crop output is not used"
 grep -q 'setCropOutputExtra' "$ICON" || fail "Crop output grant helper missing"
 ! grep -q 'FLAG_GRANT_WRITE_URI_PERMISSION' "$ICON" || fail "Broad WRITE grant would propagate to source image"
+# A previous successful crop must never be reusable as the result of a later
+# misbehaving crop Activity. Clear the app-owned output before handing out the
+# exact crop capability, and abort the handoff if that stale output cannot be removed.
+grep -q 'File output = FileProvider.cropFile(main);' "$ICON" || fail "Crop stale-output cleanup does not target the app-owned result"
+grep -q 'output.exists() && !output.delete()' "$ICON" || fail "Crop stale-output file is not removed before reuse"
+grep -q 'if (!clearCropOutput())' "$ICON" || fail "Crop launch does not fail closed when stale-output cleanup fails"
+crop_clear_line="$(grep -n 'if (!clearCropOutput())' "$ICON" | head -1 | cut -d: -f1)"
+crop_launch_line="$(grep -n 'new Intent("com.android.camera.action.CROP")' "$ICON" | head -1 | cut -d: -f1)"
+[ -n "$crop_clear_line" ] && [ -n "$crop_launch_line" ] && [ "$crop_clear_line" -lt "$crop_launch_line" ] || fail "Crop output is not cleared before external crop launch"
 
 # Home widget card must use SAF on modern Android and a grant-gated content URI
 # for Share; legacy raw paths are allowed only in the explicit pre-KitKat fallback.
