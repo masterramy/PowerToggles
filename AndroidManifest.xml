@@ -18,7 +18,10 @@
         android:name="android.permission.CHANGE_WIFI_STATE"
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Legacy manifest CONNECTIVITY_CHANGE refresh is delivered only through Android 6. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        android:maxSdkVersion="23" />
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
