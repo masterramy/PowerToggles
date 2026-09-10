@@ -8,6 +8,7 @@ BT="$ROOT/src/com/painless/pc/tracker/BluetoothTracker.java"
 BT_DISCOVERY="$ROOT/src/com/painless/pc/tracker/BluetoothDiscoveryTracker.java"
 BT_HOTSPOT="$ROOT/src/com/painless/pc/tracker/BluetoothHotspotTracker.java"
 PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
+WIDGET_SETTING="$ROOT/src/com/painless/pc/util/WidgetSetting.java"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -50,5 +51,19 @@ grep -q 'enforceReadGrant(uri, "folder share")' "$PROVIDER" || fail "Folder shar
 grep -q 'enforceReadGrant(uri, "widget share")' "$PROVIDER" || fail "Widget share data is not grant-gated"
 grep -q 'public Cursor query' "$PROVIDER" || fail "FileProvider query override missing"
 grep -Fq 'public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)' "$PROVIDER" || fail "ContentProvider update override signature drifted"
+
+# Widget backgrounds must remain launcher/SystemUI-compatible without exposing a
+# predictable /back/?<id> read surface to arbitrary applications. New RemoteViews
+# publish an opaque capability URI; legacy URI access is restricted to same UID,
+# Android system UID, or the currently resolved HOME launcher during upgrade.
+grep -q 'appendPath(getOrCreateWidgetBackToken(context, widgetId))' "$PROVIDER" || fail "Widget background capability URI missing"
+grep -q 'getExistingWidgetBackToken(context, widgetId)' "$PROVIDER" || fail "External widget background capability validation missing"
+grep -q 'Widget background capability required' "$PROVIDER" || fail "Widget background capability denial missing"
+grep -q 'isCurrentHomeUid(context, callerUid)' "$PROVIDER" || fail "Legacy widget background migration is not launcher-bounded"
+grep -q 'backimage = FileProvider.widgetBackUri(context, widgetId)' "$WIDGET_SETTING" || fail "Widget rendering still publishes predictable background URI"
+
+# Both notification rows must select notification RemoteViews styling.
+grep -q 'STATUS_BAR_WIDGET_ID_2' "$WIDGET_SETTING" || fail "Second notification row constant missing"
+grep -Fq '(widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID_2)' "$WIDGET_SETTING" || fail "Second notification row is not classified as notification"
 
 echo "PASS: modern radio/privacy/provider static contract"
