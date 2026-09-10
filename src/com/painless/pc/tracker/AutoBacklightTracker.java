@@ -39,18 +39,24 @@ public final class AutoBacklightTracker extends AbstractTracker {
 
 	@Override
 	protected void requestStateChange(Context context, boolean desiredState) {
+		final int newState;
 		try {
-			final int newState =
+			newState =
 				(android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC ==
 					android.provider.Settings.System.getInt(
 							context.getContentResolver(), android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE)) ?
 									android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL :
 										android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
-			android.provider.Settings.System.putInt(context.getContentResolver(),
-					android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE, newState);
+		} catch (final SettingNotFoundException e) {
+			return;
+		}
 
+		if (AbstractSystemSettingsTracker.putInt(context,
+				android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE, newState)) {
 			BrightnessActivity.changeBrightness(context, quick_brightness);
-		} catch (final SettingNotFoundException e) { }
+		} else {
+			AbstractSystemSettingsTracker.showPermissionDialog(context, Settings.ACTION_DISPLAY_SETTINGS);
+		}
 	}
 
 	@Override
