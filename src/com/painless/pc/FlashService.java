@@ -65,7 +65,7 @@ public class FlashService extends PriorityService implements Runnable, SurfaceHo
       handler.postDelayed(this, 500);
     } else {
       surfaceCreated(surface.getHolder());
-    }		
+    }
   }
 
   @Override
@@ -73,24 +73,30 @@ public class FlashService extends PriorityService implements Runnable, SurfaceHo
     try {
       handler.removeCallbacks(this);
     } catch (Throwable e) { }
+
     try {
       camera = Camera.open();
-    } catch (RuntimeException e) {
-      // Some unexpected error occurred.
-      // Nothing can be done. Flash will not be supported.
-    }
+      if (camera == null) {
+        throw new IllegalStateException("Unable to open flashlight camera");
+      }
 
-    if (camera != null) {
       final Parameters parameters = camera.getParameters();
       parameters.setFlashMode(Parameters.FLASH_MODE_TORCH);
-      try {
-        camera.setParameters(parameters);
-        camera.setPreviewDisplay(surface.getHolder());
-        camera.startPreview();
-      } catch (final Throwable e) {
-        Debug.log(e);
-      }
+      camera.setParameters(parameters);
+      camera.setPreviewDisplay(surface.getHolder());
+      camera.startPreview();
+    } catch (Throwable e) {
+      // Legacy camera implementations vary widely across pre-M devices. Any failure
+      // to acquire or configure the torch must leave the public toggle disabled and
+      // tear down the service instead of reporting a false enabled state or crashing.
+      Debug.log(e);
+      releaseCamera();
+      FLASH_ON = false;
+      broadcastState();
+      stopSelf();
+      return;
     }
+
     FLASH_ON = true;
     broadcastState();
 
@@ -125,16 +131,22 @@ public class FlashService extends PriorityService implements Runnable, SurfaceHo
 
   @Override
   public void onDestroy() {
-    handler.removeCallbacks(this);
+    if (handler != null) {
+      handler.removeCallbacks(this);
+    }
     clearNotification();
 
     releaseCamera();
 
-    lock.release();
-    try {
-      wm.removeView(surface);
-    } catch (Throwable e) {
-      Debug.log(e);
+    if (lock != null && lock.isHeld()) {
+      lock.release();
+    }
+    if (wm != null && surface != null) {
+      try {
+        wm.removeView(surface);
+      } catch (Throwable e) {
+        Debug.log(e);
+      }
     }
 
     FLASH_ON = false;
