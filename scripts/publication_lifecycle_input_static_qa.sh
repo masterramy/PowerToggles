@@ -78,6 +78,10 @@ for legacy_tracker in "$IMMERSIVE_TRACKER" "$NOLOCK_TRACKER"; do
 done
 grep -q 'catch (SecurityException e)' "$NOLOCK_SERVICE" || fail "Legacy keyguard denial can crash NoLockService"
 grep -q 'mLock != null' "$NOLOCK_SERVICE" || fail "NoLockService teardown assumes keyguard lock acquisition succeeded"
+# KeyguardLock.disableKeyguard()/reenableKeyguard() require DISABLE_KEYGUARD.
+# No Lock is source-disabled on Android O+, so the permission must exist only on
+# the same pre-O compatibility range rather than leaking into modern installs.
+grep -A2 'android:name="android.permission.DISABLE_KEYGUARD"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "Legacy No Lock permission is missing or not capped to pre-O"
 grep -q 'context.startForegroundService(i);' "$SCREEN_TRACKER" || fail "Screen Always On does not use foreground-service launch on Android O+"
 grep -q 'catch (IllegalStateException e)' "$SCREEN_TRACKER" || fail "Rejected Screen Always On foreground launch can crash caller"
 grep -q 'setCurrentState(context, STATE_DISABLED);' "$SCREEN_TRACKER" || fail "Rejected Screen Always On launch can remain stuck in transition"
