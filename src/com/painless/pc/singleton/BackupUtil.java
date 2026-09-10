@@ -95,7 +95,21 @@ public class BackupUtil {
   }
 
   public static BackupData readSettings(File importFile, Context context, int widgetId) throws Exception {
+    return readSettingsInternal(importFile, context, widgetId, true);
+  }
+
+  /**
+   * Parses a widget backup for editor preview while staging embedded folder
+   * databases privately. The caller must commit or roll back data.folderImport.
+   */
+  public static BackupData readSettingsStaged(File importFile, Context context, int widgetId) throws Exception {
+    return readSettingsInternal(importFile, context, widgetId, false);
+  }
+
+  private static BackupData readSettingsInternal(File importFile, Context context, int widgetId,
+      boolean commitFolders) throws Exception {
     ZipFile zip = null;
+    FolderZipReader folderReader = null;
     try {
       zip = new ZipFile(importFile);
       byte[] configBytes = readZipEntry(zip, zip.getEntry("config.txt"), MAX_CONFIG_BYTES, true);
@@ -108,7 +122,7 @@ public class BackupUtil {
       String[] ids = decoder.getTrackerDef().split(",");
       SharedPreferences pref = Globals.getAppPrefs(context);
       if (ids.length == 0) throw new Exception("No trackers to import");
-      FolderZipReader folderReader = new FolderZipReader(context, zip);
+      folderReader = new FolderZipReader(context, zip);
       String newTrackerList = "";
       for (int i = 0; i<8 && i<ids.length; i++) {
         if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("Widget import cancelled");
@@ -153,8 +167,26 @@ public class BackupUtil {
         data.backImage = Bitmap.createScaledBitmap(back, (int) targetWidth, (int) targetHeight, true); if (back != data.backImage) back.recycle();
       }
       if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("Widget import cancelled");
-      folderReader.writeAll(); data.icons = allIcons; return data;
-    } finally { if (zip != null) zip.close(); }
+
+      folderReader.stageAll();
+      if (Thread.currentThread().isInterrupted()) {
+        folderReader.rollback();
+        throw new java.io.InterruptedIOException("Widget import cancelled");
+      }
+      if (commitFolders) {
+        folderReader.commitAll();
+      } else {
+        data.folderImport = folderReader;
+        folderReader = null;
+      }
+      data.icons = allIcons;
+      return data;
+    } finally {
+      if (folderReader != null) {
+        folderReader.rollback();
+      }
+      if (zip != null) zip.close();
+    }
   }
 
   private static byte[] readZipEntry(ZipFile zip, ZipEntry entry, long maxBytes, boolean required) throws Exception {
@@ -200,5 +232,11 @@ public class BackupUtil {
     try { decoder.settings.put(key, BackgroundSection.getStr(rect)); } catch (Exception e) { }
     return rect;
   }
-  public static final class BackupData { public WidgetSetting settings; public Bitmap[] icons; public SettingsDecoder decoder; public Bitmap backImage; }
+  public static final class BackupData {
+    public WidgetSetting settings;
+    public Bitmap[] icons;
+    public SettingsDecoder decoder;
+    public Bitmap backImage;
+    public FolderZipReader folderImport;
+  }
 }
