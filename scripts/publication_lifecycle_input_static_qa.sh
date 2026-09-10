@@ -95,6 +95,16 @@ grep -q 'CameraManager' "$FLASH_MODERN" || fail "Modern flashlight implementatio
 grep -q 'setTorchMode' "$FLASH_MODERN" || fail "Modern flashlight implementation no longer uses torch API"
 grep -A2 'android:name="android.permission.FLASHLIGHT"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "Legacy FLASHLIGHT permission is not capped to pre-M"
 grep -A2 'android:name="android.permission.CAMERA"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "Legacy CAMERA permission is not capped to pre-M"
+# Pre-M camera acquisition/configuration failures must be truthful and teardown
+# must tolerate partial initialization. Never publish a false enabled torch state.
+grep -q 'throw new IllegalStateException("Unable to open flashlight camera")' "$FLASH_LEGACY" || fail "Legacy flashlight null-camera failure is not explicit"
+grep -q 'releaseCamera();' "$FLASH_LEGACY" || fail "Legacy flashlight failure path does not release partial camera state"
+grep -q 'FLASH_ON = false;' "$FLASH_LEGACY" || fail "Legacy flashlight failure path does not publish disabled state"
+grep -q 'stopSelf();' "$FLASH_LEGACY" || fail "Legacy flashlight failure path does not stop the failed service"
+grep -q 'if (handler != null)' "$FLASH_LEGACY" || fail "Legacy flashlight teardown assumes handler initialization succeeded"
+grep -q 'lock != null && lock.isHeld()' "$FLASH_LEGACY" || fail "Legacy flashlight teardown assumes wake lock acquisition succeeded"
+grep -q 'wm != null && surface != null' "$FLASH_LEGACY" || fail "Legacy flashlight teardown assumes overlay initialization succeeded"
+
 
 grep -q 'context.startForegroundService(i);' "$SCREEN_TRACKER" || fail "Screen Always On does not use foreground-service launch on Android O+"
 grep -q 'catch (IllegalStateException e)' "$SCREEN_TRACKER" || fail "Rejected Screen Always On foreground launch can crash caller"
