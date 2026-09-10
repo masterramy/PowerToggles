@@ -13,6 +13,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.text.TextUtils;
 import android.util.SparseArray;
 
@@ -256,8 +257,13 @@ public class SettingStorage {
 	}
 
 	public static void updateConnectivityReceiver(Context context) {
-	  // Only enable if DataNetworkTracker is active
-	  final int state = (trackerList[11] != null) ?
+	  // Data Network relied on a manifest CONNECTIVITY_CHANGE receiver for redraws
+	  // only on pre-N devices. Android 7.0+ does not deliver that implicit broadcast
+	  // to manifest receivers for apps targeting API 24+, so keep the component
+	  // disabled there instead of pretending it still provides live refresh.
+	  final boolean legacyConnectivityRefresh =
+	      Build.VERSION.SDK_INT < Build.VERSION_CODES.N && trackerList[11] != null;
+	  final int state = legacyConnectivityRefresh ?
 	      PackageManager.COMPONENT_ENABLED_STATE_ENABLED :
 	        PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
 
