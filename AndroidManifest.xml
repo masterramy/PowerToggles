@@ -132,26 +132,26 @@
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/icon_search" />
         </activity>
         <activity android:name=".picker.FilePicker" android:exported="false" android:theme="@style/activityTheme" />
-        <activity android:name=".picker.ThemePicker" android:label="@string/tm_title" android:theme="@style/configTheme" />
+        <activity android:name=".picker.ThemePicker" android:exported="false" android:label="@string/tm_title" android:theme="@style/configTheme" />
         <activity android:name=".cfg.WidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="true" android:launchMode="singleTop" android:theme="@style/configTheme" >
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
         <activity android:name=".cfg.EditWidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:launchMode="singleTop" android:theme="@style/configTheme" />
-        <activity android:name=".cfg.IconThemeEditor" android:theme="@style/activityTheme" />
-        <activity android:name=".cfg.BatteryIconEditor" android:theme="@style/activityTheme" />
-        <activity android:name=".cfg.NinePatchEditor" android:label="@string/npe_title" android:theme="@style/activityTheme" />
-        <activity android:name=".cfg.ConfigGuide" android:configChanges="orientation|screenSize" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity android:name=".cfg.IconThemeEditor" android:exported="false" android:theme="@style/activityTheme" />
+        <activity android:name=".cfg.BatteryIconEditor" android:exported="false" android:theme="@style/activityTheme" />
+        <activity android:name=".cfg.NinePatchEditor" android:exported="false" android:label="@string/npe_title" android:theme="@style/activityTheme" />
+        <activity android:name=".cfg.ConfigGuide" android:configChanges="orientation|screenSize" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".qs.TileConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:label="@string/qs_title" android:launchMode="singleTop" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
-        <activity android:name=".acts.BrightnessActivity" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name="FlashActivity" android:launchMode="singleTask" android:noHistory="true" android:screenOrientation="portrait" android:theme="@style/flashTheme" />
-        <activity android:name="BootDialog" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
-        <activity android:name="RLPicker" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
-        <activity android:name=".acts.BrightnessSlider" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name=".acts.VolumeSlider" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name="ProxyActivity" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name="PermissionDialog" android:excludeFromRecents="true" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
+        <activity android:name=".acts.BrightnessActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="FlashActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:screenOrientation="portrait" android:theme="@style/flashTheme" />
+        <activity android:name="BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
+        <activity android:name="RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
+        <activity android:name=".acts.BrightnessSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name=".acts.VolumeSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="ProxyActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="PermissionDialog" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
 
         <service android:name="FlashService" android:exported="false" />
         <service android:name="FlashServiceM" android:exported="false" />
