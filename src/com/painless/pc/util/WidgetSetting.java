@@ -119,7 +119,7 @@ public final class WidgetSetting {
 
 		File backImgFile = FileProvider.widgetBackFile(context, widgetId);
 		if (backImgFile.exists()) {
-		  backimage = Uri.parse("content://com.painless.pc.file/back/?" + widgetId + "#" + backImgFile.lastModified());
+		  backimage = FileProvider.widgetBackUri(context, widgetId);
 		  padding = decoder.getRect(KEY_PADDING);
 		} else {
 		  padding = new int[4];
@@ -162,7 +162,7 @@ public final class WidgetSetting {
 		int category = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
 				.getInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY, -1);
 
-		// If the value is WIDGET_CATEGORY_KEYGUARD, it's a lockscreen widget
+		// If WIDGET_CATEGORY_KEYGUARD, its a lockscreen widget
 		return category == AppWidgetProviderInfo.WIDGET_CATEGORY_KEYGUARD;
 	}
 
