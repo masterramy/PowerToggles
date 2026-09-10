@@ -9,6 +9,7 @@ BATTERY="$ROOT/src/com/painless/pc/cfg/BatteryIconEditor.java"
 BACKUP="$ROOT/src/com/painless/pc/singleton/BackupUtil.java"
 FOLDER_READER="$ROOT/src/com/painless/pc/folder/FolderZipReader.java"
 WIDGET_CONFIG="$ROOT/src/com/painless/pc/cfg/WidgetConfigActivity.java"
+LAUNCH="$ROOT/src/com/painless/pc/settings/LaunchActivity.java"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -45,5 +46,14 @@ grep -q 'publishedFiles.add(targetFile)' "$FOLDER_READER" || fail "Partial desti
 grep -q 'mPendingFolderImport.commitAll();' "$WIDGET_CONFIG" || fail "Widget Done does not commit staged folder data"
 grep -q 'rollbackPendingFolderImport();' "$WIDGET_CONFIG" || fail "Widget editor does not roll back staged folder data"
 grep -q 'BackupUtil.readSettingsStaged' "$WIDGET_CONFIG" || fail "Widget editor still uses eager folder publication"
+
+# LaunchActivity is exported, so PreferenceActivity.EXTRA_SHOW_FRAGMENT is an
+# external ingress. It must accept only the complete, source-proven settings
+# navigation set and must never regress to blanket Fragment acceptance.
+! grep -A3 'isValidFragment(String fragmentName)' "$LAUNCH" | grep -Fq 'return true;' || fail "Exported settings Activity blanket-accepts fragment injection"
+for fragment in HomeFrag NotifyFrag FolderFrag SettingsFrag InfoFrag TogglePrefFrag TCacheFrag CFolderFrag; do
+  grep -Fq "${fragment}.class.getName().equals(fragmentName)" "$LAUNCH" || fail "LaunchActivity allowlist missing ${fragment}"
+done
+! grep -Fq 'AbsListFrag.class.getName().equals(fragmentName)' "$LAUNCH" || fail "Non-navigation base Fragment unexpectedly exposed"
 
 echo "PASS: lifecycle/import static contract"
