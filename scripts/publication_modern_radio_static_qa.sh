@@ -25,6 +25,11 @@ grep -A2 'android:name="android.permission.ACCESS_FINE_LOCATION"' "$MANIFEST" | 
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
 
+# UPDATE_DEVICE_STATS is a platform-only signature/privileged/role capability,
+# explicitly not for ordinary third-party apps. Publication source must not
+# advertise it as if it were an obtainable customer-app capability.
+! grep -q 'android.permission.UPDATE_DEVICE_STATS' "$MANIFEST" || fail "Platform-only UPDATE_DEVICE_STATS permission reintroduced"
+
 # The retired online theme catalog was the remaining outbound network feature.
 # Publication WIP is local/SAF-only, so do not regain INTERNET or direct Java
 # network APIs without an explicit product/privacy review.
