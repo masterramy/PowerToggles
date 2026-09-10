@@ -16,6 +16,13 @@ NOLOCK_SERVICE="$ROOT/src/com/painless/pc/NoLockService.java"
 FLASH_TRACKER="$ROOT/src/com/painless/pc/tracker/FlashStateTracker.java"
 FLASH_LEGACY="$ROOT/src/com/painless/pc/FlashService.java"
 FLASH_MODERN="$ROOT/src/com/painless/pc/FlashServiceM.java"
+SYSTEM_SETTINGS="$ROOT/src/com/painless/pc/tracker/AbstractSystemSettingsTracker.java"
+AUTO_BACKLIGHT="$ROOT/src/com/painless/pc/tracker/AutoBacklightTracker.java"
+BACKLIGHT="$ROOT/src/com/painless/pc/tracker/BacklightTracker.java"
+TIMEOUT="$ROOT/src/com/painless/pc/tracker/TimeoutTracker.java"
+ROTATION_PICKER="$ROOT/src/com/painless/pc/RLPicker.java"
+BRIGHTNESS_SLIDER="$ROOT/src/com/painless/pc/acts/BrightnessSlider.java"
+BRIGHTNESS_ACTIVITY="$ROOT/src/com/painless/pc/acts/BrightnessActivity.java"
 SCREEN_TRACKER="$ROOT/src/com/painless/pc/tracker/ScreenOnTracker.java"
 SCREEN_SERVICE="$ROOT/src/com/painless/pc/ScreenOnService.java"
 PRIORITY_SERVICE="$ROOT/src/com/painless/pc/PriorityService.java"
@@ -105,6 +112,31 @@ grep -q 'if (handler != null)' "$FLASH_LEGACY" || fail "Legacy flashlight teardo
 grep -q 'lock != null && lock.isHeld()' "$FLASH_LEGACY" || fail "Legacy flashlight teardown assumes wake lock acquisition succeeded"
 grep -q 'wm != null && surface != null' "$FLASH_LEGACY" || fail "Legacy flashlight teardown assumes overlay initialization succeeded"
 
+# WRITE_SETTINGS is a user-granted special access and can be revoked between a
+# caller preflight and the actual Settings.System write. All surviving brightness,
+# timeout, and rotation writers must route through one fail-closed helper and must
+# not reintroduce raw putInt calls that can throw or silently report failure.
+grep -q 'android.permission.WRITE_SETTINGS' "$MANIFEST" || fail "Surviving system-settings controls lost WRITE_SETTINGS declaration"
+grep -Fq 'public static boolean putInt(Context c, String setting, int value)' "$SYSTEM_SETTINGS" || fail "Fail-closed Settings.System write helper missing"
+grep -Fq 'return Settings.System.putInt(c.getContentResolver(), setting, value);' "$SYSTEM_SETTINGS" || fail "Settings.System helper ignores provider write result"
+grep -q 'catch (SecurityException e)' "$SYSTEM_SETTINGS" || fail "Settings.System helper does not absorb late special-access denial"
+for settings_writer in "$AUTO_BACKLIGHT" "$BACKLIGHT" "$TIMEOUT" "$ROTATION_PICKER" "$BRIGHTNESS_SLIDER"; do
+  grep -q 'AbstractSystemSettingsTracker.putInt' "$settings_writer" || fail "System-settings writer bypasses fail-closed helper: $settings_writer"
+  ! grep -Eq '(^|[^A-Za-z0-9_])((android\.provider\.)?Settings\.System)\.putInt' "$settings_writer" || fail "Raw Settings.System.putInt reintroduced: $settings_writer"
+done
+grep -q 'if (!modeWritten)' "$BACKLIGHT" || fail "Backlight partial-write failure is not handled"
+grep -q 'getActualState(context);' "$BACKLIGHT" || fail "Backlight does not reconcile actual state after failed multi-write"
+grep -Fq 'if (!AbstractSystemSettingsTracker.putInt(context,' "$TIMEOUT" || fail "Timeout write does not fail closed"
+grep -q 'boolean success =' "$ROTATION_PICKER" || fail "Rotation relatch does not require complete immediate write sequence"
+grep -q 'if (!success)' "$ROTATION_PICKER" || fail "Rotation relatch failure is not handled"
+grep -Fq 'AbstractSystemSettingsTracker.putInt(c, Settings.System.USER_ROTATION, rotation);' "$ROTATION_PICKER" || fail "Delayed rotation reassert bypasses fail-closed helper"
+grep -q 'private boolean putSystemSetting(String setting, int value)' "$BRIGHTNESS_SLIDER" || fail "Brightness slider local write gate missing"
+grep -q 'showPermissionDialog(this, Settings.ACTION_DISPLAY_SETTINGS)' "$BRIGHTNESS_SLIDER" || fail "Brightness slider denial does not route to system settings"
+# The quick-brightness TYPE_TOAST window is optional legacy UX. If modern window
+# policy rejects it, fall back to the app-owned Activity rather than crashing.
+grep -q 'quick && tryQuickBrightness(c)' "$BRIGHTNESS_ACTIVITY" || fail "Quick brightness does not use guarded overlay path"
+grep -q 'catch (RuntimeException e)' "$BRIGHTNESS_ACTIVITY" || fail "Quick brightness overlay denial can escape"
+grep -q 'startBrightnessActivity(c);' "$BRIGHTNESS_ACTIVITY" || fail "Quick brightness denial lacks Activity fallback"
 
 grep -q 'context.startForegroundService(i);' "$SCREEN_TRACKER" || fail "Screen Always On does not use foreground-service launch on Android O+"
 grep -q 'catch (IllegalStateException e)' "$SCREEN_TRACKER" || fail "Rejected Screen Always On foreground launch can crash caller"
