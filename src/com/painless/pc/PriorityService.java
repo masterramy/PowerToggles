@@ -47,13 +47,18 @@ public abstract class PriorityService extends Service {
   }
 
   protected void maybeShowNotification(String key, boolean dValue, int icon, int title, int subtitle, boolean listenToDeviceLock) {
+    maybeShowNotification(key, dValue, icon, title, subtitle, listenToDeviceLock, false);
+  }
+
+  protected void maybeShowNotification(String key, boolean dValue, int icon, int title, int subtitle,
+          boolean listenToDeviceLock, boolean forceForeground) {
     IntentFilter stopFilter = new IntentFilter();
     if (listenToDeviceLock) {
       stopFilter.addAction(Intent.ACTION_SCREEN_OFF);
       mRegistered = true;
     }
     
-    if (!Globals.getAppPrefs(this).getBoolean(key, dValue)) {
+    if (forceForeground || !Globals.getAppPrefs(this).getBoolean(key, dValue)) {
       String stopIntent = STOP_INTENT_PREFIX + key;
 
       NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
