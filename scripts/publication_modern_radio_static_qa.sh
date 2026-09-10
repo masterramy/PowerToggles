@@ -14,10 +14,12 @@ fail() {
   exit 1
 }
 
-# Modern installs must not advertise legacy Bluetooth or location permissions
-# for user-mediated controls / optional SSID decoration.
+# Modern installs must not advertise legacy Bluetooth, account-list, or location
+# permissions for user-mediated controls / explicitly visible account sync /
+# optional SSID decoration.
 grep -A2 'android:name="android.permission.BLUETOOTH"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH not capped to Android 11"
 grep -A2 'android:name="android.permission.BLUETOOTH_ADMIN"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH_ADMIN not capped to Android 11"
+grep -A2 'android:name="android.permission.GET_ACCOUNTS"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "GET_ACCOUNTS not capped below Android 8"
 grep -A2 'android:name="android.permission.ACCESS_FINE_LOCATION"' "$MANIFEST" | grep -q 'android:maxSdkVersion="28"' || fail "ACCESS_FINE_LOCATION not capped to Android 9"
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
