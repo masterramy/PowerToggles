@@ -13,6 +13,9 @@ LAUNCH="$ROOT/src/com/painless/pc/settings/LaunchActivity.java"
 IMMERSIVE_TRACKER="$ROOT/src/com/painless/pc/tracker/ImmersiveTracker.java"
 NOLOCK_TRACKER="$ROOT/src/com/painless/pc/tracker/NoLockTracker.java"
 NOLOCK_SERVICE="$ROOT/src/com/painless/pc/NoLockService.java"
+FLASH_TRACKER="$ROOT/src/com/painless/pc/tracker/FlashStateTracker.java"
+FLASH_LEGACY="$ROOT/src/com/painless/pc/FlashService.java"
+FLASH_MODERN="$ROOT/src/com/painless/pc/FlashServiceM.java"
 SCREEN_TRACKER="$ROOT/src/com/painless/pc/tracker/ScreenOnTracker.java"
 SCREEN_SERVICE="$ROOT/src/com/painless/pc/ScreenOnService.java"
 PRIORITY_SERVICE="$ROOT/src/com/painless/pc/PriorityService.java"
@@ -82,6 +85,17 @@ grep -q 'mLock != null' "$NOLOCK_SERVICE" || fail "NoLockService teardown assume
 # No Lock is source-disabled on Android O+, so the permission must exist only on
 # the same pre-O compatibility range rather than leaking into modern installs.
 grep -A2 'android:name="android.permission.DISABLE_KEYGUARD"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "Legacy No Lock permission is missing or not capped to pre-O"
+
+# The legacy flashlight implementation opens android.hardware.Camera only below
+# Android M. API23+ uses CameraManager.setTorchMode instead, so the historical
+# FLASHLIGHT/CAMERA permissions must not leak into modern installs.
+grep -Fq 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? FlashServiceM.class : FlashService.class' "$FLASH_TRACKER" || fail "Flash tracker no longer preserves the pre-M/modern implementation split"
+grep -q 'android.hardware.Camera' "$FLASH_LEGACY" || fail "Legacy flashlight implementation no longer matches the pre-M permission boundary"
+grep -q 'CameraManager' "$FLASH_MODERN" || fail "Modern flashlight implementation no longer uses CameraManager"
+grep -q 'setTorchMode' "$FLASH_MODERN" || fail "Modern flashlight implementation no longer uses torch API"
+grep -A2 'android:name="android.permission.FLASHLIGHT"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "Legacy FLASHLIGHT permission is not capped to pre-M"
+grep -A2 'android:name="android.permission.CAMERA"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "Legacy CAMERA permission is not capped to pre-M"
+
 grep -q 'context.startForegroundService(i);' "$SCREEN_TRACKER" || fail "Screen Always On does not use foreground-service launch on Android O+"
 grep -q 'catch (IllegalStateException e)' "$SCREEN_TRACKER" || fail "Rejected Screen Always On foreground launch can crash caller"
 grep -q 'setCurrentState(context, STATE_DISABLED);' "$SCREEN_TRACKER" || fail "Rejected Screen Always On launch can remain stuck in transition"
