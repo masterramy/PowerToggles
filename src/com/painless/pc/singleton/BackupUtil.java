@@ -175,6 +175,7 @@ public class BackupUtil {
       }
       if (commitFolders) {
         folderReader.commitAll();
+        folderReader = null;
       } else {
         data.folderImport = folderReader;
         folderReader = null;
