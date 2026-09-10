@@ -2,7 +2,6 @@ package com.painless.pc;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -70,10 +69,11 @@ public class RLPicker extends Activity implements OnClickListener {
     }
 
     final int generation = ROTATION_WRITE_GENERATION.incrementAndGet();
-    final ContentResolver resolver = c.getContentResolver();
 
     if (mode == 0) {
-      Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 1);
+      if (!AbstractSystemSettingsTracker.putInt(c, Settings.System.ACCELEROMETER_ROTATION, 1)) {
+        AbstractSystemSettingsTracker.showPermissionDialog(c, Settings.ACTION_DISPLAY_SETTINGS);
+      }
       return;
     }
 
@@ -89,11 +89,18 @@ public class RLPicker extends Activity implements OnClickListener {
     // USER_ROTATION while rotation is already locked can rotate momentarily but
     // then normalize back to the previous lock when a fixed-orientation surface
     // (for example the launcher) resumes. Relatch through Auto, freeze rotation,
-    // and assert the requested angle immediately.
-    Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 1);
-    Settings.System.putInt(resolver, Settings.System.USER_ROTATION, rotation);
-    Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0);
-    Settings.System.putInt(resolver, Settings.System.USER_ROTATION, rotation);
+    // and assert the requested angle immediately. Every write is fail-closed in
+    // case WRITE_SETTINGS is revoked between the initial permission check and the
+    // relatch sequence; only a complete sequence may schedule the delayed reassert.
+    boolean success =
+        AbstractSystemSettingsTracker.putInt(c, Settings.System.ACCELEROMETER_ROTATION, 1)
+        && AbstractSystemSettingsTracker.putInt(c, Settings.System.USER_ROTATION, rotation)
+        && AbstractSystemSettingsTracker.putInt(c, Settings.System.ACCELEROMETER_ROTATION, 0)
+        && AbstractSystemSettingsTracker.putInt(c, Settings.System.USER_ROTATION, rotation);
+    if (!success) {
+      AbstractSystemSettingsTracker.showPermissionDialog(c, Settings.ACTION_DISPLAY_SETTINGS);
+      return;
+    }
 
     // A synchronous reassert can still race the launcher/activity orientation
     // settle on Android 16. Reinforce once after that settle window, but only if
@@ -106,13 +113,8 @@ public class RLPicker extends Activity implements OnClickListener {
         if (ROTATION_WRITE_GENERATION.get() != generation) {
           return;
         }
-        try {
-          if (Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 1) == 0) {
-            Settings.System.putInt(resolver, Settings.System.USER_ROTATION, rotation);
-          }
-        } catch (SecurityException ignored) {
-          // The immediate public-settings write already ran while permission was
-          // present. If the user revokes it during the settle window, do nothing.
+        if (Settings.System.getInt(c.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION, 1) == 0) {
+          AbstractSystemSettingsTracker.putInt(c, Settings.System.USER_ROTATION, rotation);
         }
       }
     }, ROTATION_SETTLE_REASSERT_MS);
