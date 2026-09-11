@@ -12,6 +12,7 @@ BT="$ROOT/src/com/painless/pc/tracker/BluetoothTracker.java"
 BT_DISCOVERY="$ROOT/src/com/painless/pc/tracker/BluetoothDiscoveryTracker.java"
 BT_HOTSPOT="$ROOT/src/com/painless/pc/tracker/BluetoothHotspotTracker.java"
 FLASH="$ROOT/src/com/painless/pc/tracker/FlashStateTracker.java"
+FLASH_MODERN="$ROOT/src/com/painless/pc/FlashServiceM.java"
 LEGACY_FLASH="$ROOT/src/com/painless/pc/FlashService.java"
 PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
 WIDGET_SETTING="$ROOT/src/com/painless/pc/util/WidgetSetting.java"
@@ -41,6 +42,22 @@ grep -A2 'android:name="android.permission.SYSTEM_ALERT_WINDOW"' "$MANIFEST" | g
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
 
+# Historical system/root builds advertised platform-only privileges that an
+# ordinary Play application cannot obtain. Keep the publication manifest free of
+# the entire family instead of preserving declarations that imply unsupported
+# capabilities.
+for forbidden_permission in \
+    android.permission.MANAGE_USB \
+    android.permission.UPDATE_DEVICE_STATS \
+    android.permission.CHANGE_CONFIGURATION \
+    android.permission.WRITE_SECURE_SETTINGS \
+    android.permission.ACCESS_SUPERUSER \
+    android.permission.MODIFY_PHONE_STATE \
+    android.permission.REBOOT \
+    android.permission.EXPAND_STATUS_BAR; do
+  ! grep -q "$forbidden_permission" "$MANIFEST" || fail "platform/root-only permission reintroduced: $forbidden_permission"
+done
+
 # Network-type icon/label rendering is informational only. Current Android gates
 # the real data-radio technology behind phone-state capability, so publication
 # source must fail closed to the historical UNKNOWN bucket rather than touching
@@ -64,16 +81,21 @@ if not re.search(r"\breturn\s+1\s*;", body):
 print("PASS: mobile network rendering is phone-state-free and fail-closed")
 PY
 
-# The only surviving overlay implementation is the legacy flashlight service,
-# and the tracker must route Android M+ to the modern torch service instead.
+# The pre-M implementation remains an explicitly capped compatibility service.
+# Android M+ must use CameraManager.setTorchMode directly from the tracker rather
+# than attempting a background or camera foreground service and growing CAMERA/
+# FGS permission scope. FlashServiceM is now a process-scoped utility, not a
+# manifest component.
 grep -q 'WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY' "$LEGACY_FLASH" || fail "Legacy flashlight overlay path unexpectedly removed or drifted"
 grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.M' "$FLASH" || fail "Modern flashlight API boundary missing"
-grep -q 'FlashServiceM.SERVICE_INTENT' "$FLASH" || fail "Modern flashlight service handoff missing"
-
-# UPDATE_DEVICE_STATS is a platform-only signature/privileged/role capability,
-# explicitly not for ordinary third-party apps. Publication source must not
-# advertise it as if it were an obtainable customer-app capability.
-! grep -q 'android.permission.UPDATE_DEVICE_STATS' "$MANIFEST" || fail "Platform-only UPDATE_DEVICE_STATS permission reintroduced"
+grep -Fq 'FlashServiceM.isEnabled(context)' "$FLASH" || fail "Modern flashlight state no longer uses direct torch controller"
+grep -Fq 'FlashServiceM.setEnabled(context, desiredState)' "$FLASH" || fail "Modern flashlight toggle no longer uses direct torch controller"
+! grep -q 'FlashServiceM.class' "$FLASH" || fail "Modern flashlight service launch reintroduced"
+grep -q 'CameraManager' "$FLASH_MODERN" || fail "Modern flashlight CameraManager controller missing"
+grep -q 'setTorchMode' "$FLASH_MODERN" || fail "Modern flashlight public setTorchMode call missing"
+! grep -qE 'extends[[:space:]]+(PriorityService|Service)' "$FLASH_MODERN" || fail "Modern flashlight controller became an Android service again"
+! grep -q 'android:name="FlashServiceM"' "$MANIFEST" || fail "Modern flashlight utility reintroduced as manifest service"
+grep -A2 'android:name="android.permission.CAMERA"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "CAMERA permission escaped pre-M legacy boundary"
 
 # The retired online theme catalog was the remaining outbound network feature.
 # Publication WIP is local/SAF-only, so do not regain INTERNET or direct Java
@@ -152,4 +174,4 @@ grep -q 'STATUS_BAR_WIDGET_ID_2' "$WIDGET_SETTING" || fail "Second notification 
 grep -Fq '(widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID_2)' "$WIDGET_SETTING" || fail "Second notification row is not classified as notification"
 grep -Fq 'getRemoteView(context, settings, true, Globals.STATUS_BAR_WIDGET_ID_2)' "$PCWIDGET" || fail "Second notification row click identity is not -23"
 
-echo "PASS: modern radio/privacy/provider/static notification identity contract"
+echo "PASS: modern radio/privacy/provider/flash/static notification identity contract"
