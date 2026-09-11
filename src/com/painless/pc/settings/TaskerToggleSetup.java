@@ -65,7 +65,15 @@ public class TaskerToggleSetup extends Activity implements OnClickListener {
   }
 
   private static String boundedExtra(Intent intent, String key) {
-    String value = intent.getStringExtra(key);
+    final String value;
+    try {
+      value = intent.getStringExtra(key);
+    } catch (RuntimeException e) {
+      // Exported Locale/Tasker setup is a cross-app boundary. Malformed or
+      // unparcelable extras must behave like absent optional values, not crash
+      // the app process.
+      return null;
+    }
     if (value == null) {
       return null;
     }
