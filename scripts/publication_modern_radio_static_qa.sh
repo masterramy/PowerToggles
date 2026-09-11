@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="$ROOT/AndroidManifest.xml"
+GLOBALS="$ROOT/src/com/painless/pc/singleton/Globals.java"
 WIFI="$ROOT/src/com/painless/pc/tracker/WifiStateTracker.java"
 ADB_WIFI="$ROOT/src/com/painless/pc/tracker/AdbWirelessTracker.java"
 WIMAX="$ROOT/src/com/painless/pc/tracker/WiMaxTracker.java"
@@ -22,8 +23,9 @@ fail() {
 
 # Modern installs must not advertise legacy Bluetooth, account-list, location,
 # direct Wi-Fi mutation, legacy connectivity-state, retired WiMAX connectivity,
-# or pre-Marshmallow flashlight-overlay permissions for user-mediated controls /
-# explicitly visible account sync / optional SSID decoration / legacy refresh paths.
+# phone-state identity, or pre-Marshmallow flashlight-overlay permissions for
+# user-mediated controls / explicitly visible account sync / optional SSID
+# decoration / legacy refresh paths.
 grep -A2 'android:name="android.permission.BLUETOOTH"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH not capped to Android 11"
 grep -A2 'android:name="android.permission.BLUETOOTH_ADMIN"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH_ADMIN not capped to Android 11"
 grep -A2 'android:name="android.permission.GET_ACCOUNTS"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "GET_ACCOUNTS not capped below Android 8"
@@ -33,8 +35,33 @@ grep -A2 'android:name="android.permission.ACCESS_NETWORK_STATE"' "$MANIFEST" | 
 grep -A2 'android:name="android.permission.SYSTEM_ALERT_WINDOW"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "SYSTEM_ALERT_WINDOW not capped to legacy pre-Marshmallow flashlight path"
 ! grep -q 'android.permission.CHANGE_NETWORK_STATE' "$MANIFEST" || fail "Retired WiMAX CHANGE_NETWORK_STATE permission reintroduced"
 ! grep -q 'android.net.wimax.WIMAX_STATE_CHANGE' "$MANIFEST" || fail "Retired WiMAX broadcast subscription reintroduced"
+! grep -q 'android.permission.READ_PHONE_STATE' "$MANIFEST" || fail "Sensitive READ_PHONE_STATE permission unexpectedly advertised"
+! grep -q 'android.permission.READ_BASIC_PHONE_STATE' "$MANIFEST" || fail "Sensitive READ_BASIC_PHONE_STATE permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
+
+# Network-type icon/label rendering is informational only. Current Android gates
+# the real data-radio technology behind phone-state capability, so publication
+# source must fail closed to the historical UNKNOWN bucket rather than touching
+# TelephonyManager from widget/notification rendering or growing permission scope.
+python3 - "$GLOBALS" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+if "android.telephony.TelephonyManager" in text or "TelephonyManager." in text:
+    raise SystemExit("FAIL: restricted TelephonyManager network-type read reintroduced")
+match = re.search(r"public static final int getNetworkType\(Context context\)\s*\{(.*?)\n\s*\}", text, re.S)
+if not match:
+    raise SystemExit("FAIL: network type compatibility helper missing")
+body = match.group(1)
+if "sNetworkName = context.getString(R.string.lbl_unknown_allcap);" not in body:
+    raise SystemExit("FAIL: network type helper no longer labels restricted state UNKNOWN")
+if not re.search(r"\breturn\s+1\s*;", body):
+    raise SystemExit("FAIL: network type helper no longer returns historical UNKNOWN icon level")
+print("PASS: mobile network rendering is phone-state-free and fail-closed")
+PY
 
 # The only surviving overlay implementation is the legacy flashlight service,
 # and the tracker must route Android M+ to the modern torch service instead.
