@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Bundle;
 import android.text.TextUtils;
 
 import com.painless.pc.singleton.Globals;
@@ -35,7 +36,7 @@ public class PluginUpdateReceiver extends BroadcastReceiver {
       return;
     }
 
-    if (intent.getBooleanExtra("refresh", false)) {
+    if (Boolean.TRUE.equals(safeBooleanExtra(intent, "refresh"))) {
       PCWidgetActivity.partialUpdateAllWidgets(context);
       return;
     }
@@ -51,16 +52,20 @@ public class PluginUpdateReceiver extends BroadcastReceiver {
       varId = Globals.TASKER_KEY_PREFIX + data.getSchemeSpecificPart();
       newState = PluginDB.get(context).getState(varId);
     } else if (FIRE_SETTING_INTENT.equals(action)) {
-      String taskerVar = intent.getStringExtra("varID");
+      String taskerVar = safeStringExtra(intent, "varID");
       if (TextUtils.isEmpty(taskerVar)) {
         return;
       }
       varId = Globals.TASKER_KEY_PREFIX + taskerVar;
-      newState = Boolean.parseBoolean(intent.getStringExtra("state"));
+      newState = Boolean.parseBoolean(safeStringExtra(intent, "state"));
     } else {
-      varId = intent.getStringExtra("varID");
-      newState = intent.getBooleanExtra("state", false);
-      String pluginID = intent.getStringExtra(Intent.EXTRA_UID);
+      varId = safeStringExtra(intent, "varID");
+      Boolean state = safeBooleanExtra(intent, "state");
+      if (state == null) {
+        return;
+      }
+      newState = state;
+      String pluginID = safeStringExtra(intent, Intent.EXTRA_UID);
       if (!TextUtils.isEmpty(varId) && !TextUtils.isEmpty(pluginID)) {
         varId = varId + '-' + pluginID;
       }
@@ -75,7 +80,7 @@ public class PluginUpdateReceiver extends BroadcastReceiver {
     if (tracker instanceof PluginTracker) {
       int count = PluginDB.get(context).getCount(varId);
       try {
-        count = Integer.parseInt(intent.getStringExtra("count"));
+        count = Integer.parseInt(safeStringExtra(intent, "count"));
       } catch (Exception e) {
         // Keep the current stored count.
       }
@@ -89,6 +94,27 @@ public class PluginUpdateReceiver extends BroadcastReceiver {
       plugin.setChangedState(context, newState, count);
       PluginDB.get(context).setState(varId, newState, count);
       PCWidgetActivity.partialUpdateAllWidgets(context);
+    }
+  }
+
+  private static String safeStringExtra(Intent intent, String key) {
+    Object value = safeExtra(intent, key);
+    return value instanceof String ? (String) value : null;
+  }
+
+  private static Boolean safeBooleanExtra(Intent intent, String key) {
+    Object value = safeExtra(intent, key);
+    return value instanceof Boolean ? (Boolean) value : null;
+  }
+
+  private static Object safeExtra(Intent intent, String key) {
+    try {
+      Bundle extras = intent.getExtras();
+      return extras == null ? null : extras.get(key);
+    } catch (RuntimeException e) {
+      // Exported plugin ingress is untrusted. Malformed or unparcelable extras must
+      // fail closed instead of crashing the app process or inventing state.
+      return null;
     }
   }
 }
