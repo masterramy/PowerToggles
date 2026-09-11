@@ -27,6 +27,9 @@ public class QTInfo implements ShortcutIdParser {
   public static final String KEY_LONG_CONTENT_DESCRIPTION = "long_content_description";
   public static final String KEY_ICON_COUNT = "icon_count";
 
+  public static final int MAX_ICON_COUNT = 4;
+  private static final int MAX_DEFINITION_CHARS = 64 * 1024;
+
   public Intent clickIntent;
   public Intent clickBroadcast;
   public Intent longClickIntent;
@@ -68,6 +71,10 @@ public class QTInfo implements ShortcutIdParser {
   }
 
   public void update(Context context, String action) {
+    if (icons == null || icons.length == 0) {
+      return;
+    }
+
     Intent intent = new Intent(action);
     intent.putExtra("visible", true);
 
@@ -77,7 +84,7 @@ public class QTInfo implements ShortcutIdParser {
       state = tracker.getStateColor(context);
       diplayNum = tracker.getImageNumber(context);
     }
-    if (diplayNum > icons.length) {
+    if (diplayNum < 0 || diplayNum >= icons.length) {
       diplayNum = 0;
     }
 
@@ -116,16 +123,27 @@ public class QTInfo implements ShortcutIdParser {
   }
 
   public void loadIcon(int pos, Context context) {
+    if (icons == null || pos < 0 || pos >= icons.length) {
+      return;
+    }
     if (icons[pos] == null) {
       icons[pos] = WidgetDB.get(context).getIconBytes((widgetId << 3) + pos);
     }
   }
 
   public static QTInfo parse(String def, Context context) throws Exception {
+    if (def == null || def.length() == 0 || def.length() > MAX_DEFINITION_CHARS) {
+      throw new IllegalArgumentException("Invalid or oversized tile definition");
+    }
+
     JSONObject obj = new JSONObject(def);
+    int iconCount = obj.getInt(KEY_ICON_COUNT);
+    if (iconCount < 1 || iconCount > MAX_ICON_COUNT) {
+      throw new IllegalArgumentException("Invalid tile icon count");
+    }
 
     QTInfo info = new QTInfo();
-    info.icons = new byte[obj.getInt(KEY_ICON_COUNT)][];
+    info.icons = new byte[iconCount][];
     info.widgetId = obj.getInt(KEY_WIDGET_ID);
     info.requiresUpdate = obj.getBoolean(KEY_REQUIRES_UPDATE);
     info.customLabel = obj.optString(KEY_CUSTOM_LABEL, null);
@@ -141,6 +159,13 @@ public class QTInfo implements ShortcutIdParser {
     }
 
     info.tracker = SettingStorage.getTracker(obj.getString(KEY_TRACKER_ID), context, Globals.getAppPrefs(context), info);
+    if (info.tracker == null || info.tracker.buttonConfig == null) {
+      throw new IllegalArgumentException("Unsupported tile tracker");
+    }
+    int expectedIconCount = info.tracker.buttonConfig.length / 2;
+    if (expectedIconCount < 1 || expectedIconCount > MAX_ICON_COUNT || iconCount != expectedIconCount) {
+      throw new IllegalArgumentException("Tile icon count does not match tracker state count");
+    }
     return info;
   }
 }
