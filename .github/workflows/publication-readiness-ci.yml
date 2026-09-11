@@ -20,6 +20,7 @@ jobs:
           bash scripts/publication_lifecycle_input_static_qa.sh
           bash scripts/publication_immersive_window_static_qa.sh
           bash scripts/publication_plugin_receiver_static_qa.sh
+          bash scripts/publication_tasker_ingress_static_qa.sh
           bash scripts/publication_call_shortcut_static_qa.sh
           bash scripts/publication_internal_activity_export_static_qa.sh
           bash scripts/publication_hidden_api_static_qa.sh
