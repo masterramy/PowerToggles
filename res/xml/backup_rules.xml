@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Capability tokens and generated share archives are ephemeral transport state,
+         not user-authored settings. Rotate/regenerate them after restore. -->
+    <exclude domain="sharedpref" path="file_provider_capabilities.xml" />
+    <exclude domain="file" path="folder.pcf" />
+    <exclude domain="file" path="widget.zip" />
+</full-backup-content>
