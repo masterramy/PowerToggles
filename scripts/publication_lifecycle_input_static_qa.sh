@@ -26,6 +26,7 @@ BRIGHTNESS_ACTIVITY="$ROOT/src/com/painless/pc/acts/BrightnessActivity.java"
 SCREEN_TRACKER="$ROOT/src/com/painless/pc/tracker/ScreenOnTracker.java"
 SCREEN_SERVICE="$ROOT/src/com/painless/pc/ScreenOnService.java"
 PRIORITY_SERVICE="$ROOT/src/com/painless/pc/PriorityService.java"
+PLUGIN_RECEIVER="$ROOT/src/com/painless/pc/PluginUpdateReceiver.java"
 MANIFEST="$ROOT/AndroidManifest.xml"
 
 fail() {
@@ -147,5 +148,16 @@ grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.O' "$SCREEN_SERVICE" || fa
 grep -q 'lock != null && lock.isHeld()' "$SCREEN_SERVICE" || fail "ScreenOnService teardown can release an invalid wake lock"
 grep -q 'android:name="ScreenOnService" android:exported="false" android:foregroundServiceType="specialUse"' "$MANIFEST" || fail "ScreenOnService special-use foreground declaration missing"
 grep -q 'android.permission.FOREGROUND_SERVICE_SPECIAL_USE' "$MANIFEST" || fail "ScreenOnService special-use foreground permission missing"
+
+# PluginUpdateReceiver is intentionally exported for Tasker/Locale/plugin
+# interoperability. Every extra arriving through that cross-app boundary must be
+# treated as untrusted: malformed/unparcelable values fail closed, and the boolean
+# state used for plugin mutation must never silently default to false.
+grep -q 'private static Object safeExtra(Intent intent, String key)' "$PLUGIN_RECEIVER" || fail "Exported plugin receiver lacks guarded extra reader"
+grep -q 'catch (RuntimeException e)' "$PLUGIN_RECEIVER" || fail "Malformed plugin extras can escape into an app-process crash"
+grep -q 'Boolean state = safeBooleanExtra(intent, "state");' "$PLUGIN_RECEIVER" || fail "Plugin state mutation bypasses typed boolean validation"
+grep -q 'if (state == null)' "$PLUGIN_RECEIVER" || fail "Malformed plugin state can silently become false"
+! grep -q 'intent.getStringExtra' "$PLUGIN_RECEIVER" || fail "Exported plugin receiver reintroduced an unguarded string extra read"
+! grep -q 'intent.getBooleanExtra' "$PLUGIN_RECEIVER" || fail "Exported plugin receiver reintroduced an unguarded boolean extra read"
 
 echo "PASS: lifecycle/import static contract"
