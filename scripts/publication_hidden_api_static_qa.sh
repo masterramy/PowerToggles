@@ -23,16 +23,17 @@ if [ "${#java_files[@]}" -eq 0 ]; then
   fail "no Java source files found to audit"
 fi
 
-forbidden='com\.android\.internal|android\.os\.ServiceManager|android\.os\.SystemProperties|android\.os\.IPowerManager|android\.app\.ActivityManagerNative|android\.app\.IActivityManager|android\.net\.IConnectivityManager|android\.nfc\.INfcAdapter|IStatusBarService|com\.android\.internal\.telephony'
+forbidden='com\.android\.internal|android\.os\.ServiceManager|android\.os\.SystemProperties|android\.os\.IPowerManager|android\.app\.ActivityManagerNative|android\.app\.IActivityManager|android\.net\.IConnectivityManager|android\.nfc\.INfcAdapter|IStatusBarService|com\.android\.internal\.telephony|com\.painless\.pc\.singleton\.RootTools|ProcessBuilder\("su"\)|app_process[[:space:]]'
 if grep -nE "$forbidden" "${java_files[@]}"; then
-  fail "direct hidden/non-SDK framework dependency found in Java source"
+  fail "direct hidden/non-SDK or retired root-execution dependency found in Java source"
 fi
 
 for deleted_bridge in \
     "$ROOT/src/com/painless/pc/CmdFont.java" \
     "$ROOT/src/com/painless/pc/CmdNfc.java" \
-    "$ROOT/src/com/painless/pc/CmdUsbT.java"; do
-  [ ! -e "$deleted_bridge" ] || fail "retired hidden command bridge returned: ${deleted_bridge#$ROOT/}"
+    "$ROOT/src/com/painless/pc/CmdUsbT.java" \
+    "$ROOT/src/com/painless/pc/singleton/RootTools.java"; do
+  [ ! -e "$deleted_bridge" ] || fail "retired hidden/root command bridge returned: ${deleted_bridge#$ROOT/}"
 done
 
-echo "PASS: no legacy hidden API stub jars, Gradle dependencies, or known direct hidden-framework Java references"
+echo "PASS: no legacy hidden API stubs, known direct hidden-framework references, or retired root-execution bridge"
