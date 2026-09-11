@@ -24,7 +24,6 @@ import com.painless.pc.R;
 import com.painless.pc.cfg.EditWidgetConfigActivity;
 import com.painless.pc.nav.NotifyFrag;
 import com.painless.pc.settings.LaunchActivity;
-import com.painless.pc.util.ReflectionUtil;
 
 public class Globals {
 
@@ -139,14 +138,12 @@ public class Globals {
 	}
 
 
+	/**
+	 * Compatibility no-op. Modern ordinary applications have no supported public
+	 * API for collapsing the system notification shade programmatically.
+	 */
 	public static final void collapseStatusBar(Context context) {
-		try{
-			ReflectionUtil util = new ReflectionUtil(context.getSystemService("statusbar"));
-			util.invokeGetter(Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1 ?
-					"collapse" : "collapsePanels");
-		} catch (final Throwable e) {
-			Debug.log(e);
-		}
+		// Intentionally empty. Do not restore hidden StatusBarManager reflection.
 	}
 
 	public static Intent setIncognetoIntent(Intent i) {
@@ -237,7 +234,6 @@ public class Globals {
 		if (timedate == 0) {
 			return context.getString(R.string.stat_u_never);
 		}
-
 		long diff = Calendar.getInstance().getTimeInMillis() - timedate;
 		diff = diff / 60000;	// convert to minutes.
 		if (diff <= 1) {
@@ -250,7 +246,7 @@ public class Globals {
 			if (diff < 48) {
 				return context.getString(R.string.stat_u_hours, diff);
 			} else {
-				diff = diff / 24;
+				diff = diff / 24;	// days
 				return context.getString(R.string.stat_u_days, diff);
 			}
 		}
