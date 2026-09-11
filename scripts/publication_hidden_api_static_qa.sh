@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MANIFEST="$ROOT/AndroidManifest.xml"
+GLOBALS="$ROOT/src/com/painless/pc/singleton/Globals.java"
+NOTIFY_LAYOUT="$ROOT/res/layout/nav_notify.xml"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -28,6 +31,33 @@ if grep -nE "$forbidden" "${java_files[@]}"; then
   fail "direct hidden/non-SDK or retired root-execution dependency found in Java source"
 fi
 
+# Notification shade auto-collapse historically used hidden StatusBarManager
+# reflection plus EXPAND_STATUS_BAR. Keep the compatibility method harmless and
+# keep the old preference/view IDs migration-safe, but never expose or reactivate
+# the unsupported behavior in publication source.
+! grep -q 'android.permission.EXPAND_STATUS_BAR' "$MANIFEST" || fail "unsupported EXPAND_STATUS_BAR permission reintroduced"
+! grep -R -nE 'collapsePanels|invokeGetter\("collapse"\)|getSystemService\("statusbar"\)|getSystemService\(Context\.STATUS_BAR_SERVICE\)' "$ROOT/src" || fail "hidden status-bar collapse path reintroduced"
+grep -q 'Compatibility no-op' "$GLOBALS" || fail "status-bar compatibility no-op marker missing"
+
+python3 - "$NOTIFY_LAYOUT" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+layout = sys.argv[1]
+android = "{http://schemas.android.com/apk/res/android}"
+root = ET.parse(layout).getroot()
+match = None
+for node in root.iter():
+    if node.get(android + "id") == "@+id/btn_auto_collapse":
+        match = node
+        break
+if match is None:
+    raise SystemExit("FAIL: legacy auto-collapse view ID missing")
+if match.get(android + "visibility") != "gone":
+    raise SystemExit("FAIL: unsupported auto-collapse UI is visible")
+print("PASS: unsupported auto-collapse UI remains hidden")
+PY
+
 for deleted_bridge in \
     "$ROOT/src/com/painless/pc/CmdFont.java" \
     "$ROOT/src/com/painless/pc/CmdNfc.java" \
@@ -36,4 +66,4 @@ for deleted_bridge in \
   [ ! -e "$deleted_bridge" ] || fail "retired hidden/root command bridge returned: ${deleted_bridge#$ROOT/}"
 done
 
-echo "PASS: no legacy hidden API stubs, known direct hidden-framework references, or retired root-execution bridge"
+echo "PASS: no legacy hidden API stubs, known direct hidden-framework references, retired root execution, or unsupported status-bar collapse path"
