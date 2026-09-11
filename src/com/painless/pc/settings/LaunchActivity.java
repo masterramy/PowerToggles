@@ -22,7 +22,6 @@ import com.painless.pc.nav.NotifyFrag;
 import com.painless.pc.nav.SettingsFrag;
 import com.painless.pc.nav.TCacheFrag;
 import com.painless.pc.nav.TogglePrefFrag;
-import com.painless.pc.util.ReflectionUtil;
 
 public class LaunchActivity extends PreferenceActivity {
 
@@ -74,13 +73,14 @@ public class LaunchActivity extends PreferenceActivity {
     return getMyHeaders().get(1);
   }
 
-  @SuppressWarnings("unchecked")
   private List<Header> getMyHeaders() {
     if (mHeaders == null) {
-      mHeaders = (List<Header>) new ReflectionUtil(this, PreferenceActivity.class).invokeGetter("getHeaders");
-    }
-    if (mHeaders == null) {
-      onBuildHeaders(new ArrayList<Header>());
+      // PreferenceActivity normally invokes onBuildHeaders before installing its
+      // list adapter. If a platform variant asks for the list earlier, build the
+      // same public header resource into our own list instead of reflecting into
+      // PreferenceActivity's private getHeaders() implementation.
+      mHeaders = new ArrayList<Header>();
+      onBuildHeaders(mHeaders);
     }
     return mHeaders;
   }
@@ -127,4 +127,3 @@ public class LaunchActivity extends PreferenceActivity {
     }
   }
 }
-
