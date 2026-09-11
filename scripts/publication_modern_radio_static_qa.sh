@@ -15,6 +15,7 @@ FLASH="$ROOT/src/com/painless/pc/tracker/FlashStateTracker.java"
 LEGACY_FLASH="$ROOT/src/com/painless/pc/FlashService.java"
 PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
 WIDGET_SETTING="$ROOT/src/com/painless/pc/util/WidgetSetting.java"
+PCWIDGET="$ROOT/src/com/painless/pc/PCWidgetActivity.java"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -143,8 +144,12 @@ grep -q 'Widget background capability required' "$PROVIDER" || fail "Widget back
 grep -q 'isCurrentHomeUid(context, callerUid)' "$PROVIDER" || fail "Legacy widget background migration is not launcher-bounded"
 grep -q 'backimage = FileProvider.widgetBackUri(context, widgetId)' "$WIDGET_SETTING" || fail "Widget rendering still publishes predictable background URI"
 
-# Both notification rows must select notification RemoteViews styling.
+# Both notification rows must select notification RemoteViews styling, and the
+# second row must retain pseudo-widget ID -23 when constructing click transports.
+# Otherwise tracker 33 (Widget Settings) from row two would reopen row one's -22
+# configuration despite rendering settings loaded from -23.
 grep -q 'STATUS_BAR_WIDGET_ID_2' "$WIDGET_SETTING" || fail "Second notification row constant missing"
 grep -Fq '(widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID_2)' "$WIDGET_SETTING" || fail "Second notification row is not classified as notification"
+grep -Fq 'getRemoteView(context, settings, true, Globals.STATUS_BAR_WIDGET_ID_2)' "$PCWIDGET" || fail "Second notification row click identity is not -23"
 
-echo "PASS: modern radio/privacy/provider static contract"
+echo "PASS: modern radio/privacy/provider/static notification identity contract"
