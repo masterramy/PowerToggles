@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 QTINFO="$ROOT/src/com/painless/pc/qs/QTInfo.java"
+QTSTORAGE="$ROOT/src/com/painless/pc/qs/QTStorage.java"
 TILE="$ROOT/src/com/painless/pc/qs/TileConfigActivity.java"
 
 fail() {
@@ -19,6 +20,15 @@ grep -q 'iconCount < 1 || iconCount > MAX_ICON_COUNT' "$QTINFO" || fail "tile ic
 grep -q 'iconCount != expectedIconCount' "$QTINFO" || fail "tile tracker/icon cardinality mismatch is not rejected"
 grep -q 'diplayNum < 0 || diplayNum >= icons.length' "$QTINFO" || fail "tile runtime icon index is not fail-closed"
 grep -q 'pos < 0 || pos >= icons.length' "$QTINFO" || fail "tile icon lazy-load index is not bounded"
+grep -q 'info.widgetId == Globals.STATUS_BAR_WIDGET_ID || info.widgetId == Globals.STATUS_BAR_WIDGET_ID_2' "$QTINFO" || fail "reserved notification pseudo-widget IDs are not rejected from tile data"
+
+# Quick Settings pseudo-widget IDs must grow away from the notification pseudo
+# widgets (-23/-22), not toward them. Existing historical IDs remain untouched;
+# this guards only future allocation and malformed imported/persisted claims.
+grep -q 'int id = Globals.QS_MAX_WIDGET_ID' "$QTSTORAGE" || fail "Quick Settings pseudo-ID allocation anchor missing"
+grep -q 'id--' "$QTSTORAGE" || fail "Quick Settings pseudo IDs do not allocate downward"
+! grep -q 'while (usedIds.contains(id)) id++' "$QTSTORAGE" || fail "upward pseudo-ID collision path returned"
+grep -q 'id == Integer.MIN_VALUE' "$QTSTORAGE" || fail "Quick Settings pseudo-ID exhaustion is not fail-closed"
 
 # The outer SAF import file has a size ceiling, but ZIP entries can expand far
 # beyond that. Bound decompressed config/icon entries independently and validate
@@ -33,4 +43,4 @@ grep -q 'BitmapImportUtils.decode(existingTile.icons\[i\])' "$TILE" || fail "til
 ! grep -q 'ParseUtil.readStream(zip.getInputStream' "$TILE" || fail "unbounded tile ZIP stream read returned"
 ! grep -q 'BitmapFactory.decodeByteArray(existingTile.icons' "$TILE" || fail "direct unbounded tile bitmap decode returned"
 
-echo "PASS: Quick Settings tile import is cardinality-, decompression-, bitmap-, and runtime-index bounded"
+echo "PASS: Quick Settings tile import and pseudo-ID allocation are bounded and isolated"
