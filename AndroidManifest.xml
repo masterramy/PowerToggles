@@ -85,7 +85,12 @@
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
 
-    <application android:allowBackup="true" android:icon="@drawable/widget_icon" android:label="@string/app_name" >
+    <application
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@drawable/widget_icon"
+        android:label="@string/app_name" >
         <!-- AppWidgetManager delivers the provider's framework broadcasts explicitly;
              this receiver has no supported cross-app custom IPC surface. Keep it
              non-exported so arbitrary apps cannot force widget redraw work. -->
