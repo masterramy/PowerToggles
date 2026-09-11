@@ -151,7 +151,6 @@
         <activity android:name="PermissionDialog" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
 
         <service android:name="FlashService" android:exported="false" />
-        <service android:name="FlashServiceM" android:exported="false" />
         <service android:name="ImmersiveService" android:exported="false" />
         <service android:name="NoLockService" android:exported="false" />
         <service android:name="ScreenOnService" android:exported="false" android:foregroundServiceType="specialUse" >
