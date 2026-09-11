@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="file_provider_capabilities.xml" />
+        <exclude domain="file" path="folder.pcf" />
+        <exclude domain="file" path="widget.zip" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="file_provider_capabilities.xml" />
+        <exclude domain="file" path="folder.pcf" />
+        <exclude domain="file" path="widget.zip" />
+    </device-transfer>
+</data-extraction-rules>
