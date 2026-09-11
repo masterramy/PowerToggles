@@ -21,6 +21,7 @@ jobs:
           bash scripts/publication_plugin_receiver_static_qa.sh
           bash scripts/publication_call_shortcut_static_qa.sh
           bash scripts/publication_internal_activity_export_static_qa.sh
+          bash scripts/publication_hidden_api_static_qa.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
