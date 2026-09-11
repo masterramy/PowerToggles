@@ -41,6 +41,9 @@ public class SettingStorage {
 	 * Returns the tracker for the given position if it is already initialized.
 	 */
 	public static final AbstractTracker maybeGetTracker(int trackerId) {
+		if (trackerId < 0 || trackerId >= trackerList.length) {
+			return null;
+		}
 		return trackerList[trackerId];
 	}
 
@@ -179,6 +182,14 @@ public class SettingStorage {
 			}
 			id = Integer.parseInt(def);
 		} catch (Throwable e) {
+			id = 3;
+		}
+
+		// Persisted/imported definitions are data, not trusted array indexes. Keep
+		// every historical valid tracker ID 0..47 stable, but malformed negative or
+		// oversized numeric definitions must take the same compatibility fallback as
+		// parse failures instead of indexing trackerList out of bounds.
+		if (id < 0 || id >= trackerList.length) {
 			id = 3;
 		}
 				
