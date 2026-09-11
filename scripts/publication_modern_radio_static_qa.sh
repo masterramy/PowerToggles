@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="$ROOT/AndroidManifest.xml"
 WIFI="$ROOT/src/com/painless/pc/tracker/WifiStateTracker.java"
 ADB_WIFI="$ROOT/src/com/painless/pc/tracker/AdbWirelessTracker.java"
+WIMAX="$ROOT/src/com/painless/pc/tracker/WiMaxTracker.java"
 SETTING_STORAGE="$ROOT/src/com/painless/pc/singleton/SettingStorage.java"
 BT="$ROOT/src/com/painless/pc/tracker/BluetoothTracker.java"
 BT_DISCOVERY="$ROOT/src/com/painless/pc/tracker/BluetoothDiscoveryTracker.java"
@@ -20,9 +21,9 @@ fail() {
 }
 
 # Modern installs must not advertise legacy Bluetooth, account-list, location,
-# direct Wi-Fi mutation, legacy connectivity-state, or pre-Marshmallow
-# flashlight-overlay permissions for user-mediated controls / explicitly visible
-# account sync / optional SSID decoration / legacy refresh paths.
+# direct Wi-Fi mutation, legacy connectivity-state, retired WiMAX connectivity,
+# or pre-Marshmallow flashlight-overlay permissions for user-mediated controls /
+# explicitly visible account sync / optional SSID decoration / legacy refresh paths.
 grep -A2 'android:name="android.permission.BLUETOOTH"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH not capped to Android 11"
 grep -A2 'android:name="android.permission.BLUETOOTH_ADMIN"' "$MANIFEST" | grep -q 'android:maxSdkVersion="30"' || fail "BLUETOOTH_ADMIN not capped to Android 11"
 grep -A2 'android:name="android.permission.GET_ACCOUNTS"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "GET_ACCOUNTS not capped below Android 8"
@@ -30,6 +31,8 @@ grep -A2 'android:name="android.permission.ACCESS_FINE_LOCATION"' "$MANIFEST" | 
 grep -A2 'android:name="android.permission.CHANGE_WIFI_STATE"' "$MANIFEST" | grep -q 'android:maxSdkVersion="28"' || fail "CHANGE_WIFI_STATE not capped to Android 9"
 grep -A2 'android:name="android.permission.ACCESS_NETWORK_STATE"' "$MANIFEST" | grep -q 'android:maxSdkVersion="23"' || fail "ACCESS_NETWORK_STATE not capped to legacy pre-N connectivity refresh"
 grep -A2 'android:name="android.permission.SYSTEM_ALERT_WINDOW"' "$MANIFEST" | grep -q 'android:maxSdkVersion="22"' || fail "SYSTEM_ALERT_WINDOW not capped to legacy pre-Marshmallow flashlight path"
+! grep -q 'android.permission.CHANGE_NETWORK_STATE' "$MANIFEST" || fail "Retired WiMAX CHANGE_NETWORK_STATE permission reintroduced"
+! grep -q 'android.net.wimax.WIMAX_STATE_CHANGE' "$MANIFEST" || fail "Retired WiMAX broadcast subscription reintroduced"
 ! grep -q 'android.permission.BLUETOOTH_CONNECT' "$MANIFEST" || fail "Modern Nearby Devices permission unexpectedly advertised"
 ! grep -q 'android.permission.BLUETOOTH_SCAN' "$MANIFEST" || fail "Modern Bluetooth scan permission unexpectedly advertised"
 
@@ -59,14 +62,23 @@ grep -q 'wifiManager.setWifiEnabled(desiredState)' "$WIFI" || fail "Legacy pre-Q
 grep -q 'wifiManager.getConnectionInfo().getSSID()' "$WIFI" || fail "Legacy SSID path unexpectedly removed"
 grep -q 'catch (SecurityException e)' "$WIFI" || fail "Wi-Fi protected access lacks SecurityException degradation"
 
-# ADB-over-Wi-Fi is a legacy/root control, but Android 10+ still must not attempt
-# ordinary-app direct Wi-Fi mutation. If Wi-Fi is off, hand the user to the system
-# Wi-Fi panel; direct setWifiEnabled calls are retained only inside pre-Q paths.
-grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && desiredState' "$ADB_WIFI" || fail "ADB wireless modern Wi-Fi preflight missing"
-grep -q 'Settings.Panel.ACTION_WIFI' "$ADB_WIFI" || fail "ADB wireless modern Wi-Fi panel handoff missing"
-grep -q 'Build.VERSION.SDK_INT < Build.VERSION_CODES.Q' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi restore is not pre-Q bounded"
-grep -q 'wifiManager.setWifiEnabled(true)' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi enable path unexpectedly removed"
-grep -q 'wifiManager.setWifiEnabled(false)' "$ADB_WIFI" || fail "ADB wireless legacy Wi-Fi restore path unexpectedly removed"
+# ADB Wireless is RETIRED_F3. Historical tracker ID 39 must remain loadable,
+# but publication source must not regain hidden SystemProperties, root/adbd
+# mutation, or direct Wi-Fi state mutation merely for retired behavior.
+grep -q 'RETIRED_F3' "$ADB_WIFI" || fail "ADB wireless retirement marker missing"
+grep -q 'return STATE_DISABLED' "$ADB_WIFI" || fail "ADB wireless compatibility shell is not fail-closed disabled"
+! grep -q 'SystemProperties' "$ADB_WIFI" || fail "ADB wireless hidden SystemProperties path reintroduced"
+! grep -q 'RootTools' "$ADB_WIFI" || fail "ADB wireless root mutation path reintroduced"
+! grep -q 'setWifiEnabled' "$ADB_WIFI" || fail "ADB wireless direct Wi-Fi mutation reintroduced"
+
+# WiMAX is RETIRED_F3. Keep tracker ID 14 loadable for legacy saved definitions,
+# but never probe/mutate obsolete WiMAX services or request connectivity mutation
+# privileges/broadcasts solely for that retired control.
+grep -q 'RETIRED_F3' "$WIMAX" || fail "WiMAX retirement marker missing"
+grep -q 'return STATE_DISABLED' "$WIMAX" || fail "WiMAX compatibility shell is not fail-closed disabled"
+! grep -q 'ReflectionUtil' "$WIMAX" || fail "WiMAX reflection bridge reintroduced"
+! grep -q 'setWimaxEnabled' "$WIMAX" || fail "WiMAX mutation bridge reintroduced"
+! grep -q 'getWimax' "$WIMAX" || fail "WiMAX hidden state probe reintroduced"
 
 # Data Network's historical connectivity refresh is a manifest CONNECTIVITY_CHANGE
 # receiver. Android N+ does not deliver that implicit broadcast to manifest
