@@ -24,6 +24,7 @@ jobs:
           bash scripts/publication_hidden_api_static_qa.sh
           bash scripts/publication_retired_f3_static_qa.sh
           bash scripts/publication_widget_provider_static_qa.sh
+          bash scripts/publication_backup_privacy_static_qa.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
