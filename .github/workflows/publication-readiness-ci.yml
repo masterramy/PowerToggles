@@ -18,6 +18,7 @@ jobs:
           bash scripts/publication_noactions_static_qa.sh
           bash scripts/publication_modern_radio_static_qa.sh
           bash scripts/publication_lifecycle_input_static_qa.sh
+          bash scripts/publication_immersive_window_static_qa.sh
           bash scripts/publication_plugin_receiver_static_qa.sh
           bash scripts/publication_call_shortcut_static_qa.sh
           bash scripts/publication_internal_activity_export_static_qa.sh
