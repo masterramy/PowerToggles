@@ -256,14 +256,7 @@ public class PCWidgetActivity extends AppWidgetProvider {
     views.removeAllViews(R.id.big_notify_wrapper_1);
     views.addView(R.id.big_notify_wrapper_1, nwViews);
     views.removeAllViews(R.id.big_notify_wrapper_2);
-    views.addView(R.id.big_notify_wrapper_2, getRemoteView(context, settings, true, Globals.STATUS_BAR_WIDGET_ID));
-
-    /**
-    Parcel p = Parcel.obtain();
-    views.clone().writeToParcel(p, 0);
-    Debug.log("Size " + p.dataSize());
-    p.recycle();
-     **/
+    views.addView(R.id.big_notify_wrapper_2, getRemoteView(context, settings, true, Globals.STATUS_BAR_WIDGET_ID_2));
 
     notification.bigContentView = views;
     return settings.batteryEnabled;
