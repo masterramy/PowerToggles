@@ -145,6 +145,9 @@ public class QTInfo implements ShortcutIdParser {
     QTInfo info = new QTInfo();
     info.icons = new byte[iconCount][];
     info.widgetId = obj.getInt(KEY_WIDGET_ID);
+    if (info.widgetId == Globals.STATUS_BAR_WIDGET_ID || info.widgetId == Globals.STATUS_BAR_WIDGET_ID_2) {
+      throw new IllegalArgumentException("Tile widget ID collides with reserved notification widget ID");
+    }
     info.requiresUpdate = obj.getBoolean(KEY_REQUIRES_UPDATE);
     info.customLabel = obj.optString(KEY_CUSTOM_LABEL, null);
     info.longClickIntent = Intent.parseUri(obj.getString(KEY_LONG_CLICK_ACTIVITY), 0);
