@@ -53,8 +53,3 @@ android {
         disable 'DuplicateIds'
     }
 }
-
-dependencies {
-    compileOnly files('libs/hidden-apis.jar')
-    compileOnly files('libs/hidden-apis_2.jar')
-}
