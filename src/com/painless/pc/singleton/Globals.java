@@ -17,7 +17,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Process;
 import android.preference.PreferenceActivity;
-import android.telephony.TelephonyManager;
 import android.widget.Toast;
 
 import com.painless.pc.R;
@@ -166,31 +165,18 @@ public class Globals {
 		}
 	}
 
-	private static final String[] allNetworkTypes = new String[] {
-		"UNKNOWN", "GPRS", "EDGE", "UMTS", "HSDPA", "HSUPA", "HSPA", "CDMA",
-		"EVDO_0", "EVDO_A", "EVDO_B", "1xRTT", "IDEN", "LTE", "EHRPD", "HSPAP"};
 	public static String sNetworkName = "";
 
+	/**
+	 * Returns the historical notification/icon level for an unknown mobile radio.
+	 * Reading the actual data-network technology requires phone-state privileges
+	 * that this ordinary Play app intentionally does not request. Preserve the
+	 * existing UNKNOWN -> level 1 rendering contract without making a restricted
+	 * TelephonyManager call from widget or notification rendering.
+	 */
 	public static final int getNetworkType(Context context) {
-		int type = ((TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE)).getNetworkType();
-		if (type >= allNetworkTypes.length) {
-			type = 0;
-		}
-		sNetworkName = (type == 0) ? context.getString(R.string.lbl_unknown_allcap) : allNetworkTypes[type];
-
-		switch(type) {
-			case TelephonyManager.NETWORK_TYPE_LTE:
-				return 3;
-			case TelephonyManager.NETWORK_TYPE_UNKNOWN:
-			case TelephonyManager.NETWORK_TYPE_GPRS:
-			case TelephonyManager.NETWORK_TYPE_EDGE:
-			case TelephonyManager.NETWORK_TYPE_CDMA:
-			case TelephonyManager.NETWORK_TYPE_1xRTT:
-			case TelephonyManager.NETWORK_TYPE_IDEN:
-				return 1;
-			default:
-				return 2;
-		}
+		sNetworkName = context.getString(R.string.lbl_unknown_allcap);
+		return 1;
 	}
 
 	public static boolean isNotificationWidget(int widgetId) {
@@ -242,7 +228,6 @@ public class Globals {
 			return context.getString(R.string.stat_u_mins, diff);
 		} else {
 			diff = diff / 60;	// hours
-
 			if (diff < 48) {
 				return context.getString(R.string.stat_u_hours, diff);
 			} else {
