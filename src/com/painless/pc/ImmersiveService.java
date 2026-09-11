@@ -56,9 +56,24 @@ public class ImmersiveService extends PriorityService implements OnKeyListener, 
     params.alpha = -3.0F;
     params.gravity = Gravity.TOP | Gravity.RIGHT;
 
-    ((WindowManager) getSystemService(WINDOW_SERVICE)).addView(mBlockerView, params);
+    try {
+      WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+      if (windowManager == null) {
+        throw new IllegalStateException("Window manager unavailable for immersive mode");
+      }
+      windowManager.addView(mBlockerView, params);
+      mBlockerView.setSystemUiVisibility(IMMERSIVE_MODE_FLAG);
+    } catch (RuntimeException e) {
+      // TYPE_TOAST is a legacy compatibility path and can be rejected by OEM
+      // or platform window policy even on releases where the tracker permits it.
+      // Fail closed instead of crashing or advertising a false enabled state.
+      Debug.log(e);
+      IMMERSIVE_ON = false;
+      broadcastState();
+      stopSelf();
+      return;
+    }
 
-    mBlockerView.setSystemUiVisibility(IMMERSIVE_MODE_FLAG);
     IMMERSIVE_ON = true;
     broadcastState();
 
@@ -68,30 +83,39 @@ public class ImmersiveService extends PriorityService implements OnKeyListener, 
 
   @Override
   public void onDestroy() {
-    mBlockerView.setVisibility(View.INVISIBLE);
-    try {
-      ((WindowManager) getSystemService(WINDOW_SERVICE)).removeView(mBlockerView);
-    } catch (Exception e) {
-      Debug.log(e);
+    if (mBlockerView != null) {
+      mBlockerView.setVisibility(View.INVISIBLE);
+      try {
+        WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        if (windowManager != null) {
+          windowManager.removeView(mBlockerView);
+        }
+      } catch (RuntimeException e) {
+        Debug.log(e);
+      }
     }
 
     IMMERSIVE_ON = false;
     broadcastState();
     clearNotification();
-    mHandler.removeCallbacks(this);
+    if (mHandler != null) {
+      mHandler.removeCallbacks(this);
+    }
     super.onDestroy();
   }
 
   @Override
   public void run() {
-    mBlockerView.setVisibility(View.VISIBLE);
-    mBlockerView.setSystemUiVisibility(IMMERSIVE_MODE_FLAG);
+    if (mBlockerView != null) {
+      mBlockerView.setVisibility(View.VISIBLE);
+      mBlockerView.setSystemUiVisibility(IMMERSIVE_MODE_FLAG);
+    }
   }
 
 
   @Override
   public void onSystemUiVisibilityChange(int visibility) {
-    if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+    if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0 && mBlockerView != null && mHandler != null) {
       mBlockerView.setVisibility(View.INVISIBLE);
       mHandler.removeCallbacks(this);
       mHandler.postDelayed(this, 3000);
