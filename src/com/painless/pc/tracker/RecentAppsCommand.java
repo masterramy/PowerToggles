@@ -3,13 +3,16 @@ package com.painless.pc.tracker;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.ServiceManager;
 
-import com.android.internal.statusbar.IStatusBarService;
 import com.painless.pc.R;
-import com.painless.pc.singleton.Debug;
-import com.painless.pc.singleton.Globals;
 
+/**
+ * Stable tracker-ID compatibility shell for the retired Recent Apps control.
+ *
+ * Modern ordinary applications do not have a supported public API for opening
+ * the system recents UI. Keep the historical tracker class loadable for saved
+ * widget/folder definitions, but do not call hidden status-bar binder APIs.
+ */
 public class RecentAppsCommand extends AbstractCommand {
 
 	public RecentAppsCommand(int trackerId, SharedPreferences pref) {
@@ -18,17 +21,12 @@ public class RecentAppsCommand extends AbstractCommand {
 
 	@Override
 	public void toggleState(Context context) {
-		Globals.collapseStatusBar(context);
-		try{
-		  IStatusBarService.Stub.asInterface(ServiceManager.getService("statusbar")).toggleRecentApps();
-		} catch (final Throwable e) {
-			Debug.log(e);
-		}
+		// RETIRED_F3: intentionally inert. Do not restore hidden IStatusBarService
+		// or ServiceManager access merely to preserve unsupported legacy behavior.
 	}
 
 	@Override
 	public Intent getIntent() {
 		return null;
 	}
-
 }
