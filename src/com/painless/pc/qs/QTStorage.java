@@ -47,8 +47,19 @@ public class QTStorage {
     for (QTInfo tile : sTileCache.values()) {
       usedIds.add(tile.widgetId);
     }
-    Integer id = Globals.QS_MAX_WIDGET_ID;
-    while (usedIds.contains(id)) id++;
+
+    // Quick Settings pseudo-widget IDs occupy the negative range at and below
+    // QS_MAX_WIDGET_ID. Allocate downward so future tiles can never drift into
+    // the separately reserved notification pseudo-widget IDs -23/-22. Existing
+    // historical IDs are preserved in-place and still participate in collision
+    // avoidance through usedIds.
+    int id = Globals.QS_MAX_WIDGET_ID;
+    while (usedIds.contains(id)) {
+      if (id == Integer.MIN_VALUE) {
+        throw new IllegalStateException("Quick Settings widget ID space exhausted");
+      }
+      id--;
+    }
     return id;
   }
 
