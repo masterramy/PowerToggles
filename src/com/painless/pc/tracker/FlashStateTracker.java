@@ -25,23 +25,31 @@ public final class FlashStateTracker extends AbstractTracker {
 
 	@Override
 	public int getActualState(Context context) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			return FlashServiceM.isEnabled(context) ? STATE_ENABLED : STATE_DISABLED;
+		}
 		return FlashService.FLASH_ON ? STATE_ENABLED : STATE_DISABLED;
 	}
 
 	@Override
 	protected void requestStateChange(final Context context, boolean desiredState) {
-		Intent i = new Intent(context, Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? FlashServiceM.class : FlashService.class);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			if (!FlashServiceM.setEnabled(context, desiredState)) {
+				setCurrentState(context, getActualState(context));
+			}
+			return;
+		}
+
+		Intent i = new Intent(context, FlashService.class);
 		if (desiredState) {
 			try {
 				context.startService(i);
 			} catch (IllegalStateException e) {
-				// Android O+ can reject a background service start when this toggle is
-				// invoked from a non-foreground integration path. Degrade to the unchanged
-				// disabled state instead of crashing the host widget/receiver process.
 				Debug.log(e);
+				setCurrentState(context, STATE_DISABLED);
 			} catch (SecurityException e) {
-				// Device/OEM camera-service policy can also deny the launch path.
 				Debug.log(e);
+				setCurrentState(context, STATE_DISABLED);
 			}
 		} else {
 			context.stopService(i);
