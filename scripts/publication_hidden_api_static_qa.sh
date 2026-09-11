@@ -26,10 +26,16 @@ if [ "${#java_files[@]}" -eq 0 ]; then
   fail "no Java source files found to audit"
 fi
 
-forbidden='com\.android\.internal|android\.os\.ServiceManager|android\.os\.SystemProperties|android\.os\.IPowerManager|android\.app\.ActivityManagerNative|android\.app\.IActivityManager|android\.net\.IConnectivityManager|android\.nfc\.INfcAdapter|IStatusBarService|com\.android\.internal\.telephony|com\.painless\.pc\.singleton\.RootTools|ProcessBuilder\("su"\)|app_process[[:space:]]'
+forbidden='com\.android\.internal|android\.os\.ServiceManager|android\.os\.SystemProperties|android\.os\.IPowerManager|android\.app\.ActivityManagerNative|android\.app\.IActivityManager|android\.net\.IConnectivityManager|android\.nfc\.INfcAdapter|IStatusBarService|com\.android\.internal\.telephony|com\.painless\.pc\.singleton\.RootTools|com\.painless\.pc\.util\.ReflectionUtil|ProcessBuilder\("su"\)|app_process[[:space:]]|\.setAccessible\([[:space:]]*true[[:space:]]*\)|\.getDeclaredMethod\('
 if grep -nE "$forbidden" "${java_files[@]}"; then
-  fail "direct hidden/non-SDK or retired root-execution dependency found in Java source"
+  fail "direct hidden/non-SDK, private-reflection, or retired root-execution dependency found in Java source"
 fi
+
+# java.lang.reflect itself remains allowed for two bounded public/self-owned uses:
+# TrackerManager instantiates classes from its own stable tracker registry, and
+# IconPackPicker enumerates fields on this app's generated R.drawable class. The
+# dangerous private-member pattern is blocked above via getDeclaredMethod and
+# setAccessible(true); the generic ReflectionUtil bridge must remain deleted.
 
 # Notification shade auto-collapse historically used hidden StatusBarManager
 # reflection plus EXPAND_STATUS_BAR. Keep the compatibility method harmless and
@@ -62,8 +68,9 @@ for deleted_bridge in \
     "$ROOT/src/com/painless/pc/CmdFont.java" \
     "$ROOT/src/com/painless/pc/CmdNfc.java" \
     "$ROOT/src/com/painless/pc/CmdUsbT.java" \
-    "$ROOT/src/com/painless/pc/singleton/RootTools.java"; do
-  [ ! -e "$deleted_bridge" ] || fail "retired hidden/root command bridge returned: ${deleted_bridge#$ROOT/}"
+    "$ROOT/src/com/painless/pc/singleton/RootTools.java" \
+    "$ROOT/src/com/painless/pc/util/ReflectionUtil.java"; do
+  [ ! -e "$deleted_bridge" ] || fail "retired hidden/root/reflection command bridge returned: ${deleted_bridge#$ROOT/}"
 done
 
-echo "PASS: no legacy hidden API stubs, known direct hidden-framework references, retired root execution, or unsupported status-bar collapse path"
+echo "PASS: no legacy hidden API stubs, known direct hidden-framework references, private reflection bridge, retired root execution, or unsupported status-bar collapse path"
