@@ -16,6 +16,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
 
       - name: Identity source diagnostics
         shell: bash
@@ -27,22 +30,28 @@ jobs:
           grep -RInE '"com\.painless\.pc\.(file|permission\.|ACTION_|CUSTOM_ACTION|BATTERY_POLL)' src || true
           echo '== Globals public-identity constant consumers =='
           grep -RInE 'Globals\.(PLUGIN_INTENT|SIGNAURE_PERMISSION|CUSTOM_ACTION)' src || true
+          echo '== all SIGNAURE_PERMISSION references =='
+          grep -RIn 'SIGNAURE_PERMISSION' src || true
           echo '== legacy customer-visible branding candidates =='
           grep -RInE 'Power[[:space:]]*Toggles|PowerToggle|PowerToggles' res release-identity README.md || true
+          echo '== branded main-resource name matrix =='
+          grep -RInE 'Power[[:space:]]*Toggles|PowerToggle|PowerToggles' res \
+            | sed -n 's#^\([^:]*\):[0-9]*:.*<string name="\([^"]*\)".*#\1\t\2#p' \
+            | sort -u || true
 
       - name: Build debug and release
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x gradlew
-          ./gradlew --no-daemon clean assembleDebug bundleRelease
+          gradle --version
+          gradle --no-daemon clean assembleDebug bundleRelease
 
       - name: Inspect merged ToggleBay identity
         shell: bash
         run: |
           set -euo pipefail
-          DEBUG_MANIFEST="$(find build/intermediates -path '*merged_manifest*debug*AndroidManifest.xml' -o -path '*merged_manifests*debug*AndroidManifest.xml' | head -1)"
-          RELEASE_MANIFEST="$(find build/intermediates -path '*merged_manifest*release*AndroidManifest.xml' -o -path '*merged_manifests*release*AndroidManifest.xml' | head -1)"
+          DEBUG_MANIFEST="$(find build/intermediates \( -path '*merged_manifest*debug*AndroidManifest.xml' -o -path '*merged_manifests*debug*AndroidManifest.xml' \) | head -1)"
+          RELEASE_MANIFEST="$(find build/intermediates \( -path '*merged_manifest*release*AndroidManifest.xml' -o -path '*merged_manifests*release*AndroidManifest.xml' \) | head -1)"
           echo "DEBUG_MANIFEST=$DEBUG_MANIFEST"
           echo "RELEASE_MANIFEST=$RELEASE_MANIFEST"
           test -n "$DEBUG_MANIFEST"
@@ -60,13 +69,16 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           mkdir -p q1-evidence
           git rev-parse HEAD > q1-evidence/head.txt
           git rev-parse HEAD^{tree} > q1-evidence/tree.txt
           git status --short > q1-evidence/git-status.txt
           cp build.gradle AndroidManifest.xml README.md q1-evidence/ 2>/dev/null || true
-          find build/intermediates -path '*merged_manifest*AndroidManifest.xml' -o -path '*merged_manifests*AndroidManifest.xml' | while read -r f; do cp "$f" "q1-evidence/$(echo "$f" | tr '/' '_')" || true; done
+          if [ -d build/intermediates ]; then
+            find build/intermediates \( -path '*merged_manifest*AndroidManifest.xml' -o -path '*merged_manifests*AndroidManifest.xml' \) \
+              | while read -r f; do cp "$f" "q1-evidence/$(echo "$f" | tr '/' '_')" || true; done
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
