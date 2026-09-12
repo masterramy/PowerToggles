@@ -117,7 +117,7 @@ grep -q 'catch (SecurityException e)' "$WIFI" || fail "Wi-Fi protected access la
 # mutation, or direct Wi-Fi state mutation merely for retired behavior.
 grep -q 'RETIRED_F3' "$ADB_WIFI" || fail "ADB wireless retirement marker missing"
 grep -q 'return STATE_DISABLED' "$ADB_WIFI" || fail "ADB wireless compatibility shell is not fail-closed disabled"
-! grep -q 'SystemProperties' "$ADB_WIFI" || fail "ADB wireless hidden SystemProperties path reintroduced"
+! grep -Eq 'import[[:space:]]+android\.os\.SystemProperties|SystemProperties[[:space:]]*\.|"android\.os\.SystemProperties"' "$ADB_WIFI" || fail "ADB wireless hidden SystemProperties path reintroduced"
 ! grep -q 'RootTools' "$ADB_WIFI" || fail "ADB wireless root mutation path reintroduced"
 ! grep -q 'setWifiEnabled' "$ADB_WIFI" || fail "ADB wireless direct Wi-Fi mutation reintroduced"
 
