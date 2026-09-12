@@ -50,6 +50,10 @@ public final class Gate2aProbeActivity extends Activity {
 
     if ("wifi".equals(probe)) {
       new WifiStateTracker(3, appPrefs).requestStateChange(this, true);
+      // The API-36 Wi-Fi panel can be translucent enough for this no-history
+      // debug activity to survive underneath it. Finish the probe explicitly so
+      // the next fidelity launch cannot be delivered into a stale activity.
+      finish();
       return;
     }
 
