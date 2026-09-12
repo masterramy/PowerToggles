@@ -12,14 +12,14 @@ jobs:
       - name: Checkout exact candidate source
         uses: actions/checkout@v4
         with:
-          ref: 353bbc6f0fa7e744f2bc685e88eeddd6e383a31b
+          ref: c7364fe97b4288c2e055096dbfb118440caa1c58
           fetch-depth: 1
 
       - name: Verify exact candidate identity
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "353bbc6f0fa7e744f2bc685e88eeddd6e383a31b"
-          test "$(git rev-parse 'HEAD^{tree}')" = "0600b911c99a1d46cf55e0410b694905cb2fd087"
+          test "$(git rev-parse HEAD)" = "c7364fe97b4288c2e055096dbfb118440caa1c58"
+          test "$(git rev-parse 'HEAD^{tree}')" = "25fd021d8cb745c273c2d58791ff42418f2a030b"
           test -z "$(git status --porcelain)"
           git rev-parse HEAD | tee candidate-head.txt
           git rev-parse 'HEAD^{tree}' | tee candidate-tree.txt
@@ -119,8 +119,6 @@ jobs:
             return 0
           }
           set +e
-          # Apply only fail-closed QA-harness normalization before any suite so
-          # Gate 2A and publication probes test the same exact candidate semantics.
           run_suite scripts/publication_qa_harness_prepare.sh
           run_suite scripts/gate2a_fidelity_qa.sh fidelity-evidence
           run_suite scripts/gate2a_runtime_qa.sh
@@ -147,21 +145,26 @@ jobs:
       - name: Capture final state and screenshot
         if: always()
         run: |
+          set -euo pipefail
           mkdir -p ci-proof-state ci-proof-screens
-          adb shell dumpsys package com.painless.pc > ci-proof-state/final-package.txt || true
-          adb shell dumpsys activity activities > ci-proof-state/final-activities.txt || true
-          adb shell dumpsys window windows > ci-proof-state/final-windows.txt || true
-          adb logcat -d -v threadtime > ci-proof-state/final-logcat.txt || true
-          adb exec-out screencap -p > ci-proof-screens/final.png || true
+          adb wait-for-device
+          adb shell dumpsys package com.painless.pc > ci-proof-state/final-package.txt
+          adb shell dumpsys activity activities > ci-proof-state/final-activities.txt
+          adb shell dumpsys window windows > ci-proof-state/final-windows.txt
+          adb logcat -d -v threadtime > ci-proof-state/final-logcat.txt
+          adb exec-out screencap -p > ci-proof-screens/final.png
+          test -s ci-proof-screens/final.png
           git rev-parse HEAD > ci-proof-state/final-head.txt
           git rev-parse 'HEAD^{tree}' > ci-proof-state/final-tree.txt
           git status --porcelain --untracked-files=no > ci-proof-state/final-tracked-dirty.txt
+          test "$(cat ci-proof-state/final-head.txt)" = "c7364fe97b4288c2e055096dbfb118440caa1c58"
+          test "$(cat ci-proof-state/final-tree.txt)" = "25fd021d8cb745c273c2d58791ff42418f2a030b"
 
       - name: Upload candidate proof evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: candidate-proof-353bbc6f
+          name: candidate-proof-c7364fe9
           retention-days: 1
           if-no-files-found: warn
           path: |
