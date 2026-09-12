@@ -26,10 +26,89 @@ if [ "${#java_files[@]}" -eq 0 ]; then
   fail "no Java source files found to audit"
 fi
 
-forbidden='com\.android\.internal|android\.os\.ServiceManager|android\.os\.SystemProperties|android\.os\.IPowerManager|android\.app\.ActivityManagerNative|android\.app\.IActivityManager|android\.net\.IConnectivityManager|android\.nfc\.INfcAdapter|IStatusBarService|com\.android\.internal\.telephony|com\.painless\.pc\.singleton\.RootTools|com\.painless\.pc\.util\.ReflectionUtil|ProcessBuilder\("su"\)|app_process[[:space:]]|\.setAccessible\([[:space:]]*true[[:space:]]*\)|\.getDeclaredMethod\('
-if grep -nE "$forbidden" "${java_files[@]}"; then
-  fail "direct hidden/non-SDK, private-reflection, or retired root-execution dependency found in Java source"
-fi
+# Retirement comments intentionally name APIs that must never return. Strip Java
+# comments before scanning so documentation cannot masquerade as executable use,
+# while leaving imports, code, and string literals intact so reflective targets
+# remain detectable.
+python3 - "${java_files[@]}" <<'PY'
+import re
+import sys
+
+forbidden = re.compile(
+    r'com\.android\.internal|android\.os\.ServiceManager|android\.os\.SystemProperties|'
+    r'android\.os\.IPowerManager|android\.app\.ActivityManagerNative|android\.app\.IActivityManager|'
+    r'android\.net\.IConnectivityManager|android\.nfc\.INfcAdapter|IStatusBarService|'
+    r'com\.android\.internal\.telephony|com\.painless\.pc\.singleton\.RootTools|'
+    r'com\.painless\.pc\.util\.ReflectionUtil|ProcessBuilder\("su"\)|app_process\s|'
+    r'\.setAccessible\(\s*true\s*\)|\.getDeclaredMethod\('
+)
+
+def strip_comments(text):
+    out = []
+    i = 0
+    state = 'code'
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ''
+        if state == 'code':
+            if ch == '/' and nxt == '/':
+                state = 'line_comment'
+                out.extend('  ')
+                i += 2
+                continue
+            if ch == '/' and nxt == '*':
+                state = 'block_comment'
+                out.extend('  ')
+                i += 2
+                continue
+            if ch == '"':
+                state = 'string'
+            elif ch == "'":
+                state = 'char'
+            out.append(ch)
+            i += 1
+            continue
+        if state == 'line_comment':
+            if ch == '\n':
+                state = 'code'
+                out.append('\n')
+            else:
+                out.append(' ')
+            i += 1
+            continue
+        if state == 'block_comment':
+            if ch == '*' and nxt == '/':
+                state = 'code'
+                out.extend('  ')
+                i += 2
+            else:
+                out.append('\n' if ch == '\n' else ' ')
+                i += 1
+            continue
+        # Preserve literals so class names used for reflection remain visible.
+        out.append(ch)
+        if ch == '\\' and i + 1 < len(text):
+            out.append(text[i + 1])
+            i += 2
+            continue
+        if state == 'string' and ch == '"':
+            state = 'code'
+        elif state == 'char' and ch == "'":
+            state = 'code'
+        i += 1
+    return ''.join(out)
+
+failed = False
+for path in sys.argv[1:]:
+    text = open(path, encoding='utf-8').read()
+    clean = strip_comments(text)
+    for line_no, line in enumerate(clean.splitlines(), 1):
+        if forbidden.search(line):
+            print(f'{path}:{line_no}:{line.strip()}')
+            failed = True
+if failed:
+    raise SystemExit('FAIL: direct hidden/non-SDK, private-reflection, or retired root-execution dependency found in Java source')
+PY
 
 # java.lang.reflect itself remains allowed for two bounded public/self-owned uses:
 # TrackerManager instantiates classes from its own stable tracker registry, and
