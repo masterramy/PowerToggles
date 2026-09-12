@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     android:versionCode="160604"
-    android:versionName="6.0.4" >
+    android:versionName="1.0.0" >
 
     <permission
-        android:name="com.painless.pc.permission.CONTROL_PLUGIN"
+        android:name="${applicationId}.permission.CONTROL_PLUGIN"
         android:description="@string/ps_prem_desc"
         android:icon="@drawable/icon_toggle_plugin"
         android:label="@string/ps_prem_label"
         android:protectionLevel="signature" />
     <permission
-        android:name="com.painless.pc.permission.READ_FOLDER_SHARE"
+        android:name="${applicationId}.permission.READ_FOLDER_SHARE"
         android:protectionLevel="signature" />
 
     <uses-permission android:name="net.dinglisch.android.tasker.PERMISSION_RUN_TASKS" />
-    <uses-permission android:name="com.painless.pc.permission.CONTROL_PLUGIN" />
+    <uses-permission android:name="${applicationId}.permission.CONTROL_PLUGIN" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Direct Wi-Fi control is used only through Android 9; Android 10+ is system-mediated. -->
     <uses-permission
@@ -43,7 +43,7 @@
         android:name="android.permission.GET_ACCOUNTS"
         android:maxSdkVersion="25" />
     <!-- The retired online Theme gallery was the app's surviving outbound network path.
-         Publication WIP is local/SAF-only and intentionally requests no INTERNET permission. -->
+         ToggleDeck is local/SAF-only and intentionally requests no INTERNET permission. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -102,18 +102,17 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/widget_icon"
+        android:icon="@drawable/toggledeck_app_icon"
         android:label="@string/app_name" >
-        <!-- AppWidgetManager delivers the provider's framework broadcasts explicitly;
-             this receiver has no supported cross-app custom IPC surface. Keep it
-             non-exported so arbitrary apps cannot force widget redraw work. -->
-        <receiver android:name=".PCWidgetActivity" android:exported="false" android:label="@string/app_name" >
+        <!-- Component classes stay in the restored internal Java namespace while
+             the installed/public applicationId is independent. Keep names explicit. -->
+        <receiver android:name="com.painless.pc.PCWidgetActivity" android:exported="false" android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widgetprovider" />
         </receiver>
-        <receiver android:name=".CommandReceiver" android:exported="false" >
+        <receiver android:name="com.painless.pc.CommandReceiver" android:exported="false" >
             <intent-filter>
                 <action android:name="android.net.wifi.WIFI_AP_STATE_CHANGED" />
                 <action android:name="android.net.conn.TETHER_STATE_CHANGED" />
@@ -126,17 +125,17 @@
                 <action android:name="android.media.RINGER_MODE_CHANGED" />
                 <action android:name="android.nfc.action.ADAPTER_STATE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="com.painless.pc.CUSTOM_ACTION" />
-                <action android:name="com.painless.pc.BATTERY_POLL" />
+                <action android:name="${applicationId}.CUSTOM_ACTION" />
+                <action android:name="${applicationId}.BATTERY_POLL" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-        <receiver android:name=".ConnectivityReceiver" android:enabled="false" android:exported="false" >
+        <receiver android:name="com.painless.pc.ConnectivityReceiver" android:enabled="false" android:exported="false" >
             <intent-filter><action android:name="android.net.conn.CONNECTIVITY_CHANGE" /></intent-filter>
         </receiver>
         <provider
-            android:name="FileProvider"
-            android:authorities="com.painless.pc.file"
+            android:name="com.painless.pc.FileProvider"
+            android:authorities="${applicationId}.file"
             android:exported="true"
             android:grantUriPermissions="true"
             android:multiprocess="true" >
@@ -147,66 +146,66 @@
                  only for the user-selected share recipient. -->
             <path-permission
                 android:path="/folder-share"
-                android:readPermission="com.painless.pc.permission.READ_FOLDER_SHARE" />
+                android:readPermission="${applicationId}.permission.READ_FOLDER_SHARE" />
         </provider>
-        <receiver android:name="LockAdmin" android:description="@string/admin_desc" android:exported="true" android:label="@string/admin_label" android:permission="android.permission.BIND_DEVICE_ADMIN" >
+        <receiver android:name="com.painless.pc.LockAdmin" android:description="@string/admin_desc" android:exported="true" android:label="@string/admin_label" android:permission="android.permission.BIND_DEVICE_ADMIN" >
             <meta-data android:name="android.app.device_admin" android:resource="@xml/lock_admin" />
             <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
         </receiver>
 
-        <activity android:name=".settings.LaunchActivity" android:exported="true" android:icon="@drawable/widget_icon" android:label="@string/app_name" android:theme="@style/activityTheme" >
+        <activity android:name="com.painless.pc.settings.LaunchActivity" android:exported="true" android:icon="@drawable/toggledeck_app_icon" android:label="@string/app_name" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
-        <activity-alias android:name=".NotificationSettings" android:clearTaskOnLaunch="true" android:exported="true" android:targetActivity=".settings.LaunchActivity" >
+        <activity-alias android:name="${applicationId}.NotificationSettings" android:clearTaskOnLaunch="true" android:exported="true" android:targetActivity="com.painless.pc.settings.LaunchActivity" >
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.DEFAULT" /><category android:name="android.intent.category.NOTIFICATION_PREFERENCES" /></intent-filter>
         </activity-alias>
-        <activity android:name=".picker.IconPackPicker" android:configChanges="orientation|screenSize" android:exported="false" android:label="@string/ip_app_icons" android:theme="@style/activityTheme" >
+        <activity android:name="com.painless.pc.picker.IconPackPicker" android:configChanges="orientation|screenSize" android:exported="false" android:label="@string/ip_app_icons" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/icon_search" />
         </activity>
-        <activity android:name=".picker.FilePicker" android:exported="false" android:theme="@style/activityTheme" />
-        <activity android:name=".picker.ThemePicker" android:exported="false" android:label="@string/tm_title" android:theme="@style/configTheme" />
-        <activity android:name=".cfg.WidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="true" android:launchMode="singleTop" android:theme="@style/configTheme" >
+        <activity android:name="com.painless.pc.picker.FilePicker" android:exported="false" android:theme="@style/activityTheme" />
+        <activity android:name="com.painless.pc.picker.ThemePicker" android:exported="false" android:label="@string/tm_title" android:theme="@style/configTheme" />
+        <activity android:name="com.painless.pc.cfg.WidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="true" android:launchMode="singleTop" android:theme="@style/configTheme" >
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
-        <activity android:name=".cfg.EditWidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:launchMode="singleTop" android:theme="@style/configTheme" />
-        <activity android:name=".cfg.IconThemeEditor" android:exported="false" android:theme="@style/activityTheme" />
-        <activity android:name=".cfg.BatteryIconEditor" android:exported="false" android:theme="@style/activityTheme" />
-        <activity android:name=".cfg.NinePatchEditor" android:exported="false" android:label="@string/npe_title" android:theme="@style/activityTheme" />
-        <activity android:name=".cfg.ConfigGuide" android:configChanges="orientation|screenSize" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-        <activity android:name=".qs.TileConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:label="@string/qs_title" android:launchMode="singleTop" android:theme="@style/activityTheme" >
+        <activity android:name="com.painless.pc.cfg.EditWidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:launchMode="singleTop" android:theme="@style/configTheme" />
+        <activity android:name="com.painless.pc.cfg.IconThemeEditor" android:exported="false" android:theme="@style/activityTheme" />
+        <activity android:name="com.painless.pc.cfg.BatteryIconEditor" android:exported="false" android:theme="@style/activityTheme" />
+        <activity android:name="com.painless.pc.cfg.NinePatchEditor" android:exported="false" android:label="@string/npe_title" android:theme="@style/activityTheme" />
+        <activity android:name="com.painless.pc.cfg.ConfigGuide" android:configChanges="orientation|screenSize" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity android:name="com.painless.pc.qs.TileConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:label="@string/qs_title" android:launchMode="singleTop" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
-        <activity android:name=".acts.BrightnessActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name="FlashActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:screenOrientation="portrait" android:theme="@style/flashTheme" />
-        <activity android:name="BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
-        <activity android:name="RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
-        <activity android:name=".acts.BrightnessSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name=".acts.VolumeSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name="ProxyActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
-        <activity android:name="PermissionDialog" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
+        <activity android:name="com.painless.pc.acts.BrightnessActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="com.painless.pc.FlashActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:screenOrientation="portrait" android:theme="@style/flashTheme" />
+        <activity android:name="com.painless.pc.BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
+        <activity android:name="com.painless.pc.RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
+        <activity android:name="com.painless.pc.acts.BrightnessSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="com.painless.pc.acts.VolumeSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="com.painless.pc.ProxyActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
+        <activity android:name="com.painless.pc.PermissionDialog" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
 
-        <service android:name="FlashService" android:exported="false" />
-        <service android:name="ImmersiveService" android:exported="false" />
-        <service android:name="NoLockService" android:exported="false" />
-        <service android:name="ScreenOnService" android:exported="false" android:foregroundServiceType="specialUse" >
+        <service android:name="com.painless.pc.FlashService" android:exported="false" />
+        <service android:name="com.painless.pc.ImmersiveService" android:exported="false" />
+        <service android:name="com.painless.pc.NoLockService" android:exported="false" />
+        <service android:name="com.painless.pc.ScreenOnService" android:exported="false" android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keeps the screen awake while the user explicitly enables Screen Always On." />
         </service>
-        <service android:name="BatteryService" android:exported="false" />
+        <service android:name="com.painless.pc.BatteryService" android:exported="false" />
 
-        <activity android:name=".folder.FolderActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:theme="@style/panelTheme" >
+        <activity android:name="com.painless.pc.folder.FolderActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:excludeFromRecents="true" android:exported="true" android:launchMode="singleTask" android:theme="@style/panelTheme" >
             <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
-        <activity android:name=".folder.FolderPick" android:exported="true" android:icon="@drawable/folder_icon" android:label="@string/folder_title" android:theme="@style/activityTheme" >
+        <activity android:name="com.painless.pc.folder.FolderPick" android:exported="true" android:icon="@drawable/folder_icon" android:label="@string/folder_title" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.CREATE_SHORTCUT" /><category android:name="android.intent.category.DEFAULT" /></intent-filter>
         </activity>
-        <receiver android:name=".PluginUpdateReceiver" android:exported="true" >
+        <receiver android:name="com.painless.pc.PluginUpdateReceiver" android:exported="true" >
             <intent-filter><action android:name="net.dinglisch.android.tasker.ACTION_TASK_COMPLETE" /><data android:scheme="task" /></intent-filter>
-            <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING" /><action android:name="com.painless.pc.ACTION_STATE_CHANGED" /></intent-filter>
+            <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING" /><action android:name="${applicationId}.ACTION_STATE_CHANGED" /></intent-filter>
         </receiver>
-        <activity android:name=".settings.TaskerToggleSetup" android:exported="true" android:icon="@drawable/widget_icon" android:label="@string/ps_tasker_setup" android:theme="@style/activityTheme" >
+        <activity android:name="com.painless.pc.settings.TaskerToggleSetup" android:exported="true" android:icon="@drawable/toggledeck_app_icon" android:label="@string/ps_tasker_setup" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.EDIT_SETTING" /></intent-filter>
         </activity>
-        <activity android:name=".settings.TaskerRefresh" android:exported="true" android:icon="@drawable/widget_icon" android:label="@string/ps_refresh" android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+        <activity android:name="com.painless.pc.settings.TaskerRefresh" android:exported="true" android:icon="@drawable/toggledeck_app_icon" android:label="@string/ps_refresh" android:theme="@android:style/Theme.Translucent.NoTitleBar" >
             <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.EDIT_SETTING" /></intent-filter>
         </activity>
     </application>
