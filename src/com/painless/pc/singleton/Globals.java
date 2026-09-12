@@ -19,7 +19,6 @@ import android.os.Process;
 import android.preference.PreferenceActivity;
 import android.widget.Toast;
 
-import com.painless.pc.BuildConfig;
 import com.painless.pc.R;
 import com.painless.pc.cfg.EditWidgetConfigActivity;
 import com.painless.pc.nav.NotifyFrag;
@@ -47,6 +46,7 @@ public class Globals {
 		R.id.btn_4_div,
 		R.id.btn_5_div,
 		R.id.btn_6_div,
+		R.id.btn_7_div,
 		R.id.btn_8
 	};
 
@@ -76,13 +76,13 @@ public class Globals {
 
 	public static boolean IS_LOLLIPOP = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
 
-	public static final String PLUGIN_INTENT = BuildConfig.APPLICATION_ID + ".ACTION_SET_STATE";
+	public static final String PLUGIN_INTENT = "com.painless.pc.ACTION_SET_STATE";
 
 	public static final String SHARED_PREFS_NAME = "widget_preference";
 	public static final String EXTRA_PREFS_NAME = "extra_preference";
 	public static final String NOTIFICATION_PRIORITY = "notify_priority";
 
-  public static final String SIGNAURE_PERMISSION = BuildConfig.APPLICATION_ID + ".permission.CONTROL_PLUGIN";
+  public static final String SIGNAURE_PERMISSION = "com.painless.pc.permission.CONTROL_PLUGIN";
 
 	public static final int STATUS_BAR_WIDGET_ID = -22;
 	public static final int STATUS_BAR_WIDGET_ID_2 = -23;
@@ -199,7 +199,7 @@ public class Globals {
 	}
 
 	// Custom action
-	public static final String CUSTOM_ACTION = BuildConfig.APPLICATION_ID + ".CUSTOM_ACTION";
+	public static final String CUSTOM_ACTION = "com.painless.pc.CUSTOM_ACTION";
 	public static void sendCustomAction(Context context, String action) {
 		Intent intent = new Intent(CUSTOM_ACTION);
 		intent.putExtra("action_type", action);
