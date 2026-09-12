@@ -28,6 +28,10 @@ jobs:
           grep -nE 'namespace|applicationId|versionCode|versionName|targetSdkVersion' build.gradle
           echo '== remaining hardcoded public namespace literals in production Java =='
           grep -RInE '"com\.painless\.pc\.(file|permission\.|ACTION_|CUSTOM_ACTION|BATTERY_POLL)' src || true
+          echo '== FileProvider consumers =='
+          grep -RInE 'FileProvider\.(FOLDER_SHARE_URI|WIDGET_SHARE_URI|CROP_URI|widgetBackUri|folderShareFile|widgetShareFile|cropFile|tempBackImage)' src || true
+          echo '== literal provider URI consumers =='
+          grep -RInF 'content://com.painless.pc.file' src res AndroidManifest.xml qa scripts || true
           echo '== Globals public-identity constant consumers =='
           grep -RInE 'Globals\.(PLUGIN_INTENT|SIGNAURE_PERMISSION|CUSTOM_ACTION)' src || true
           echo '== all SIGNAURE_PERMISSION references =='
