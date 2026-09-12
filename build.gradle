@@ -20,11 +20,11 @@ android {
     compileSdkVersion 36
 
     defaultConfig {
-        applicationId "com.painless.pc"
+        applicationId "com.ramybaheeg.togglebay"
         minSdkVersion 16
         targetSdkVersion 36
-        versionCode 160604
-        versionName "6.0.4-gate2a"
+        versionCode 1
+        versionName "1.0.0"
     }
     buildTypes {
         debug {
@@ -41,8 +41,12 @@ android {
             manifest.srcFile 'AndroidManifest.xml'
         }
         debug {
+            res.srcDirs = ['release-identity/res']
             java.srcDirs = ['qa-debug/src']
             manifest.srcFile 'qa-debug/AndroidManifest.xml'
+        }
+        release {
+            res.srcDirs = ['release-identity/res']
         }
     }
     lintOptions {
