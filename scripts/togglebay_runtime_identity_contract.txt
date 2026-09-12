@@ -1,0 +1,1 @@
+Expected runtime identity: provider authority = BuildConfig.APPLICATION_ID + .file; plugin state action = BuildConfig.APPLICATION_ID + .ACTION_STATE_CHANGED.
