@@ -99,7 +99,7 @@ public class Globals {
 
 	public static int getBattery(Context context) {
 		final long now = System.currentTimeMillis();
-		if (batteryGap < Math.abs(now - lastBatteryUpdate)) {
+		if (batteryGap < Math.abs(lastBatteryUpdate - now)) {
 			lastBatteryUpdate = now;
 
 			SharedPreferences pref = getAppPrefs(context);
@@ -221,7 +221,7 @@ public class Globals {
 		if (timedate == 0) {
 			return context.getString(R.string.stat_u_never);
 		}
-		long diff = Calendar.getInstance().getTimeInMillis() - timedate;
+		long diff = System.currentTimeMillis() - timedate;
 		diff = diff / 60000;	// convert to minutes.
 		if (diff <= 1) {
 			return context.getString(R.string.stat_u_now);
@@ -233,6 +233,7 @@ public class Globals {
 				return context.getString(R.string.stat_u_hours, diff);
 			} else {
 				diff = diff / 24;	// days
+				return context.getString(R.string.stat_u_days, diff);
 			}
 		}
 	}
