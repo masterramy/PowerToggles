@@ -1,26 +1,25 @@
-# PowerToggles
-An advanced power control widget for android
+# ToggleBay
 
-### Install from play store
-https://play.google.com/store/apps/details?id=com.painless.pc
+**Your Android controls, where you want them.**
 
+ToggleBay is an independent modern Android utility for customizable home-screen and notification controls. It is derived from the MIT-licensed Power Toggles codebase by Sunny Goyal and contributors, but it is not the original Power Toggles app and is not presented as an official continuation.
 
-PowerToggles is a highly customizable android widget which allos lots of tinkering options
+## What it does
 
-Contains 40+ toggles including
-* Wifi
-* Mobile Data (3G/4G)
-* Bluetooth (toggle, discovery and tether),
-* Flashlight
-* Custom application shortcut
-* Custom system shortcuts
-* And many more...
+ToggleBay provides configurable control surfaces for common Android actions, including Wi-Fi, Bluetooth, brightness, rotation, volume, flashlight-capable devices, shortcuts, media controls, notification controls, and other supported system actions. Android platform restrictions mean some controls are system-mediated or available only on compatible OS/device configurations.
 
-FAQ: http://powertoggles.com/help/
+It supports home-screen widgets, notification controls, per-toggle icon and color customization, local theme import/export, and local backup/restore flows.
 
+## Privacy posture
 
-Supports homescreen widgets and notification widget. Also supports expandable notification widget on Jelly Beans and above.
+The app has no account system, ad SDK, analytics SDK, or app-operated remote data collection in the current release source. Android device backup may copy eligible app settings to the user's Google backup when device backup is enabled. User-selected import/export/share flows use Android system document and sharing surfaces.
 
-Many customization options like changing color theme and icons for individual toggles.
+## Independent restoration and license
 
-Backup and share widget settings from the widget configure screen (Menu > Import / Export) as well as various themes for multi-icon toggles and battery toggle.
+ToggleBay is an independent modern Android utility derived from the MIT-licensed Power Toggles codebase by Sunny Goyal and contributors. It is not the original Power Toggles app and is not presented as an official continuation.
+
+The upstream code is used under the MIT License. See [LICENSE.md](LICENSE.md). The original copyright notice is preserved there:
+
+Copyright (c) 2015 sunnygoyal
+
+Historical Power Toggles branding, package identity, store listing, and signing identity are not used as the public identity of ToggleBay.
