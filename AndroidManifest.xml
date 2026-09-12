@@ -9,6 +9,9 @@
         android:icon="@drawable/icon_toggle_plugin"
         android:label="@string/ps_prem_label"
         android:protectionLevel="signature" />
+    <permission
+        android:name="com.painless.pc.permission.READ_FOLDER_SHARE"
+        android:protectionLevel="signature" />
 
     <uses-permission android:name="net.dinglisch.android.tasker.PERMISSION_RUN_TASKS" />
     <uses-permission android:name="com.painless.pc.permission.CONTROL_PLUGIN" />
@@ -131,7 +134,21 @@
         <receiver android:name=".ConnectivityReceiver" android:enabled="false" android:exported="false" >
             <intent-filter><action android:name="android.net.conn.CONNECTIVITY_CHANGE" /></intent-filter>
         </receiver>
-        <provider android:name="FileProvider" android:authorities="com.painless.pc.file" android:exported="true" android:grantUriPermissions="true" android:multiprocess="true" />
+        <provider
+            android:name="FileProvider"
+            android:authorities="com.painless.pc.file"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:multiprocess="true" >
+            <!-- The provider stays exported for capability-token launcher backgrounds.
+                 Folder sharing is different: ordinary apps must not have ambient read
+                 access, so require our signature permission on this one path. The
+                 ACTION_SEND URI grant can then temporarily override that restriction
+                 only for the user-selected share recipient. -->
+            <path-permission
+                android:path="/folder-share"
+                android:readPermission="com.painless.pc.permission.READ_FOLDER_SHARE" />
+        </provider>
         <receiver android:name="LockAdmin" android:description="@string/admin_desc" android:exported="true" android:label="@string/admin_label" android:permission="android.permission.BIND_DEVICE_ADMIN" >
             <meta-data android:name="android.app.device_admin" android:resource="@xml/lock_admin" />
             <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
