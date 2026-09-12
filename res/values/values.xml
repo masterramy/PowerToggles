@@ -16,7 +16,7 @@
         <item>@drawable/icon_toggle_volume_on_vib</item>
     </string-array>
 
-    <string name="app_name">Power Toggles</string>
-    <string name="ps_tasker_setup">Modify PowerToggle state</string>
+    <string name="app_name">ToggleBay</string>
+    <string name="ps_tasker_setup">Modify ToggleBay state</string>
 
 </resources>
