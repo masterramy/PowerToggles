@@ -126,8 +126,8 @@
                 <action android:name="android.media.RINGER_MODE_CHANGED" />
                 <action android:name="android.nfc.action.ADAPTER_STATE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="${applicationId}.CUSTOM_ACTION" />
-                <action android:name="${applicationId}.BATTERY_POLL" />
+                <action android:name="com.painless.pc.CUSTOM_ACTION" />
+                <action android:name="com.painless.pc.BATTERY_POLL" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
