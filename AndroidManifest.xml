@@ -85,6 +85,16 @@
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
 
+    <!-- ShareActionProvider builds its own target list. Android 11+ package
+         visibility requires declaring the exact implicit share intent that the
+         app queries so compatible non-system share targets remain discoverable. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="application/zip" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
