@@ -1,28 +1,28 @@
-name: Frozen Power Toggles CI Proof
+name: Candidate Power Toggles CI Proof
 
 on:
   push:
     branches: [ ci-proof-13383abd-20260912 ]
 
 jobs:
-  frozen-proof:
+  candidate-proof:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
-      - name: Checkout exact frozen source
+      - name: Checkout exact candidate source
         uses: actions/checkout@v4
         with:
-          ref: 13383abd016dee30dd056918b7d468705b3c89e8
+          ref: 214839b2c05b79bf99a62ebfbf87360b33825b5a
           fetch-depth: 1
 
-      - name: Verify exact frozen identity
+      - name: Verify exact candidate identity
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "13383abd016dee30dd056918b7d468705b3c89e8"
-          test "$(git rev-parse 'HEAD^{tree}')" = "c4319a9c1dfb0e7137e076731437af2ee4d589f4"
+          test "$(git rev-parse HEAD)" = "214839b2c05b79bf99a62ebfbf87360b33825b5a"
+          test "$(git rev-parse 'HEAD^{tree}')" = "3dc581c3847874cc18d53852db86fc637b2e8ec3"
           test -z "$(git status --porcelain)"
-          git rev-parse HEAD | tee frozen-head.txt
-          git rev-parse 'HEAD^{tree}' | tee frozen-tree.txt
+          git rev-parse HEAD | tee candidate-head.txt
+          git rev-parse 'HEAD^{tree}' | tee candidate-tree.txt
 
       - name: Static publication contracts
         run: |
@@ -58,7 +58,7 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Build exact frozen source
+      - name: Build exact candidate source
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace clean assembleDebug bundleRelease
@@ -155,16 +155,16 @@ jobs:
           git rev-parse 'HEAD^{tree}' > ci-proof-state/final-tree.txt
           git status --porcelain --untracked-files=no > ci-proof-state/final-tracked-dirty.txt
 
-      - name: Upload frozen proof evidence
+      - name: Upload candidate proof evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: frozen-proof-13383abd
+          name: candidate-proof-214839b2
           retention-days: 1
           if-no-files-found: warn
           path: |
-            frozen-head.txt
-            frozen-tree.txt
+            candidate-head.txt
+            candidate-tree.txt
             apk-badging.txt
             aab-integrity.txt
             build-sha256.txt
