@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="togglebay_admin_label">ToggleBay Screen Lock</string>
+    <string name="togglebay_plugin_permission_label">Use ToggleBay plugins</string>
+    <string name="togglebay_plugin_permission_desc">Can control ToggleBay plugins by switching them on or off</string>
+    <string name="togglebay_tasker_refresh">Refresh ToggleBay</string>
+    <string name="togglebay_about_title">About ToggleBay</string>
+    <string name="togglebay_publisher_title">Publisher</string>
+    <string name="togglebay_publisher_summary">Sufficient Systems</string>
+    <string name="togglebay_privacy_title">Privacy</string>
+    <string name="togglebay_privacy_summary">No ads, analytics, tracking, accounts, or cloud sync. App data stays on this device unless you explicitly export or share it. System permissions are used only for controls you invoke or enable.</string>
+    <string name="togglebay_license_title">Open-source attribution</string>
+    <string name="togglebay_license_summary">Independent restoration of the open-source Power Toggles project. Original work Copyright 2015 sunnygoyal, licensed under the MIT License. ToggleBay is not affiliated with or endorsed by the original developer.</string>
+</resources>
