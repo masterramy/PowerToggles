@@ -3,7 +3,6 @@ package com.painless.pc.nav;
 import android.os.Build;
 import android.view.View;
 
-import com.painless.pc.BootDialog;
 import com.painless.pc.R;
 import com.painless.pc.TrackerManager;
 import com.painless.pc.tracker.BatteryTracker;
@@ -31,7 +30,6 @@ public class TogglePrefFrag extends SettingsFrag {
           38,
           28,
           36, 25, 45,
-          (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2 ? -1 : 29),
           14
         };
 
@@ -101,8 +99,6 @@ public class TogglePrefFrag extends SettingsFrag {
         return new FontSizePref(mContext, mPrefs).getView();
       case 45: // No Lock
         return new CheckboxPref(mInflator, "no_lock_hidden", mPrefs, R.string.ts_hide_notify).view;
-      case 29: // Shutdown command
-        return new CheckboxPref(mInflator, BootDialog.SOFT_MODE, mPrefs, R.string.ts_soft_boot, true).view;
       case 14: // Wimax Tracker
         return new CheckboxPref(mInflator, "shrt_4g", mPrefs, R.string.ts_us_as_shortcut).view;
     }
