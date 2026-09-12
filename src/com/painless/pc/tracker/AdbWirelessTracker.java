@@ -8,9 +8,9 @@ import com.painless.pc.R;
 /**
  * Stable tracker-ID compatibility shell for the retired ADB Wireless control.
  *
- * The historical implementation depended on hidden SystemProperties plus root
- * setprop/adbd process control. Keep ID 39 loadable for saved definitions, but
- * do not execute hidden or privileged system mutation from publication source.
+ * The historical implementation depended on hidden platform property APIs plus
+ * root setprop/adbd process control. Keep ID 39 loadable for saved definitions,
+ * but do not execute hidden or privileged system mutation from publication source.
  */
 public class AdbWirelessTracker extends AbstractTracker {
 
