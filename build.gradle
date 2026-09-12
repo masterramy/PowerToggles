@@ -16,15 +16,17 @@ repositories {
 apply plugin: 'com.android.application'
 
 android {
+    // Keep the restored internal Java/resource namespace stable while publishing
+    // under an independent application identity.
     namespace "com.painless.pc"
     compileSdkVersion 36
 
     defaultConfig {
-        applicationId "com.painless.pc"
+        applicationId "bible.sufficient.toggledeck"
         minSdkVersion 16
         targetSdkVersion 36
         versionCode 160604
-        versionName "6.0.4-gate2a"
+        versionName "1.0.0"
     }
     buildTypes {
         debug {
