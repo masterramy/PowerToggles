@@ -345,8 +345,8 @@ sleep 1
 tap_node "06-delete-source" "Delete"
 sleep 1
 capture "06-delete-confirm"
-grep -Fq 'text="Yes"' "$OUT/ui/06-delete-confirm.xml"
-tap_node "07-delete-yes-source" "Yes"
+grep -Fq 'resource-id="android:id/button1"' "$OUT/ui/06-delete-confirm.xml"
+tap_node "07-delete-yes-source" "android:id/button1"
 sleep 2
 capture "07-delete-return"
 if grep -Fq "text=\"$QA_NAME\"" "$OUT/ui/07-delete-return.xml"; then
