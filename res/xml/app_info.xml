@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    android:title="TestString" >
+    android:title="@string/app_name" >
 
     <PreferenceScreen
         android:fragment="com.painless.pc.nav.TCacheFrag"
@@ -14,6 +14,24 @@
             android:order="1"
             android:persistent="false"
             android:title="@string/stat_battery" />
+        <Preference
+            android:key="privacy"
+            android:order="20"
+            android:selectable="false"
+            android:summary="@string/stat_privacy_summary"
+            android:title="@string/stat_privacy" />
+        <Preference
+            android:key="open_source"
+            android:order="21"
+            android:selectable="false"
+            android:summary="@string/stat_open_source_summary"
+            android:title="@string/stat_open_source" />
+        <Preference
+            android:key="license"
+            android:order="22"
+            android:selectable="false"
+            android:summary="@string/stat_license_summary"
+            android:title="MIT License" />
     </PreferenceCategory>
 
 </PreferenceScreen>
