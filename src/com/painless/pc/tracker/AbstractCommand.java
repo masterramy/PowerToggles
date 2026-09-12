@@ -30,6 +30,14 @@ public abstract class AbstractCommand extends AbstractTracker {
 		mContext = context;
 		Intent intent = getIntent();
 		if (intent != null) {
+			// SimpleShortcut normalizes legacy direct-call intents when it is built.
+			// Keep the shared command execution boundary fail-safe as well: if any
+			// command unexpectedly reaches it with ACTION_CALL, open the dialer rather
+			// than attempting a direct call. Use a copy so command-owned state is not
+			// mutated by the safety fallback.
+			if (Intent.ACTION_CALL.equals(intent.getAction())) {
+				intent = new Intent(intent).setAction(Intent.ACTION_DIAL);
+			}
 			Globals.startIntent(context, intent);
 		}
 	}

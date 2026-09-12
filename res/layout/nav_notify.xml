@@ -110,13 +110,17 @@
             android:text="@string/notify_other_settings"
             android:textAppearance="?android:attr/textAppearanceMedium" />
 
+        <!-- Auto-collapse depended on hidden StatusBarManager behavior that is not
+             supported for ordinary modern apps. Keep the legacy view IDs inflated
+             for migration-safe code paths, but do not expose a nonfunctional control. -->
         <LinearLayout
             android:id="@+id/btn_auto_collapse"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="?android:attr/selectableItemBackground"
             android:gravity="center_vertical"
-            android:padding="8dp" >
+            android:padding="8dp"
+            android:visibility="gone" >
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -148,57 +152,41 @@
 
         <include layout="@layout/cm_divider" />
 
-        <LinearLayout
+        <RelativeLayout
+            android:id="@+id/btn_show_on_lock_screen"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="horizontal" >
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:padding="8dp" >
 
-            <RelativeLayout
-                android:id="@+id/btn_show_on_lock_screen"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="?android:attr/selectableItemBackground"
-                android:padding="8dp" >
-
-                <CheckedTextView
-                    android:id="@+id/chk_show_on_lock_screen"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentRight="true"
-                    android:layout_centerVertical="true"
-                    android:layout_marginLeft="8dp"
-                    android:checkMark="?android:attr/listChoiceIndicatorMultiple"
-                    android:gravity="center_vertical" />
-
-                <TextView
-                    android:id="@+id/btn_show_on_lock_screen_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentLeft="true"
-                    android:layout_toLeftOf="@id/chk_show_on_lock_screen"
-                    android:text="@string/notify_show_on_lock"
-                    android:textAppearance="?android:attr/textAppearanceMedium"
-                    android:textColor="@android:color/primary_text_dark_nodisable" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentLeft="true"
-                    android:layout_below="@id/btn_show_on_lock_screen_text"
-                    android:layout_toLeftOf="@id/chk_show_on_lock_screen"
-                    android:text="@string/notify_show_on_lock_summary" />
-            </RelativeLayout>
-
-            <ImageView
-                android:id="@+id/btn_show_on_lock_screen_help"
+            <CheckedTextView
+                android:id="@+id/chk_show_on_lock_screen"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="?android:attr/selectableItemBackground"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
-                android:src="@drawable/icon_info" />
-        </LinearLayout>
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="8dp"
+                android:checkMark="?android:attr/listChoiceIndicatorMultiple"
+                android:gravity="center_vertical" />
+
+            <TextView
+                android:id="@+id/btn_show_on_lock_screen_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_toLeftOf="@id/chk_show_on_lock_screen"
+                android:text="@string/notify_show_on_lock"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:textColor="@android:color/primary_text_dark_nodisable" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_below="@id/btn_show_on_lock_screen_text"
+                android:layout_toLeftOf="@id/chk_show_on_lock_screen"
+                android:text="@string/notify_show_on_lock_summary" />
+        </RelativeLayout>
     </LinearLayout>
 
 </ScrollView>

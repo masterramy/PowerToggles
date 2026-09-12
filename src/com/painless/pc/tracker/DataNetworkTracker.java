@@ -58,9 +58,23 @@ public class DataNetworkTracker extends AbstractTracker {
 
 	@Override
 	public int getImageNumber(Context context) {
-    int networkType = Globals.getNetworkType(context);
-    if (networkType > 0) networkType--;
-    return networkType;
+    try {
+      int networkType = Globals.getNetworkType(context);
+      if (networkType > 0) networkType--;
+      return networkType;
+    } catch (SecurityException e) {
+      // Modern Android protects cellular radio-type identity behind phone-state
+      // access. Power Toggles does not request that sensitive permission, so a
+      // customer who adds this informational toggle must degrade safely instead
+      // of crashing widget/notification rendering.
+      Globals.sNetworkName = context.getString(R.string.lbl_unknown_allcap);
+      return 0;
+    } catch (UnsupportedOperationException e) {
+      // Telephony is optional for this app. Devices without radio-access
+      // support must render an unknown state rather than fail the whole widget.
+      Globals.sNetworkName = context.getString(R.string.lbl_unknown_allcap);
+      return 0;
+    }
 	}
 
 	@Override

@@ -19,11 +19,12 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
   private static final int TYPE_HEADER = 0;
   private static final int TYPE_LOADING = 1;
   private static final int TYPE_PREVIEW = 2;
+  private static final int TYPE_FAILED = 3;
 
   private final int[] mIconState = {2, 1, 0, 0, 2};
   private final LayoutInflater mInflator;
   public final ThemeLoader mLoader;
-  
+
   public ThemeAdapter(Context context) {
     super(context, 0);
     mInflator = LayoutInflater.from(context);
@@ -32,13 +33,19 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
 
   @Override
   public int getViewTypeCount() {
-    return 3;
+    return 4;
   }
 
   @Override
   public int getItemViewType(int position) {
     ThemeEntry entry = getItem(position);
-    return (entry.title != 0) ? TYPE_HEADER : (entry.isLoaded() ? TYPE_PREVIEW : TYPE_LOADING);
+    if (entry.title != 0) {
+      return TYPE_HEADER;
+    }
+    if (entry.failed) {
+      return TYPE_FAILED;
+    }
+    return entry.isLoaded() ? TYPE_PREVIEW : TYPE_LOADING;
   }
 
   @Override
@@ -60,6 +67,8 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
         mInflator.inflate(R.layout.list_item_header, parent, false));
       title.setText(entry.title);
       return title;
+    } else if (entry.failed) {
+      return convertView != null ? convertView : mInflator.inflate(R.layout.theme_item_failed, parent, false);
     } else if (!entry.isLoaded()) {
       // Submit for loading
       mLoader.submic(entry);
@@ -67,7 +76,7 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
     } else {
       // Show preview
       MyHolder holder;
-      
+
       if (convertView == null) {
         convertView = mInflator.inflate(R.layout.theme_item_preview, parent, false);
         holder = new MyHolder(convertView);
@@ -81,7 +90,7 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
         holder.back.setBackgroundColor(Color.TRANSPARENT);
         holder.back.setBitmap(entry.background);
         holder.back.setDim(entry.stretch);
-        holder.back.setPadding(entry.padding[0], entry.padding[1], entry.padding[2], entry.padding[2]);
+        holder.back.setPadding(entry.padding[0], entry.padding[1], entry.padding[2], entry.padding[3]);
       } else {
         holder.back.setBitmap(null);
         holder.back.setBackgroundResource(entry.backgroundRes);
@@ -97,8 +106,7 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
           holder.mDivs[i].setBackgroundColor(entry.dividerColor);
         }
       }
-      
-      
+
       for (int i=0; i<5; i++) {
         int state = mIconState[i];
         holder.mIcons[i].setColorFilter(entry.buttonColors[state]);
@@ -119,7 +127,7 @@ public class ThemeAdapter extends ArrayAdapter<ThemeEntry> {
       for (int i=0; i<4; i++) {
         mDivs[i] = container.findViewById(Globals.BUTTON_DIVS[i]);
       }
-      
+
       mIcons = new ImageView[5];
       for (int i=0; i<5; i++) {
         mIcons[i] = (ImageView) container.findViewById(Globals.BUTTONS[i]);

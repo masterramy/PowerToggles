@@ -15,9 +15,16 @@ public class SimpleShortcut extends AbstractCommand {
 		super(-1, null, R.drawable.icon_application);
 		this.label = label;
 
-		// Replace call privileged action.
-		if ("android.intent.action.CALL_PRIVILEGED".equals(intent.getAction())) {
-			intent.setAction(Intent.ACTION_CALL);
+		// Legacy shortcut providers could return CALL_PRIVILEGED, and older
+		// Power Toggles folder databases may already contain our historical
+		// ACTION_CALL normalization. Public builds must not require the dangerous
+		// CALL_PHONE permission merely to preserve those shortcuts. Route both
+		// forms through the system dialer so the number is retained and the user
+		// explicitly confirms the call.
+		String action = intent.getAction();
+		if ("android.intent.action.CALL_PRIVILEGED".equals(action)
+				|| Intent.ACTION_CALL.equals(action)) {
+			intent.setAction(Intent.ACTION_DIAL);
 		}
 
 		this.launchIntent = intent;

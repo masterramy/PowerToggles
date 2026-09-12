@@ -39,13 +39,25 @@ public class BrightnessActivity extends Activity {
 	}
 
 	public static void changeBrightness(Context c, boolean quick) {
-		if (quick) {
-			WindowManager.LayoutParams params = new WindowManager.LayoutParams(0, 0, 2005, 8, -3);
-			params.screenBrightness = BacklightTracker.current * 1.0f / 255;
-			final WindowManager wm = (WindowManager) c.getSystemService(WINDOW_SERVICE);
-			final View v = new View(c);
+		if (quick && tryQuickBrightness(c)) {
+			return;
+		}
+		startBrightnessActivity(c);
+	}
+
+	private static boolean tryQuickBrightness(Context c) {
+		WindowManager.LayoutParams params = new WindowManager.LayoutParams(0, 0, 2005, 8, -3);
+		params.screenBrightness = BacklightTracker.current * 1.0f / 255;
+		final WindowManager wm = (WindowManager) c.getSystemService(WINDOW_SERVICE);
+		if (wm == null) {
+			return false;
+		}
+		final View v = new View(c);
+		boolean added = false;
+		try {
 			wm.addView(v, params);
-			
+			added = true;
+
 			new AsyncTask<Void, Void, Void>() {
 
 				@Override
@@ -67,10 +79,27 @@ public class BrightnessActivity extends Activity {
 					}
 				}
 			}.execute();
-		} else {
-			final Intent i = new Intent(c, BrightnessActivity.class);
-			i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			c.startActivity(Globals.setIncognetoIntent(i));
+			return true;
+		} catch (RuntimeException e) {
+			// TYPE_TOAST quick-brightness overlays are a legacy optimization. Modern
+			// Android/OEM window policy can reject them even after the actual public
+			// brightness setting succeeds. Never turn that optional refresh path into
+			// a crash; clean up any partial window and fall back to our own Activity.
+			Debug.log(e);
+			if (added) {
+				try {
+					wm.removeView(v);
+				} catch (Throwable removeError) {
+					Debug.log(removeError);
+				}
+			}
+			return false;
 		}
+	}
+
+	private static void startBrightnessActivity(Context c) {
+		final Intent i = new Intent(c, BrightnessActivity.class);
+		i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		c.startActivity(Globals.setIncognetoIntent(i));
 	}
 }

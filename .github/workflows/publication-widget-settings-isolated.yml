@@ -1,0 +1,117 @@
+name: Publication Widget Settings Isolated QA
+
+on:
+  push:
+    branches: [ publication-readiness ]
+  workflow_dispatch:
+
+jobs:
+  widget-settings-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Pin Android AVD paths
+        run: |
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/widget-avd" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$RUNNER_TEMP/widget-android-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/widget-avd" "$RUNNER_TEMP/widget-android-user"
+
+      - name: Install Android API 36 and emulator
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assemble debug candidate
+        run: |
+          gradle --no-daemon --stacktrace assembleDebug
+          APK="build/outputs/apk/debug/PowerToggles-debug.apk"
+          test -f "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          sha256sum "$APK" | tee isolated-widget-apk-sha256.txt
+
+      - name: Create API 36 AVD
+        run: |
+          echo no | avdmanager create avd --force --name widget_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx widget_api36
+
+      - name: Boot fresh emulator
+        run: |
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd widget_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > widget-emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "Emulator PID: $EMU_PID"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed"
+              cat widget-emulator.log
+              exit 1
+            fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              adb devices -l
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Emulator failed to boot within 240 seconds"
+          adb devices -l || true
+          cat widget-emulator.log
+          exit 1
+
+      - name: Install candidate
+        run: |
+          adb install -r "$APK"
+          adb shell pm list packages -f | grep 'com.painless.pc'
+
+      - name: Preflight AppWidget bind command
+        run: |
+          mkdir -p runtime-evidence/widget-settings-isolated
+          adb shell getprop ro.build.version.release | tee runtime-evidence/widget-settings-isolated/android-release.txt
+          adb shell getprop ro.build.version.sdk | tee runtime-evidence/widget-settings-isolated/android-sdk.txt
+          adb shell pm path com.painless.pc | tee runtime-evidence/widget-settings-isolated/package-path.txt
+          USER_ID="$(adb shell am get-current-user | tr -d '\r')"
+          case "$USER_ID" in
+            ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $USER_ID"; exit 1 ;;
+          esac
+          echo "$USER_ID" | tee runtime-evidence/widget-settings-isolated/android-user-id.txt
+          adb shell dumpsys meminfo | head -80 > runtime-evidence/widget-settings-isolated/meminfo-before-grantbind.txt || true
+          adb logcat -c
+          set +e
+          timeout 20s adb shell appwidget grantbind --package com.painless.pc --user "$USER_ID" > runtime-evidence/widget-settings-isolated/grantbind-preflight.txt 2>&1
+          rc=$?
+          set -e
+          echo "$rc" | tee runtime-evidence/widget-settings-isolated/grantbind-preflight.rc
+          adb logcat -d > runtime-evidence/widget-settings-isolated/grantbind-preflight.logcat.txt || true
+          adb shell dumpsys appwidget > runtime-evidence/widget-settings-isolated/appwidget-after-grantbind.txt || true
+          if [ "$rc" -ne 0 ]; then
+            echo "Fresh-emulator appwidget grantbind failed rc=$rc"
+            exit "$rc"
+          fi
+
+      - name: Genuine hosted ID33 certification
+        run: bash scripts/publication_widget_settings_qa.sh
+
+      - name: Upload isolated widget evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-widget-settings-isolated-evidence
+          path: |
+            runtime-evidence/
+            widget-emulator.log
+            isolated-widget-apk-sha256.txt
+          if-no-files-found: warn

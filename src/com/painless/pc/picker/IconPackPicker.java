@@ -179,14 +179,13 @@ public class IconPackPicker extends Activity implements
   }
 
   private void loadThemeIcons() {
-    final R.drawable drawableResources = new R.drawable();
     final Class<R.drawable> c = R.drawable.class;
     final Field[] fields = c.getDeclaredFields();
 
     for (int i = 0, max = fields.length; i < max; i++) {
       try {
         if (fields[i].getName().startsWith("icon_")) {
-          mAllItems.add(new BitmapInfo(getResources(), fields[i].getInt(drawableResources), fields[i].getName().substring(5)));
+          mAllItems.add(new BitmapInfo(getResources(), fields[i].getInt(null), fields[i].getName().substring(5)));
         }
       } catch (Throwable e) {
         continue;

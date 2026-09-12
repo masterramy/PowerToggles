@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Publication-facing tracker names for the full supported Android range
+        (minSdk 16). This keeps the legacy default resource intact while giving
+        current builds accurate labels for controls whose modern behavior is
+        settings-oriented rather than privileged toggle access.
+    -->
+    <string-array name="tracker_names">
+        <item>Hotspot (Wifi)</item>
+        <item>Mobile Data Settings</item>
+        <item>Data Sync</item>
+        <item>Wi‑Fi</item>
+        <item>Flashlight</item>
+        <item>GPS</item>
+        <item>Bluetooth</item>
+        <item>Brightness</item>
+        <item>Airplane Mode</item>
+        <item>Screen Auto Rotate</item>
+        <item>Volume Toggle</item>
+        <item>Mobile Network</item>
+        <item>USB Tether</item>
+        <item>Screen Always On (WakeLock)</item>
+        <item>WiMax (4G)</item>
+        <item>Battery Info</item>
+        <item>Screen Timeout</item>
+        <item>Auto Brightness</item>
+        <item>Play/Pause Music</item>
+        <item>Next Track</item>
+        <item>Previous Track</item>
+        <item>Music volume</item>
+        <item>Bluetooth Discovery</item>
+        <item>Brightness Slider</item>
+        <item>NFC</item>
+        <item>Screen Lock</item>
+        <item>Bluetooth Tether</item>
+        <item>Volume Slider</item>
+        <item>Sync Now</item>
+        <item>Shutdown</item>
+        <item>Restart</item>
+        <item>Screen Light</item>
+        <item>Notification Widget</item>
+        <item>Widget Settings</item>
+        <item>Second Notification Row</item>
+        <item>Shutdown Menu</item>
+        <item>Increase System Font</item>
+        <item>Decrease System Font</item>
+        <item>Rotation Lock</item>
+        <item>adbWireless</item>
+        <item>Pulse notification light</item>
+        <item>Receive internet calls (SIP)</item>
+        <item>Internet calling (SIP)</item>
+        <item>Home Shortcut</item>
+        <item>Recent Apps</item>
+        <item>No Lock Screen</item>
+        <item>Wifi Optimize</item>
+        <item>Immersive mode</item>
+    </string-array>
+</resources>

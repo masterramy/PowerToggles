@@ -2,6 +2,7 @@
 package com.painless.pc.util;
 
 import static com.painless.pc.singleton.Globals.STATUS_BAR_WIDGET_ID;
+import static com.painless.pc.singleton.Globals.STATUS_BAR_WIDGET_ID_2;
 import static com.painless.pc.util.SettingsDecoder.CLICK_TYPE_DEFAULT;
 import static com.painless.pc.util.SettingsDecoder.CLICK_TYPE_KITKAT;
 import static com.painless.pc.util.SettingsDecoder.CLICK_TYPE_RIPPLE;
@@ -111,7 +112,8 @@ public final class WidgetSetting {
 			}
 		}
 		this.hideDividers = decoder.is(KEY_HIDE_DIVIDERS, true);
-		this.rvFactory = RVFactory.get(context, decoder, (widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID));
+		this.rvFactory = RVFactory.get(context, decoder,
+        (widgetId == STATUS_BAR_WIDGET_ID) || (widgetId == STATUS_BAR_WIDGET_ID_2));
 
 		this.batteryEnabled = batteryEnabled;
 		this.isLockScreenWidget = isLockWidget(context, widgetId);
@@ -119,7 +121,7 @@ public final class WidgetSetting {
 
 		File backImgFile = FileProvider.widgetBackFile(context, widgetId);
 		if (backImgFile.exists()) {
-		  backimage = Uri.parse("content://com.painless.pc.file/back/?" + widgetId + "#" + backImgFile.lastModified());
+		  backimage = FileProvider.widgetBackUri(context, widgetId);
 		  padding = decoder.getRect(KEY_PADDING);
 		} else {
 		  padding = new int[4];
@@ -162,7 +164,7 @@ public final class WidgetSetting {
 		int category = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
 				.getInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY, -1);
 
-		// If the value is WIDGET_CATEGORY_KEYGUARD, it's a lockscreen widget
+		// If WIDGET_CATEGORY_KEYGUARD, its a lockscreen widget
 		return category == AppWidgetProviderInfo.WIDGET_CATEGORY_KEYGUARD;
 	}
 

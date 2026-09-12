@@ -27,6 +27,7 @@ import android.widget.TextView;
 import com.painless.pc.R;
 import com.painless.pc.picker.IconPicker;
 import com.painless.pc.singleton.BitmapUtils;
+import com.painless.pc.util.BitmapImportUtils;
 import com.painless.pc.util.ImportExportActivity;
 import com.painless.pc.util.Thunk;
 
@@ -148,7 +149,7 @@ public class IconThemeEditor extends ImportExportActivity<Bitmap> {
 
 	@Override
 	public Bitmap doImportInBackground(File importFile) throws Exception {
-		return BitmapFactory.decodeFile(importFile.getAbsolutePath());
+		return BitmapImportUtils.decode(importFile);
 	}
 
 	@Override
@@ -218,7 +219,7 @@ public class IconThemeEditor extends ImportExportActivity<Bitmap> {
 
 			holder.text1.setCompoundDrawablesWithIntrinsicBounds(item.iconDefault, 0, 0, 0);
 			holder.text1.setChecked(item.defaultSelected);
-			
+
 			holder.text2.setCompoundDrawablesWithIntrinsicBounds(item.iconCustom, null, null, null);
 			holder.text2.setChecked(!item.defaultSelected);
 

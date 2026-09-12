@@ -20,7 +20,6 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.view.Menu;
@@ -72,22 +71,19 @@ public class TogglePicker extends Dialog
 
   @Thunk final int[][] mWidgetSections = new int[][] {
           new int[] { 1, 11, 0, 26, 12},                       // Mobile data
-          new int[] { 3, 2, 28, 8, 6, 22, 24, 41, 42},         // Network
+          new int[] { 3, 2, 28, 8, 6, 22, 24},                 // Network
           new int[] { 18, 19, 20, 21},                         // Multimedia
-          // Display
-          (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ?
-                  new int[] { 7, 17, 23, 13, 16, 9, 31, 38} :
-                    new int[] {  7, 17, 23, 13, 16, 9, 31, 38, 47 }),
+          new int[] { 7, 17, 23, 13, 16, 9, 31, 38},           // Display
+          new int[] { 4, 5, 25, 10, 27, 15, 43},               // Hardware
+          new int[] { 33, 32, 34}                              // App Commands
 
-          new int[] { 4, 5, 25, 45, 10, 27, 15, 40, 43, 44},   // Hardware
-          new int[] { 33, 32, 34},                             // App Commands
-
-          // Root
-          (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1 ?
-                  new int[] { 29, 30, 35, 39, 36, 37} :
-                    new int[] { 29, 30, 35, 39, 46, 36, 37}),
-
-                    new int[] { 14}           // Others
+          // Publication-readiness retirement boundary:
+          // Stable TrackerManager IDs remain intact for persisted legacy definitions,
+          // but new configurations must not offer unsupported/obsolete controls.
+          // Retired here: WiMAX 14; shutdown/restart/menu 29/30/35;
+          // font mutation 36/37; adbWireless 39; legacy platform SIP 41/42;
+          // Pulse Notification Light 40; hidden Recent Apps 44; deprecated No Lock 45;
+          // Wifi Optimize 46; and the obsolete global Immersive service 47.
   };
 
   @Thunk final ArrayList<SectionItem> mFullToggleList = new ArrayList<SectionItem>();
@@ -547,5 +543,3 @@ public class TogglePicker extends Dialog
     void onTogglePicked(AbstractTracker tracker, Bitmap icon);
   }
 }
-
-

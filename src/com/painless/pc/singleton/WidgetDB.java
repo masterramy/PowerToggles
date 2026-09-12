@@ -7,9 +7,9 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 
 import com.painless.pc.tracker.SimpleShortcut;
+import com.painless.pc.util.BitmapImportUtils;
 
 public class WidgetDB extends SQLiteOpenHelper {
 	private static final String DATABASE_NAME = "settings.db";
@@ -45,10 +45,10 @@ public class WidgetDB extends SQLiteOpenHelper {
 	}
 
 	public void changeWidgetId(int oldId, int newId) {
-    int start = oldId << 3;
-    int end = start + 7;
-    int diff = (newId << 3) - start;
-    getDB().execSQL("UPDATE shortcuts SET _id = _id + ? WHERE _id BETWEEN ? AND ?", params(diff, start, end));
+		int start = oldId << 3;
+		int end = start + 7;
+		int diff = (newId << 3) - start;
+		getDB().execSQL("UPDATE shortcuts SET _id = _id + ? WHERE _id BETWEEN ? AND ?", params(diff, start, end));
 	}
 
 	public void saveShrt(SimpleShortcut shrt, Bitmap image) {
@@ -71,14 +71,20 @@ public class WidgetDB extends SQLiteOpenHelper {
 
 	public SimpleShortcut getShrt(String id) throws Exception {
 		int parsedId = getIntId(id);
-		Cursor cursor = getDB().query(SHORTCUT_TABLE, SHORTCUR_COLUMNS, "_id=" + getIntId(id), null, null, null, null);
-		cursor.moveToNext();
+		Cursor cursor = getDB().query(SHORTCUT_TABLE, SHORTCUR_COLUMNS, "_id = ?",
+				new String[] {Integer.toString(parsedId)}, null, null, null);
+		try {
+			if (!cursor.moveToNext()) {
+				throw new IllegalStateException("Missing shortcut " + parsedId);
+			}
 
-		Intent intent = Intent.parseUri(cursor.getString(cursor.getColumnIndex("intent")), 0);
-		SimpleShortcut shrt = new SimpleShortcut(intent, cursor.getString(cursor.getColumnIndex("name")));
-		shrt.setId(parsedId);
-
-		return shrt;
+			Intent intent = Intent.parseUri(cursor.getString(cursor.getColumnIndex("intent")), 0);
+			SimpleShortcut shrt = new SimpleShortcut(intent, cursor.getString(cursor.getColumnIndex("name")));
+			shrt.setId(parsedId);
+			return shrt;
+		} finally {
+			cursor.close();
+		}
 	}
 
 	public Bitmap[] getAllIcons(int widgetId) {
@@ -90,38 +96,38 @@ public class WidgetDB extends SQLiteOpenHelper {
 				"_id BETWEEN ? AND ?",
 				new String[] {min + "", max + ""},
 				null, null, null);
-		int idIndex = cursor.getColumnIndex("_id");
-		int bitmapIndex = cursor.getColumnIndex("image");
+		try {
+			int idIndex = cursor.getColumnIndex("_id");
+			int bitmapIndex = cursor.getColumnIndex("image");
 
-		for (int i = cursor.getCount(); i>0; i--) {
-			cursor.moveToNext();
-			int id = cursor.getInt(idIndex) - min;
-			if (id>=0 && id<8) {
-				byte[] bitmapData = cursor.getBlob(bitmapIndex);
-				iconArray[id] = BitmapFactory.decodeByteArray(bitmapData, 0, bitmapData.length);
-				if ((iconArray[id] != null) && ((iconArray[id].getWidth() == 0) || (iconArray[id].getHeight() == 0))) {
-					iconArray[id] = null;
+			while (cursor.moveToNext()) {
+				int id = cursor.getInt(idIndex) - min;
+				if (id >= 0 && id < iconArray.length) {
+					byte[] bitmapData = cursor.getBlob(bitmapIndex);
+					iconArray[id] = BitmapImportUtils.decode(bitmapData);
 				}
 			}
+			return iconArray;
+		} finally {
+			cursor.close();
 		}
-		return iconArray;
 	}
 
 	public byte[] getIconBytes(int id) {
-    Cursor cursor = getDB().query(SHORTCUT_TABLE,
-        new String[] {"image" },
-        "_id = ?",
-        new String[] {id + ""}, null, null, null);
-    try {
-      if (cursor.moveToNext()) {
-        return cursor.getBlob(0);
-      } else {
-        return null;
-      }
-    } finally {
-      cursor.close();
-    }
-  }
+		Cursor cursor = getDB().query(SHORTCUT_TABLE,
+				new String[] {"image" },
+				"_id = ?",
+				new String[] {id + ""}, null, null, null);
+		try {
+			if (cursor.moveToNext()) {
+				return cursor.getBlob(0);
+			} else {
+				return null;
+			}
+		} finally {
+			cursor.close();
+		}
+	}
 
 	private static int getIntId(String id) {
 		return Integer.parseInt(id.substring(3));
@@ -147,10 +153,6 @@ public class WidgetDB extends SQLiteOpenHelper {
 		}
 	}
 
-
-
-
-
 	private static WidgetDB DB_;
 
 	public static WidgetDB get(Context c) {
@@ -167,12 +169,11 @@ public class WidgetDB extends SQLiteOpenHelper {
 		}
 	}
 
-	
 	private static String[] params(Object... objects) {
-	  String[] result = new String[objects.length];
-	  for (int i = 0; i < objects.length; i++) {
-	    result[i] = objects[i].toString();
-	  }
-	  return result;
+		String[] result = new String[objects.length];
+		for (int i = 0; i < objects.length; i++) {
+			result[i] = objects[i].toString();
+		}
+		return result;
 	}
 }

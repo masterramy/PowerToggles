@@ -11,10 +11,14 @@ import java.util.zip.ZipOutputStream;
 import org.json.JSONObject;
 
 import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProviderInfo;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.view.Menu;
@@ -34,6 +38,7 @@ import com.painless.pc.cfg.section.ConfigSection;
 import com.painless.pc.cfg.section.ConfigSection.ConfigCallback;
 import com.painless.pc.cfg.section.DividersSection;
 import com.painless.pc.cfg.section.StyleSection;
+import com.painless.pc.folder.FolderZipReader;
 import com.painless.pc.nav.SettingsFrag;
 import com.painless.pc.picker.FilePicker;
 import com.painless.pc.picker.ThemePicker;
@@ -54,9 +59,10 @@ import com.painless.pc.util.WidgetSetting;
 public class WidgetConfigActivity extends ImportExportActivity<BackupData> implements ConfigCallback {
 
   private static final String THEME_EXTENSION = ".pttheme";
+  private static final String DEFAULT_THEME_NAME = "power-toggles-theme" + THEME_EXTENSION;
 
 	public WidgetConfigActivity() {
-		super(R.menu.config_menu, ".zip", 
+		super(R.menu.config_menu, ".zip",
 				R.string.wp_backup, R.array.wc_export_msg,
 				R.string.wp_restore, R.array.wc_import_msg);
 	}
@@ -66,10 +72,11 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 	private TogglePicker mTogglePicker;
 
 	private int mAppWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
-	
+
 	private boolean mIsNotification;
 	private WidgetSetting mRenderSettings;
 	private ConfigExtraData mConfigExtraData;
+  private FolderZipReader mPendingFolderImport;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -78,27 +85,38 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 
 		setContentView(R.layout.widget_config_activity);
 
-		// Find the widget id from the intent.
+		// Find the widget id from the intent. The exported activity only accepts
+		// framework-owned widget IDs. Existing-widget editing is routed through
+		// the non-exported EditWidgetConfigActivity subclass.
 		final Intent intent = getIntent();
-		final Bundle extras = intent.getExtras();
-		mAppWidgetId = extras.getInt(
-				AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+		final Bundle extras = intent == null ? null : intent.getExtras();
+    if (extras == null) {
+      finish();
+      return;
+    }
 
-		// The initial setting for the UI
-		String startSettings = SettingStorage.getDefaultSettings(mAppWidgetId);
+    int configuredWidgetId = extras.getInt(
+        AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+    String startSettings;
+    if (configuredWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+      if (!isOwnedAppWidgetId(configuredWidgetId)) {
+        finish();
+        return;
+      }
+      mAppWidgetId = configuredWidgetId;
+      startSettings = SettingStorage.getDefaultSettings(mAppWidgetId);
+    } else if (this instanceof EditWidgetConfigActivity) {
+      mAppWidgetId = extras.getInt("edit_widget", AppWidgetManager.INVALID_APPWIDGET_ID);
+      if (mAppWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+        finish();
+        return;
+      }
+      startSettings = SettingStorage.getSettingString(this, mAppWidgetId);
+    } else {
+      finish();
+      return;
+    }
 
-		// If they gave us an intent without the widget id, just bail.
-		if (mAppWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-			mAppWidgetId = extras.getInt("edit_widget", AppWidgetManager.INVALID_APPWIDGET_ID);
-
-			if (mAppWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-				finish();
-				return;
-			} else {
-				// Initialize edit mode.
-				startSettings = SettingStorage.getSettingString(this, mAppWidgetId);
-			}
-		}
 		mIsNotification = (mAppWidgetId == Globals.STATUS_BAR_WIDGET_ID) || (mAppWidgetId == Globals.STATUS_BAR_WIDGET_ID_2);
 		if (mIsNotification) {
 			getWindow().getDecorView().setBackgroundColor(0xAA000000);
@@ -111,7 +129,7 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 		// initiate settings
 		Bitmap[] allIcons = WidgetDB.get(this).getAllIcons(mAppWidgetId);
 		mRenderSettings = SettingStorage.buildWidgetSettings(startSettings, this, mAppWidgetId, allIcons);
-		
+
 		mConfigExtraData = new ConfigExtraData();
 		mConfigExtraData.decoder = new SettingsDecoder(startSettings);
 		if (mRenderSettings.backimage != null) {
@@ -131,6 +149,16 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 
 		initUI(mRenderSettings, mConfigExtraData, allIcons);
 	}
+
+  private boolean isOwnedAppWidgetId(int widgetId) {
+    try {
+      AppWidgetProviderInfo info = AppWidgetManager.getInstance(this).getAppWidgetInfo(widgetId);
+      return info != null && new ComponentName(this, PCWidgetActivity.class).equals(info.provider);
+    } catch (Throwable e) {
+      Debug.log(e);
+      return false;
+    }
+  }
 
 	private void initUI(WidgetSetting setting, ConfigExtraData extraData, Bitmap[] icons) {
 		mRenderSettings = setting;
@@ -171,7 +199,7 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
         String config = data.getStringExtra("config");
         Bitmap icon = data.getParcelableExtra("icon");
         SettingsDecoder decoder = new SettingsDecoder(config);
-        
+
         for (ConfigSection section : mSections) {
           section.readTheme(decoder, icon);
         }
@@ -208,28 +236,56 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 			    Toast.makeText(this, R.string.wc_ex_theme_image, Toast.LENGTH_LONG).show();
 			    return true;
 			  }
-	     Intent intent = new Intent(this, FilePicker.class)
-	        .putExtra("savemode", true)
-	        .putExtra("title", getText(R.string.wc_ex_theme))
-	        .putExtra("filter", THEME_EXTENSION);
-	      requestResult(11, intent, new ResultReceiver() {
-
-	        @Override
-	        public void onResult(int requestCode, Intent data) {
-	          try {
-	            exportTheme(data.getStringExtra("file"));
-              Toast.makeText(WidgetConfigActivity.this, R.string.wc_ex_theme_success, Toast.LENGTH_SHORT).show();
-	          } catch (Exception e) {
-	            Debug.log(e);
-	            Toast.makeText(WidgetConfigActivity.this, R.string.wc_ex_theme_failed, Toast.LENGTH_SHORT).show();
-	          }
-	        }
-	      });
-	      return true;
+          startThemeExport();
+	        return true;
 			default :
 				return super.onOptionsItemSelected(item);
 		}
 	}
+
+  private void startThemeExport() {
+    final boolean modern = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+    Intent intent;
+    if (modern) {
+      intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+          .addCategory(Intent.CATEGORY_OPENABLE)
+          .setType("application/zip")
+          .putExtra(Intent.EXTRA_TITLE, DEFAULT_THEME_NAME);
+    } else {
+      intent = new Intent(this, FilePicker.class)
+          .putExtra("savemode", true)
+          .putExtra("title", getText(R.string.wc_ex_theme))
+          .putExtra("filter", THEME_EXTENSION);
+    }
+
+    requestResult(11, intent, new ResultReceiver() {
+      @Override
+      public void onResult(int requestCode, Intent data) {
+        try {
+          if (data == null) {
+            throw new Exception("Theme export destination missing");
+          }
+          if (modern) {
+            Uri destination = data.getData();
+            if (destination == null) {
+              throw new Exception("Theme export destination missing");
+            }
+            exportTheme(destination);
+          } else {
+            String path = data.getStringExtra("file");
+            if (path == null) {
+              throw new Exception("Theme export destination missing");
+            }
+            exportTheme(path);
+          }
+          Toast.makeText(WidgetConfigActivity.this, R.string.wc_ex_theme_success, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+          Debug.log(e);
+          Toast.makeText(WidgetConfigActivity.this, R.string.wc_ex_theme_failed, Toast.LENGTH_SHORT).show();
+        }
+      }
+    });
+  }
 
 	private void showGuide() {
 		Rect margins = new Rect();
@@ -291,52 +347,99 @@ public class WidgetConfigActivity extends ImportExportActivity<BackupData> imple
 
   @Override
   public void onDoneClicked() {
-		// Save background image
-    if (!BitmapUtils.saveBitmap(mConfigExtraData.backBitmap,
-            ((BackgroundSection) mSections[2]).getCode(),
-            FileProvider.widgetBackFile(this, mAppWidgetId))) {
-      deleteFile(FileProvider.backFileName(mAppWidgetId));
+    boolean folderCommitCompleted = false;
+    try {
+      if (mPendingFolderImport != null) {
+        mPendingFolderImport.commitAll();
+        folderCommitCompleted = true;
+      }
+
+      // Save background image
+      if (!BitmapUtils.saveBitmap(mConfigExtraData.backBitmap,
+              ((BackgroundSection) mSections[2]).getCode(),
+              FileProvider.widgetBackFile(this, mAppWidgetId))) {
+        deleteFile(FileProvider.backFileName(mAppWidgetId));
+      }
+
+      SettingStorage.clearCache();
+      SettingStorage.addWidget(this, mAppWidgetId, buildWidgetSettings(true));
+      setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId));
+      getSharedPreferences(Globals.EXTRA_PREFS_NAME, MODE_PRIVATE).edit().putLong("last_edit" + mAppWidgetId, System.currentTimeMillis()).commit();
+
+      SettingStorage.cleanupUpUnusedWidgets(this);
+      PCWidgetActivity.updateAllWidgets(this, true);
+      SettingStorage.cleanupCachedPlugins(this);
+      SettingStorage.updateConnectivityReceiver(this);
+
+      // Ownership transfers to the saved widget only after every existing save
+      // operation above has completed without throwing.
+      mPendingFolderImport = null;
+      finish();
+      maybeShowAnimation();
+    } catch (Exception e) {
+      Debug.log(e);
+      if (folderCommitCompleted && mPendingFolderImport != null) {
+        mPendingFolderImport.rollback();
+      }
+      Toast.makeText(this, R.string.wc_folder_import_commit_failed, Toast.LENGTH_LONG).show();
     }
-
-    SettingStorage.clearCache();
-		SettingStorage.addWidget(this, mAppWidgetId, buildWidgetSettings(true));
-		setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId));
-		getSharedPreferences(Globals.EXTRA_PREFS_NAME, MODE_PRIVATE).edit().putLong("last_edit" + mAppWidgetId, System.currentTimeMillis()).commit();
-
-		SettingStorage.cleanupUpUnusedWidgets(this);
-		PCWidgetActivity.updateAllWidgets(this, true);
-		SettingStorage.cleanupCachedPlugins(this);
-		SettingStorage.updateConnectivityReceiver(this);
-
-		finish();
-		maybeShowAnimation();
 	}
 
 	@Override
 	public BackupData doImportInBackground(File importFile) throws Exception {
-	  return BackupUtil.readSettings(importFile, this, mAppWidgetId);
+	  return BackupUtil.readSettingsStaged(importFile, this, mAppWidgetId);
 	}
 
 	@Override
 	public void onPostImport(BackupData result) {
+    rollbackPendingFolderImport();
+    mPendingFolderImport = result.folderImport;
 	  ConfigExtraData extra = new ConfigExtraData();
 	  extra.backBitmap = result.backImage;
 	  extra.decoder = result.decoder;
 		initUI(result.settings, extra, result.icons);
 	}
 
+  private void rollbackPendingFolderImport() {
+    if (mPendingFolderImport != null) {
+      mPendingFolderImport.rollback();
+      mPendingFolderImport = null;
+    }
+  }
+
+  @Override
+  protected void onDestroy() {
+    rollbackPendingFolderImport();
+    super.onDestroy();
+  }
+
+  private void exportTheme(Uri destination) throws Exception {
+    OutputStream out = getContentResolver().openOutputStream(destination, "w");
+    if (out == null) {
+      throw new Exception("Unable to open theme export destination");
+    }
+    exportTheme(out);
+  }
+
 	@Thunk void exportTheme(String filePath) throws Exception {
+    exportTheme(new FileOutputStream(filePath));
+	}
+
+  private void exportTheme(OutputStream fileOut) throws Exception {
     // Create theme settings
     JSONObject object = new JSONObject();
     for (ConfigSection sec : mSections) {
       sec.writeTheme(object);
     }
 
-    ZipOutputStream out = new ZipOutputStream(new FileOutputStream(filePath));
-    BackupUtil.addImage(out, mConfigExtraData.backBitmap, "back.png");
-    out.putNextEntry(new ZipEntry("theme.txt"));
-    out.write(object.toString().getBytes());
-    out.closeEntry();
-    out.close();
+    ZipOutputStream out = new ZipOutputStream(fileOut);
+    try {
+      BackupUtil.addImage(out, mConfigExtraData.backBitmap, "back.png");
+      out.putNextEntry(new ZipEntry("theme.txt"));
+      out.write(object.toString().getBytes("UTF-8"));
+      out.closeEntry();
+    } finally {
+      out.close();
+    }
 	}
 }

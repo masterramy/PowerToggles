@@ -1,5 +1,6 @@
 package com.painless.pc.picker;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,6 +17,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.provider.MediaStore;
 
+import com.painless.pc.FileProvider;
 import com.painless.pc.R;
 import com.painless.pc.cfg.BatteryIconEditor;
 import com.painless.pc.cfg.IconThemeEditor;
@@ -42,6 +44,7 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
   private static final int PICK_IMAGE = 2;
   private static final int PICK_IMAGE_AND_CROP = 3;
   private static final int PICK_ICON_FROM_PACK = 4;
+  private static final int PICK_CROP_RESULT = 5;
 
   private static final int TYPE_BATTERY = 0;
   private static final int TYPE_MULTI_ICON = 1;
@@ -147,7 +150,7 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
 
     this.callback = callback;
     this.colorfilter = colorfilter;
-    
+
     adapter.remove(mExtraItem);
     if (mActivityPicker) {
       adapter.insert(mExtraItem, 0);
@@ -181,7 +184,7 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
             .putExtra(IconThemeEditor.ICON_STRIP, originalIcon)
             .putExtra(IconThemeEditor.TRACKER_NAME, tracker.getLabel(main.getResources().getStringArray(R.array.tracker_names)))
             .putExtra(IconThemeEditor.ALLOW_NULL, tracker.trackerId != PluginTracker.TRACKER_ID);
-        
+
         if (tracker.trackerId == PluginTracker.TRACKER_ID) {
           int[] fakeConfig = new int[2 * originalIcon.getWidth() / originalIcon.getHeight()];
           Arrays.fill(fakeConfig, R.drawable.icon_tasker);
@@ -240,8 +243,9 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
         break;
       case PICK_IMAGE:
       case PICK_IMAGE_AND_CROP:
+        // Source selection does not need the app-owned crop output URI. Attaching it
+        // here unnecessarily exposes the output capability to an unrelated picker.
         intent = new Intent(Intent.ACTION_GET_CONTENT).setType("image/*");
-        setOutputExtra(intent);
         break;
       default :
         int index = which - PICK_ICON_FROM_PACK - 1;
@@ -279,8 +283,11 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
           callback.onIconReceived(icon);
           return;
         case PICK_IMAGE:
+          if (data == null || data.getData() == null) {
+            return;
+          }
           new ImageLoadTask(main, mIconSize) {
-            
+
             @Override
             protected void onSuccess(Bitmap result) {
               callback.onIconReceived(result);
@@ -288,9 +295,15 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
           }.checkAndExecute(data.getData());
           break;
         case PICK_IMAGE_AND_CROP: {
+          if (data == null || data.getData() == null) {
+            return;
+          }
           Uri uri = data.getData();
+          if (!clearCropOutput()) {
+            return;
+          }
           Intent intent = new Intent("com.android.camera.action.CROP").setDataAndType(uri, "image/*");
-          setOutputExtra(intent);
+          setCropOutputExtra(intent);
           intent.putExtra("crop", "true")
             .putExtra("scale", true)
             .putExtra("scaleUpIfNeeded", true)
@@ -300,9 +313,20 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
             .putExtra("outputX", mIconSize)
             .putExtra("outputY", mIconSize)
             .putExtra("noFaceDetection", false);
-          main.requestResult(PICK_IMAGE, intent, this);
+          main.requestResult(PICK_CROP_RESULT, intent, this);
           return;
         }
+        case PICK_CROP_RESULT:
+          // EXTRA_OUTPUT crop activities are allowed to return no useful data URI.
+          // Read the known app-owned output instead of trusting data.getData().
+          new ImageLoadTask(main, mIconSize) {
+
+            @Override
+            protected void onSuccess(Bitmap result) {
+              callback.onIconReceived(result);
+            }
+          }.checkAndExecute(Uri.parse(FileProvider.CROP_URI));
+          break;
         case PICK_ICON_FROM_PACK:
         case PICK_APP_ICON:
           icon = data.getParcelableExtra("icon");
@@ -320,9 +344,21 @@ public class IconPicker implements DialogInterface.OnClickListener, CallerActivi
     }
   }
 
-  private void setOutputExtra(Intent intent) {
-    Uri output = Uri.parse("content://com.painless.pc.file/crop");
+  private boolean clearCropOutput() {
+    File output = FileProvider.cropFile(main);
+    if (output.exists() && !output.delete()) {
+      Debug.log(new IllegalStateException("Unable to clear stale crop output"));
+      return false;
+    }
+    return true;
+  }
+
+  private void setCropOutputExtra(Intent intent) {
+    Uri output = Uri.parse(FileProvider.CROP_URI);
     intent.putExtra(MediaStore.EXTRA_OUTPUT, output);
+    // READ applies to the source data URI and the exact app-owned output URI in
+    // ClipData. The provider treats the output's grant as a capability token for
+    // write-only crop output, avoiding a broad WRITE grant on the source image.
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
     intent.setClipData(ClipData.newRawUri(MediaStore.EXTRA_OUTPUT, output));
   }

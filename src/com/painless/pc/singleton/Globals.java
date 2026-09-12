@@ -17,14 +17,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Process;
 import android.preference.PreferenceActivity;
-import android.telephony.TelephonyManager;
 import android.widget.Toast;
 
 import com.painless.pc.R;
-import com.painless.pc.cfg.WidgetConfigActivity;
+import com.painless.pc.cfg.EditWidgetConfigActivity;
 import com.painless.pc.nav.NotifyFrag;
 import com.painless.pc.settings.LaunchActivity;
-import com.painless.pc.util.ReflectionUtil;
 
 public class Globals {
 
@@ -128,7 +126,7 @@ public class Globals {
 				try {
 					final Intent intent = context.getApplicationContext().
 							registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-	
+
 					final int level = intent.getIntExtra("level", 0);
 					final int scale = intent.getIntExtra("scale", 100);
 					sLastBattery = level * 100 / scale;
@@ -139,14 +137,12 @@ public class Globals {
 	}
 
 
+	/**
+	 * Compatibility no-op. Modern ordinary applications have no supported public
+	 * API for collapsing the system notification shade programmatically.
+	 */
 	public static final void collapseStatusBar(Context context) {
-		try{
-			ReflectionUtil util = new ReflectionUtil(context.getSystemService("statusbar"));
-			util.invokeGetter(Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1 ?
-					"collapse" : "collapsePanels");
-		} catch (final Throwable e) {
-			Debug.log(e);
-		}
+		// Intentionally empty. Do not restore hidden StatusBarManager reflection.
 	}
 
 	public static Intent setIncognetoIntent(Intent i) {
@@ -169,31 +165,18 @@ public class Globals {
 		}
 	}
 
-	private static final String[] allNetworkTypes = new String[] {
-		"UNKNOWN", "GPRS", "EDGE", "UMTS", "HSDPA", "HSUPA", "HSPA", "CDMA",
-		"EVDO_0", "EVDO_A", "EVDO_B", "1xRTT", "IDEN", "LTE", "EHRPD", "HSPAP"};
 	public static String sNetworkName = "";
 
+	/**
+	 * Returns the historical notification/icon level for an unknown mobile radio.
+	 * Reading the actual data-network technology requires phone-state privileges
+	 * that this ordinary Play app intentionally does not request. Preserve the
+	 * existing UNKNOWN -> level 1 rendering contract without making a restricted
+	 * TelephonyManager call from widget or notification rendering.
+	 */
 	public static final int getNetworkType(Context context) {
-		int type = ((TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE)).getNetworkType();
-		if (type >= allNetworkTypes.length) {
-			type = 0;
-		}
-		sNetworkName = (type == 0) ? context.getString(R.string.lbl_unknown_allcap) : allNetworkTypes[type];
-
-		switch(type) {
-			case TelephonyManager.NETWORK_TYPE_LTE:
-				return 3;
-			case TelephonyManager.NETWORK_TYPE_UNKNOWN:
-			case TelephonyManager.NETWORK_TYPE_GPRS:
-			case TelephonyManager.NETWORK_TYPE_EDGE:
-			case TelephonyManager.NETWORK_TYPE_CDMA:
-			case TelephonyManager.NETWORK_TYPE_1xRTT:
-			case TelephonyManager.NETWORK_TYPE_IDEN:
-				return 1;
-			default:
-				return 2;
-		}
+		sNetworkName = context.getString(R.string.lbl_unknown_allcap);
+		return 1;
 	}
 
 	public static boolean isNotificationWidget(int widgetId) {
@@ -203,11 +186,11 @@ public class Globals {
 	public static void showWidgetConfig(int widgetId, Context context, boolean newTask) {
 		final Intent intent = isNotificationWidget(widgetId) ?
 		        new Intent(context, LaunchActivity.class).putExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT, NotifyFrag.class.getName()) :
-		          new Intent(context, WidgetConfigActivity.class).putExtra("edit_widget", widgetId);
+		          new Intent(context, EditWidgetConfigActivity.class).putExtra("edit_widget", widgetId);
 		if (newTask) {
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		}
-		
+
 		collapseStatusBar(context);
 		context.startActivity(intent);
 		if (!newTask && (context instanceof Activity)) {
@@ -237,7 +220,6 @@ public class Globals {
 		if (timedate == 0) {
 			return context.getString(R.string.stat_u_never);
 		}
-	
 		long diff = Calendar.getInstance().getTimeInMillis() - timedate;
 		diff = diff / 60000;	// convert to minutes.
 		if (diff <= 1) {
@@ -246,34 +228,55 @@ public class Globals {
 			return context.getString(R.string.stat_u_mins, diff);
 		} else {
 			diff = diff / 60;	// hours
-	
 			if (diff < 48) {
 				return context.getString(R.string.stat_u_hours, diff);
 			} else {
-				diff = diff / 24;
+				diff = diff / 24;	// days
 				return context.getString(R.string.stat_u_days, diff);
 			}
 		}
 	}
 
 	public static final String TASKER_KEY_PREFIX = "tasker_";
+  private static final int MAX_TASKER_TASKS = 256;
+  private static final int MAX_TASKER_TASK_NAME_CHARS = 256;
+
 	public static ArrayList<String> getTaskerTasks(Context context) {
 		ArrayList<String> tasks = new ArrayList<String>();
-		Cursor c = context.getContentResolver().query(Uri.parse( "content://net.dinglisch.android.tasker/tasks" ), null, null, null, null );
-		if (c != null) {
-			int nameCol = c.getColumnIndex("name");
-			while (c.moveToNext()) {
-				tasks.add(c.getString( nameCol ));
-			}
-			c.close();
-		}
+    Cursor c = null;
+    try {
+      c = context.getContentResolver().query(
+          Uri.parse("content://net.dinglisch.android.tasker/tasks"), null, null, null, null);
+      if (c == null) {
+        return tasks;
+      }
+      int nameCol = c.getColumnIndex("name");
+      if (nameCol < 0) {
+        return tasks;
+      }
+      while (tasks.size() < MAX_TASKER_TASKS && c.moveToNext()) {
+        String name = c.getString(nameCol);
+        if (name == null || name.length() == 0) {
+          continue;
+        }
+        tasks.add(name.length() <= MAX_TASKER_TASK_NAME_CHARS
+            ? name : name.substring(0, MAX_TASKER_TASK_NAME_CHARS));
+      }
+    } catch (Throwable e) {
+      Debug.log(e);
+    } finally {
+      if (c != null) {
+        try { c.close(); } catch (Throwable e) { Debug.log(e); }
+      }
+    }
 		return tasks;
 	}
 
 	public static void setAlarm(Context context, Calendar when, Intent target) {
-		final PendingIntent sender = PendingIntent.getBroadcast(context, 0, target, PendingIntent.FLAG_CANCEL_CURRENT);
+		final PendingIntent sender = PendingIntent.getBroadcast(context, 0, target,
+				PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 		final AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-		am.set(AlarmManager.RTC, when.getTimeInMillis(), sender);	
+		am.set(AlarmManager.RTC, when.getTimeInMillis(), sender);
 	}
 
 	public static boolean hasPermission(Context c, String permission) {
@@ -286,7 +289,7 @@ public class Globals {
 //		try {
 //			int currentVersion = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode;
 //			if (currentVersion != version) {
-//				prefs.edit().putInt("current_version", currentVersion).commit();
+//				pref.edit().putInt("current_version", currentVersion).commit();
 //				return true;
 //			}
 //		} catch (NameNotFoundException e) {

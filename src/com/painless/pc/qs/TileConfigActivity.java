@@ -1,8 +1,8 @@
 package com.painless.pc.qs;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.zip.ZipEntry;
@@ -16,7 +16,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -54,10 +53,14 @@ import com.painless.pc.tracker.AbstractCommand;
 import com.painless.pc.tracker.AbstractTracker;
 import com.painless.pc.tracker.PluginTracker;
 import com.painless.pc.tracker.SimpleShortcut;
+import com.painless.pc.util.BitmapImportUtils;
 import com.painless.pc.util.ImportExportActivity;
 import com.painless.pc.util.Thunk;
 
 public class TileConfigActivity extends ImportExportActivity<QTInfo> implements OnCheckedChangeListener, TogglePickerListener, IconPicker.Callback {
+
+  private static final long MAX_TILE_CONFIG_BYTES = 64L * 1024L;
+  private static final long MAX_TILE_ICON_BYTES = 512L * 1024L;
 
   public TileConfigActivity() {
     super(R.menu.qs_cfg_menu, ".tile.zip",
@@ -152,7 +155,7 @@ public class TileConfigActivity extends ImportExportActivity<QTInfo> implements 
     setupLongClickTracker(defaultTracker);
   }
 
-  private void applyExisitingTile(QTInfo existingTile) throws JSONException {
+  private void applyExisitingTile(QTInfo existingTile) throws Exception {
     if (existingTile.tracker != null) {
       setupClickTracker(existingTile.tracker);
     } else {
@@ -160,9 +163,20 @@ public class TileConfigActivity extends ImportExportActivity<QTInfo> implements 
     }
     setupLongClickTracker(new SimpleShortcut(existingTile.longClickIntent, existingTile.longContentDescription));
 
+    if (existingTile.icons == null || existingTile.icons.length != mIconBitmaps.length) {
+      throw new Exception("Tile icon state count mismatch");
+    }
     for (int i = 0; i < existingTile.icons.length; i++) {
-      mIconBitmaps[i] = BitmapFactory.decodeByteArray(existingTile.icons[i], 0, existingTile.icons[i].length);
-      mIcons[i].setImageBitmap(mIconBitmaps[i]);
+      Bitmap imported = BitmapImportUtils.decode(existingTile.icons[i]);
+      if (imported == null) {
+        throw new Exception("Invalid or oversized tile icon");
+      }
+      Bitmap normalized = Bitmap.createScaledBitmap(imported, mIconSize, mIconSize, true);
+      if (normalized != imported) {
+        imported.recycle();
+      }
+      mIconBitmaps[i] = normalized;
+      mIcons[i].setImageBitmap(normalized);
     }
 
     if (existingTile.customLabel != null) {
@@ -180,9 +194,13 @@ public class TileConfigActivity extends ImportExportActivity<QTInfo> implements 
 
   @Override
   public boolean onCreateOptionsMenu(Menu menu) {
-    getMenuInflater().inflate(R.menu.qs_cfg_menu, menu);
+    getMenuInflater().inflate(menuIdForTiles(), menu);
     menu.findItem(R.id.mnu_delete).setVisible(mIsExistingTile);
     return true;
+  }
+
+  private int menuIdForTiles() {
+    return R.menu.qs_cfg_menu;
   }
 
   @Override
@@ -409,16 +427,50 @@ public class TileConfigActivity extends ImportExportActivity<QTInfo> implements 
 
   @Override
   public QTInfo doImportInBackground(File importFile) throws Exception {
-    ZipFile zip = new ZipFile(importFile);
-    BufferedReader reader = new BufferedReader(new InputStreamReader(zip.getInputStream(zip.getEntry("config.txt"))));
-    QTInfo tileInfo = QTInfo.parse(reader.readLine(), this);
-    reader.close();
+    ZipFile zip = null;
+    try {
+      zip = new ZipFile(importFile);
+      byte[] configBytes = readZipEntry(zip, "config.txt", MAX_TILE_CONFIG_BYTES, true);
+      QTInfo tileInfo = QTInfo.parse(new String(configBytes, "UTF-8"), this);
 
-    for (int i = 0; i < tileInfo.icons.length; i++) {
-      tileInfo.icons[i] = ParseUtil.readStream(zip.getInputStream(zip.getEntry("icon_" + i)));
+      for (int i = 0; i < tileInfo.icons.length; i++) {
+        byte[] iconBytes = readZipEntry(zip, "icon_" + i, MAX_TILE_ICON_BYTES, true);
+        Bitmap imported = BitmapImportUtils.decode(iconBytes);
+        if (imported == null) {
+          throw new Exception("Invalid or oversized tile icon");
+        }
+        imported.recycle();
+        tileInfo.icons[i] = iconBytes;
+      }
+      return tileInfo;
+    } finally {
+      if (zip != null) {
+        zip.close();
+      }
     }
-    zip.close();
-    return tileInfo;
+  }
+
+  private static byte[] readZipEntry(ZipFile zip, String name, long maxBytes, boolean required) throws Exception {
+    ZipEntry entry = zip.getEntry(name);
+    if (entry == null) {
+      if (required) {
+        throw new Exception("Required tile backup entry missing: " + name);
+      }
+      return null;
+    }
+
+    InputStream in = null;
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      in = zip.getInputStream(entry);
+      BackupUtil.copy(in, out, maxBytes);
+      return out.toByteArray();
+    } finally {
+      if (in != null) {
+        try { in.close(); } catch (Exception e) { Debug.log(e); }
+      }
+      try { out.close(); } catch (Exception e) { Debug.log(e); }
+    }
   }
 
   @Override

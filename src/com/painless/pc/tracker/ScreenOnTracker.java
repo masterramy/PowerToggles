@@ -3,9 +3,11 @@ package com.painless.pc.tracker;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
 
 import com.painless.pc.R;
 import com.painless.pc.ScreenOnService;
+import com.painless.pc.singleton.Debug;
 
 public final class ScreenOnTracker extends AbstractTracker {
 	
@@ -29,7 +31,22 @@ public final class ScreenOnTracker extends AbstractTracker {
 	protected void requestStateChange(Context context, boolean desiredState) {
 		Intent i = new Intent(context, ScreenOnService.class);
 		if (desiredState) {
-			context.startService(i);
+			try {
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+					context.startForegroundService(i);
+				} else {
+					context.startService(i);
+				}
+			} catch (IllegalStateException e) {
+				// Android can reject a foreground-service launch from a background
+				// context when no current platform exemption applies. Keep the toggle
+				// truthfully disabled instead of crashing or leaving it in transition.
+				Debug.log(e);
+				setCurrentState(context, STATE_DISABLED);
+			} catch (SecurityException e) {
+				Debug.log(e);
+				setCurrentState(context, STATE_DISABLED);
+			}
 		} else {
 			context.stopService(i);
 		}

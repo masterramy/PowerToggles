@@ -38,13 +38,7 @@ public abstract class AbstractSystemSettingsTracker extends AbstractTracker {
 
 	@Override
 	protected void requestStateChange(Context c, boolean desiredState) {
-	  boolean success = false;
-    if (hasPermission(c)) {
-      try {
-        Settings.System.putInt(c.getContentResolver(), mSettings, desiredState ? 1 : 0);
-        success = true;
-      } catch (Exception e) { };
-    }
+	  boolean success = putInt(c, mSettings, desiredState ? 1 : 0);
 
     if (!success) {
       showPermissionDialog(c, mAction);
@@ -60,6 +54,22 @@ public abstract class AbstractSystemSettingsTracker extends AbstractTracker {
 	  target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 	  c.startActivity(Globals.getAppPrefs(c).getBoolean("prompt_permission", false) ? target :
 	    new Intent(c, PermissionDialog.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("target", target));
+	}
+
+	/**
+	 * Writes one public Settings.System integer only while WRITE_SETTINGS is
+	 * currently available. The special-access AppOp can be revoked between a
+	 * caller's preflight and the write, so every write still fails closed here.
+	 */
+	public static boolean putInt(Context c, String setting, int value) {
+	  if (!hasPermission(c)) {
+	    return false;
+	  }
+	  try {
+	    return Settings.System.putInt(c.getContentResolver(), setting, value);
+	  } catch (SecurityException e) {
+	    return false;
+	  }
 	}
 
 	@TargetApi(Build.VERSION_CODES.M)

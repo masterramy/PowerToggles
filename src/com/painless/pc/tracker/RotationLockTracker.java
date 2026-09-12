@@ -5,13 +5,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Point;
 import android.provider.Settings;
+import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
 
 import com.painless.pc.R;
 import com.painless.pc.RLPicker;
-import com.painless.pc.RLService;
 import com.painless.pc.singleton.Globals;
 
 public class RotationLockTracker extends AbstractTracker {
@@ -33,14 +34,13 @@ public class RotationLockTracker extends AbstractTracker {
   @Override
   public int getActualState(Context context) {
     final ContentResolver cr = context.getContentResolver();
-
-    if (isAutoRotate(cr) && (RLService.LOCK_VIEW == null)) {
+    if (isAutoRotate(cr)) {
       return STATE_ENABLED;
-    } else {
-      boolean isLandScapeDefault = isLandScapeDefault(context);
-      boolean isPortrait = isLandScapeDefault ^ RLService.LOCK_VIEW == null;
-      return isPortrait ? STATE_DISABLED : STATE_INTERMEDIATE;
     }
+
+    int rotation = Settings.System.getInt(cr, Settings.System.USER_ROTATION, Surface.ROTATION_0);
+    int portraitRotation = isLandScapeDefault(context) ? Surface.ROTATION_90 : Surface.ROTATION_0;
+    return rotation == portraitRotation ? STATE_DISABLED : STATE_INTERMEDIATE;
   }
 
   @Override
@@ -48,15 +48,14 @@ public class RotationLockTracker extends AbstractTracker {
     if (mShowPrompt) {
       Globals.startIntent(context, Globals.setIncognetoIntent(new Intent(context, RLPicker.class)));
     } else {
-      Intent i = new Intent(context, RLService.class);
-      if (isAutoRotate(context.getContentResolver())) {
-        context.stopService(i);
-      } else if (RLService.LOCK_VIEW == null) {
-        context.startService(i);
+      int state = getActualState(context);
+      if (state == STATE_ENABLED) {
+        RLPicker.setRotationMode(context, 1);
+      } else if (state == STATE_DISABLED) {
+        RLPicker.setRotationMode(context, 2);
       } else {
-        context.stopService(i);
+        RLPicker.setRotationMode(context, 0);
       }
-      RLPicker.setAutoRotate(context, 0);
     }
   }
 
@@ -76,15 +75,30 @@ public class RotationLockTracker extends AbstractTracker {
   }
 
   public static final boolean isLandScapeDefault(Context ctx) {
-    WindowManager lWindowManager =  (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
+    WindowManager windowManager = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
+    Display display = windowManager.getDefaultDisplay();
+    int rotation = display.getRotation();
+    int orientation = ctx.getResources().getConfiguration().orientation;
 
-    Configuration cfg = ctx.getResources().getConfiguration();
-    int lRotation = lWindowManager.getDefaultDisplay().getRotation();
+    // Recover the display's natural orientation from two current-state signals
+    // instead of assuming ROTATION_0 is portrait or treating Display.Mode bounds
+    // as rotation-invariant. This remains correct for portrait-natural phones and
+    // landscape-natural tablets/foldables as the display rotates.
+    if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+      return rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180;
+    }
+    if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+      return rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270;
+    }
 
-    return (((lRotation == Surface.ROTATION_0) || (lRotation == Surface.ROTATION_180)) &&   
-            (cfg.orientation == Configuration.ORIENTATION_LANDSCAPE)) ||
-            (((lRotation == Surface.ROTATION_90) || (lRotation == Surface.ROTATION_270)) &&    
-                    (cfg.orientation == Configuration.ORIENTATION_PORTRAIT));
+    // Defensive fallback if Configuration has no usable orientation. Recover the
+    // same natural-orientation relationship from current geometry plus rotation.
+    Point size = new Point();
+    display.getRealSize(size);
+    if ((rotation == Surface.ROTATION_0) || (rotation == Surface.ROTATION_180)) {
+      return size.x > size.y;
+    }
+    return size.y > size.x;
   }
 
   private static boolean isAutoRotate(final ContentResolver resolver) {

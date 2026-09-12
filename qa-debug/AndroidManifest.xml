@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.painless.pc.tracker.Gate2aProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationCompatProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:configChanges="orientation|screenSize" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationRemainingProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationWidgetHostProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationMediaEdgeProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+        <activity
+            android:name="com.painless.pc.tracker.PublicationFolderProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+        <receiver
+            android:name="com.painless.pc.tracker.PublicationMediaEdgeReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

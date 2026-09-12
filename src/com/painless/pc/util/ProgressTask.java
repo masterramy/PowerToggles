@@ -1,22 +1,79 @@
 package com.painless.pc.util;
 
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
+import android.os.Build;
 
+/**
+ * AsyncTask helper that owns a progress dialog without publishing completion
+ * into an Activity that is already finishing or destroyed.
+ */
 public abstract class ProgressTask<P, R> extends AsyncTask<P, Void, R> {
 
 	private final ProgressDialog workingDialog;
+	private final Activity ownerActivity;
 
 	public ProgressTask(Context context, CharSequence msg) {
+		ownerActivity = context instanceof Activity ? (Activity) context : null;
 		workingDialog = ProgressDialog.show(context, null, msg, true, false);
 	}
 
 	public void onDone(R result) { }
 
+	/** Called exactly once on the main thread after normal completion or cancellation. */
+	protected void onFinished() { }
+
+	private boolean canPublishResult() {
+		if (ownerActivity == null) {
+			return true;
+		}
+		if (ownerActivity.isFinishing()) {
+			return false;
+		}
+		return Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1
+				|| !ownerActivity.isDestroyed();
+	}
+
+	private void dismissDialogSafely() {
+		try {
+			if (workingDialog.isShowing()) {
+				workingDialog.dismiss();
+			}
+		} catch (RuntimeException ignored) {
+			// The Activity/window may have disappeared between the lifecycle check
+			// and dismissal. Never turn teardown into a customer-visible crash.
+		}
+	}
+
 	@Override
 	protected final void onPostExecute(R result) {
-		workingDialog.dismiss();
-		onDone(result);
+		dismissDialogSafely();
+		try {
+			if (canPublishResult()) {
+				onDone(result);
+			}
+		} finally {
+			onFinished();
+		}
+	}
+
+	@Override
+	protected final void onCancelled(R result) {
+		try {
+			dismissDialogSafely();
+		} finally {
+			onFinished();
+		}
+	}
+
+	@Override
+	protected final void onCancelled() {
+		try {
+			dismissDialogSafely();
+		} finally {
+			onFinished();
+		}
 	}
 }

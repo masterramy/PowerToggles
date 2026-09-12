@@ -20,6 +20,8 @@ public class TaskerToggleSetup extends Activity implements OnClickListener {
 
   static final String EXTRA_STRING_BLURB = "com.twofortyfouram.locale.intent.extra.BLURB"; //$NON-NLS-1$
   static final String EXTRA_BUNDLE = "com.twofortyfouram.locale.intent.extra.BUNDLE"; //$NON-NLS-1$
+  static final String EDIT_SETTING_ACTION = "com.twofortyfouram.locale.intent.action.EDIT_SETTING";
+  private static final int MAX_INPUT_CHARS = 256;
 
   private Spinner mNewState;
   private Spinner mToggles;
@@ -30,6 +32,15 @@ public class TaskerToggleSetup extends Activity implements OnClickListener {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setResult(RESULT_CANCELED);
+
+    // This activity must remain exported for Locale/Tasker interoperability,
+    // but it is not a general-purpose external UI entry point.
+    Intent launchIntent = getIntent();
+    if (launchIntent == null || !EDIT_SETTING_ACTION.equals(launchIntent.getAction())) {
+      finish();
+      return;
+    }
+
     setContentView(R.layout.tasker_toggle_setup);
 
     mNewState = (Spinner) findViewById(R.id.newState);
@@ -42,15 +53,31 @@ public class TaskerToggleSetup extends Activity implements OnClickListener {
       mAdapter.add(tasks);
     }
     mToggles.setAdapter(mAdapter);
-    String oldState = getIntent().getStringExtra("state");
+    String oldState = boundedExtra(launchIntent, "state");
     mNewState.setSelection("true".equals(oldState) ? 1 : ("false".equals(oldState) ? 2 : 0));
 
-    String oldToggle = getIntent().getStringExtra("varID");
+    String oldToggle = boundedExtra(launchIntent, "varID");
     int toggleIndex = mAdapter.getPosition(oldToggle);
     mToggles.setSelection(toggleIndex > 0 ? toggleIndex : 0);
 
-    String countText = getIntent().getStringExtra("count");
+    String countText = boundedExtra(launchIntent, "count");
     mCountText.setText((countText != null) ? countText : "");
+  }
+
+  private static String boundedExtra(Intent intent, String key) {
+    final String value;
+    try {
+      value = intent.getStringExtra(key);
+    } catch (RuntimeException e) {
+      // Exported Locale/Tasker setup is a cross-app boundary. Malformed or
+      // unparcelable extras must behave like absent optional values, not crash
+      // the app process.
+      return null;
+    }
+    if (value == null) {
+      return null;
+    }
+    return value.length() <= MAX_INPUT_CHARS ? value : value.substring(0, MAX_INPUT_CHARS);
   }
 
   /**
@@ -67,6 +94,9 @@ public class TaskerToggleSetup extends Activity implements OnClickListener {
     result.putString("state", (state == 0) ? "%state" : ((state == 1) ? "true" : "false"));
 
     String countText = mCountText.getText().toString();
+    if (countText.length() > MAX_INPUT_CHARS) {
+      countText = countText.substring(0, MAX_INPUT_CHARS);
+    }
     result.putString("count", countText.isEmpty() ? "%count" : countText);
 
     result.putString("net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS", "varID state count");

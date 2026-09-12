@@ -1,12 +1,16 @@
 package com.painless.pc.tracker;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
+import android.os.Build;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 
 import com.painless.pc.R;
+import com.painless.pc.singleton.Debug;
+import com.painless.pc.singleton.Globals;
 import com.painless.pc.singleton.ParseUtil;
 
 public final class VolumeTracker extends AbstractTracker {
@@ -81,15 +85,26 @@ public final class VolumeTracker extends AbstractTracker {
 				break;
 			}
 		}
-		am.setRingerMode(Math.min(mode, 2));
 
-		// Bug in Nexus 7. Vibrate mode silently fails
-		if ((mode == 1) && (am.getRingerMode() == 0)) {
-			am.setRingerMode(2);
-		}
+		try {
+			am.setRingerMode(Math.min(mode, 2));
 
-		if (enabledStates[3]) {
-			setVibrate(context, am, (mode == 3) ? 1 : 0);
+			// Bug in Nexus 7. Vibrate mode silently fails
+			if ((mode == 1) && (am.getRingerMode() == 0)) {
+				am.setRingerMode(2);
+			}
+
+			if (enabledStates[3]) {
+				setVibrate(context, am, (mode == 3) ? 1 : 0);
+			}
+		} catch (SecurityException e) {
+			// Android N+ forbids ringer changes that cross Do Not Disturb without
+			// user-granted Notification Policy access. Route to the system-owned
+			// special-access screen instead of crashing or silently bypassing it.
+			Debug.log(e);
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+				Globals.startIntent(context, new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));
+			}
 		}
 	}
 
