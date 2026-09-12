@@ -1,0 +1,1 @@
+ToggleBay Q3 identity boundary: FileProvider authority and exported plugin-state action must resolve from BuildConfig.APPLICATION_ID before freeze.
