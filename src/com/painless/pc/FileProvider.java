@@ -27,7 +27,7 @@ import java.util.UUID;
  */
 public class FileProvider extends ContentProvider {
 
-  private static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".file";
+  private static final String AUTHORITY = "com.painless.pc.file";
   public static final String FOLDER_SHARE_URI = "content://" + AUTHORITY + "/folder-share";
   public static final String WIDGET_SHARE_URI = "content://" + AUTHORITY + "/widget-share";
   public static final String CROP_URI = "content://" + AUTHORITY + "/crop";
@@ -250,24 +250,24 @@ public class FileProvider extends ContentProvider {
   private static int modeToMode(String mode) {
       int modeBits;
       if ("r".equals(mode)) {
-        modeBits = ParcelFileDescriptor.MODE_READ_ONLY;
+          modeBits = ParcelFileDescriptor.MODE_READ_ONLY;
       } else if ("w".equals(mode) || "wt".equals(mode)) {
-        modeBits = ParcelFileDescriptor.MODE_WRITE_ONLY
-                | ParcelFileDescriptor.MODE_CREATE
-                | ParcelFileDescriptor.MODE_TRUNCATE;
+          modeBits = ParcelFileDescriptor.MODE_WRITE_ONLY
+                  | ParcelFileDescriptor.MODE_CREATE
+                  | ParcelFileDescriptor.MODE_TRUNCATE;
       } else if ("wa".equals(mode)) {
-        modeBits = ParcelFileDescriptor.MODE_WRITE_ONLY
-                | ParcelFileDescriptor.MODE_CREATE
-                | ParcelFileDescriptor.MODE_APPEND;
+          modeBits = ParcelFileDescriptor.MODE_WRITE_ONLY
+                  | ParcelFileDescriptor.MODE_CREATE
+                  | ParcelFileDescriptor.MODE_APPEND;
       } else if ("rw".equals(mode)) {
-        modeBits = ParcelFileDescriptor.MODE_READ_WRITE
-                | ParcelFileDescriptor.MODE_CREATE;
+          modeBits = ParcelFileDescriptor.MODE_READ_WRITE
+                  | ParcelFileDescriptor.MODE_CREATE;
       } else if ("rwt".equals(mode)) {
-        modeBits = ParcelFileDescriptor.MODE_READ_WRITE
-                | ParcelFileDescriptor.MODE_CREATE
-                | ParcelFileDescriptor.MODE_TRUNCATE;
+          modeBits = ParcelFileDescriptor.MODE_READ_WRITE
+                  | ParcelFileDescriptor.MODE_CREATE
+                  | ParcelFileDescriptor.MODE_TRUNCATE;
       } else {
-        throw new IllegalArgumentException("Invalid mode: " + mode);
+          throw new IllegalArgumentException("Invalid mode: " + mode);
       }
       return modeBits;
   }
