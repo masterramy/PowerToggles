@@ -138,8 +138,8 @@ public class HomeFrag extends AbsListFrag {
       Intent shareIntent = new Intent(Intent.ACTION_SEND)
           .setType("application/zip")
           .putExtra(Intent.EXTRA_STREAM, shareUri)
-          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-          .setClipData(ClipData.newRawUri("Power Toggles widget backup", shareUri));
+          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+      shareIntent.setClipData(ClipData.newRawUri("Power Toggles widget backup", shareUri));
       startActivity(Intent.createChooser(shareIntent, getString(R.string.wp_share)));
     } catch (Throwable e) {
       Debug.log(e);
