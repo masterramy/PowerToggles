@@ -16,15 +16,17 @@ repositories {
 apply plugin: 'com.android.application'
 
 android {
+    // Keep the restored Java/R namespace stable; the independent public package is
+    // applicationId below so customer installs do not collide with historical Power Toggles.
     namespace "com.painless.pc"
     compileSdkVersion 36
 
     defaultConfig {
-        applicationId "com.painless.pc"
+        applicationId "app.sufficient.togglebay"
         minSdkVersion 16
         targetSdkVersion 36
-        versionCode 160604
-        versionName "6.0.4-gate2a"
+        versionCode 1
+        versionName "1.0.0"
     }
     buildTypes {
         debug {
