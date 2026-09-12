@@ -134,7 +134,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
         startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
-            .setType("application/zip"), REQUEST_RESTORE);
+            .setType("application/*"), REQUEST_RESTORE);
       } else {
         startActivityForResult(new Intent(mContext, FilePicker.class)
             .putExtra("savemode", false)
@@ -378,7 +378,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
         startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
-            .setType("application/zip")
+            .setType("application/octet-stream")
             .putExtra(Intent.EXTRA_TITLE, BACKUP_FILE_NAME), REQUEST_BACKUP);
       } else {
         startActivityForResult(new Intent(mContext, FilePicker.class)
