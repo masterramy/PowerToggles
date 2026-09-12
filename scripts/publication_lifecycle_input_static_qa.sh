@@ -95,9 +95,12 @@ grep -q 'mLock != null' "$NOLOCK_SERVICE" || fail "NoLockService teardown assume
 grep -A2 'android:name="android.permission.DISABLE_KEYGUARD"' "$MANIFEST" | grep -q 'android:maxSdkVersion="25"' || fail "Legacy No Lock permission is missing or not capped to pre-O"
 
 # The legacy flashlight implementation opens android.hardware.Camera only below
-# Android M. API23+ uses CameraManager.setTorchMode instead, so the historical
-# FLASHLIGHT/CAMERA permissions must not leak into modern installs.
-grep -Fq 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? FlashServiceM.class : FlashService.class' "$FLASH_TRACKER" || fail "Flash tracker no longer preserves the pre-M/modern implementation split"
+# Android M. API23+ uses CameraManager.setTorchMode directly from the tracker, so
+# the historical FLASHLIGHT/CAMERA permissions must not leak into modern installs.
+grep -q 'Build.VERSION.SDK_INT >= Build.VERSION_CODES.M' "$FLASH_TRACKER" || fail "Flash tracker modern API boundary missing"
+grep -Fq 'FlashServiceM.isEnabled(context)' "$FLASH_TRACKER" || fail "Flash tracker modern state no longer uses direct torch controller"
+grep -Fq 'FlashServiceM.setEnabled(context, desiredState)' "$FLASH_TRACKER" || fail "Flash tracker modern toggle no longer uses direct torch controller"
+grep -Fq 'new Intent(context, FlashService.class)' "$FLASH_TRACKER" || fail "Flash tracker lost pre-M legacy service path"
 grep -q 'android.hardware.Camera' "$FLASH_LEGACY" || fail "Legacy flashlight implementation no longer matches the pre-M permission boundary"
 grep -q 'CameraManager' "$FLASH_MODERN" || fail "Modern flashlight implementation no longer uses CameraManager"
 grep -q 'setTorchMode' "$FLASH_MODERN" || fail "Modern flashlight implementation no longer uses torch API"
