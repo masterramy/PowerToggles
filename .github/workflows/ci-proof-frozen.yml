@@ -1,0 +1,183 @@
+name: Candidate Power Toggles CI Proof
+
+on:
+  push:
+    branches: [ ci-proof-13383abd-20260912 ]
+
+jobs:
+  candidate-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: 9a932f2096daf1fc05fd58556efabb2c5c9b23d3
+          fetch-depth: 1
+
+      - name: Verify exact candidate identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "9a932f2096daf1fc05fd58556efabb2c5c9b23d3"
+          test "$(git rev-parse 'HEAD^{tree}')" = "fec0119994fc60c2f02cf525269a071142929b9a"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD | tee candidate-head.txt
+          git rev-parse 'HEAD^{tree}' | tee candidate-tree.txt
+
+      - name: Static publication contracts
+        run: |
+          set -euo pipefail
+          bash scripts/publication_noactions_static_qa.sh
+          bash scripts/publication_modern_radio_static_qa.sh
+          bash scripts/publication_lifecycle_input_static_qa.sh
+          bash scripts/publication_immersive_window_static_qa.sh
+          bash scripts/publication_plugin_receiver_static_qa.sh
+          bash scripts/publication_tasker_ingress_static_qa.sh
+          bash scripts/publication_call_shortcut_static_qa.sh
+          bash scripts/publication_internal_activity_export_static_qa.sh
+          bash scripts/publication_hidden_api_static_qa.sh
+          bash scripts/publication_retired_f3_static_qa.sh
+          bash scripts/publication_widget_provider_static_qa.sh
+          bash scripts/publication_backup_privacy_static_qa.sh
+          bash scripts/publication_tile_import_static_qa.sh
+          bash scripts/publication_preidentity_package_static_qa.sh
+          bash scripts/publication_tracker_definition_static_qa.sh
+          bash scripts/publication_legacy_widget_db_static_qa.sh
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36 dependencies
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build exact candidate source
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace clean assembleDebug bundleRelease
+          APK="build/outputs/apk/debug/PowerToggles-debug.apk"
+          if [ ! -f "$APK" ]; then APK="$(find build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n1)"; fi
+          AAB="$(find build/outputs/bundle/release -type f -name '*.aab' | head -n1)"
+          test -f "$APK"; test -f "$AAB"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "AAB=$AAB" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee apk-badging.txt
+          grep -q "package: name='com.painless.pc'" apk-badging.txt
+          grep -q "targetSdkVersion:'36'" apk-badging.txt
+          unzip -t "$AAB" | tee aab-integrity.txt
+          grep -q "No errors detected" aab-integrity.txt
+          sha256sum "$APK" "$AAB" | tee build-sha256.txt
+
+      - name: Create and boot API 36 emulator
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/powertoggles-avd"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/powertoggles-android-user"
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME" >> "$GITHUB_ENV"
+          echo no | avdmanager create avd --force --name powertoggles_api36 --package "system-images;android-36;google_apis;x86_64" --device pixel_6
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd powertoggles_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" >> "$GITHUB_ENV"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then cat emulator.log; exit 1; fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then adb devices -l; exit 0; fi
+            sleep 2
+          done
+          cat emulator.log
+          exit 1
+
+      - name: Install candidate and capture baseline
+        run: |
+          set -euo pipefail
+          adb install -r "$APK"
+          adb shell pm list packages -f | grep com.painless.pc
+          mkdir -p ci-proof-state ci-proof-screens
+          adb shell dumpsys package com.painless.pc > ci-proof-state/baseline-package.txt
+          adb shell dumpsys activity activities > ci-proof-state/baseline-activities.txt
+          adb shell dumpsys window windows > ci-proof-state/baseline-windows.txt
+          adb logcat -c
+
+      - name: Exhaust runtime and fidelity suites
+        run: |
+          overall_rc=0
+          run_suite() {
+            local script="$1"; shift || true
+            echo "=== RUN $script ==="
+            bash "$script" "$@"
+            local rc=$?
+            if [ "$rc" -ne 0 ]; then echo "=== RED $script rc=$rc ==="; overall_rc=1; else echo "=== PASS $script ==="; fi
+            return 0
+          }
+          set +e
+          run_suite scripts/publication_qa_harness_prepare.sh
+          run_suite scripts/publication_qa_harness_followup.sh
+          run_suite scripts/gate2a_fidelity_qa.sh fidelity-evidence
+          run_suite scripts/gate2a_runtime_qa.sh
+          run_suite scripts/publication_runtime_qa.sh
+          run_suite scripts/publication_import_export_qa.sh
+          run_suite scripts/publication_folder_backup_share_qa.sh
+          run_suite scripts/publication_settings_route_qa.sh
+          run_suite scripts/publication_write_settings_qa.sh
+          run_suite scripts/publication_media_ui_qa.sh
+          run_suite scripts/publication_media_behavior_qa.sh
+          run_suite scripts/publication_rotation_setting_qa.sh
+          run_suite scripts/publication_api36_compat_qa.sh
+          run_suite scripts/publication_screen_on_card_qa.sh
+          run_suite scripts/publication_rotation_picker_qa.sh
+          original_stay_on="$(adb shell settings get global stay_on_while_plugged_in | tr -d '\r')"
+          adb shell settings put global stay_on_while_plugged_in 0
+          run_suite scripts/publication_remaining_controls_qa.sh
+          run_suite scripts/publication_next_controls_qa.sh
+          run_suite scripts/publication_widget_settings_qa.sh
+          if [ "$original_stay_on" = "null" ] || [ -z "$original_stay_on" ]; then adb shell settings delete global stay_on_while_plugged_in; else adb shell settings put global stay_on_while_plugged_in "$original_stay_on"; fi
+          set -e
+          exit "$overall_rc"
+
+      - name: Capture final state and screenshot
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p ci-proof-state ci-proof-screens
+          adb wait-for-device
+          adb shell dumpsys package com.painless.pc > ci-proof-state/final-package.txt
+          adb shell dumpsys activity activities > ci-proof-state/final-activities.txt
+          adb shell dumpsys window windows > ci-proof-state/final-windows.txt
+          adb logcat -d -v threadtime > ci-proof-state/final-logcat.txt
+          adb exec-out screencap -p > ci-proof-screens/final.png
+          test -s ci-proof-screens/final.png
+          git rev-parse HEAD > ci-proof-state/final-head.txt
+          git rev-parse 'HEAD^{tree}' > ci-proof-state/final-tree.txt
+          git status --porcelain --untracked-files=no > ci-proof-state/final-tracked-dirty.txt
+          test "$(cat ci-proof-state/final-head.txt)" = "9a932f2096daf1fc05fd58556efabb2c5c9b23d3"
+          test "$(cat ci-proof-state/final-tree.txt)" = "fec0119994fc60c2f02cf525269a071142929b9a"
+
+      - name: Upload candidate proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-proof-9a932f20
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            candidate-head.txt
+            candidate-tree.txt
+            apk-badging.txt
+            aab-integrity.txt
+            build-sha256.txt
+            ${{ env.APK }}
+            ${{ env.AAB }}
+            runtime-evidence/
+            fidelity-evidence/
+            ci-proof-state/
+            ci-proof-screens/
+            emulator.log
