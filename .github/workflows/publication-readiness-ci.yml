@@ -72,7 +72,7 @@ jobs:
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "AAB=$AAB" >> "$GITHUB_ENV"
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee publication-apk-badging.txt
-          grep -q "package: name='app.sufficient.togglebay'" publication-apk-badging.txt
+          grep -q "package: name='com.ramybaheeg.togglebay'" publication-apk-badging.txt
           grep -q "application-label:'ToggleBay'" publication-apk-badging.txt
           grep -q "targetSdkVersion:'36'" publication-apk-badging.txt
           unzip -t "$AAB" | tee publication-aab-integrity.txt
@@ -127,7 +127,7 @@ jobs:
       - name: Install candidate
         run: |
           adb install -r "$APK"
-          adb shell pm list packages -f | grep 'app.sufficient.togglebay'
+          adb shell pm list packages -f | grep 'com.ramybaheeg.togglebay'
 
       - name: Full API 36 runtime QA and screenshots
         run: |
