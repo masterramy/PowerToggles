@@ -17,7 +17,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.provider.MediaStore;
 
-import com.painless.pc.FileProvider;
+import com.painless.pc.togglebay.FileProvider;
 import com.painless.pc.R;
 import com.painless.pc.cfg.BatteryIconEditor;
 import com.painless.pc.cfg.IconThemeEditor;
