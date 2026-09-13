@@ -2,7 +2,7 @@ name: Publication Readiness Android CI
 
 on:
   push:
-    branches: [ publication-readiness ]
+    branches: [ publication-readiness, q3-togglebay-ramy-identity-20260912 ]
   workflow_dispatch:
 
 jobs:
