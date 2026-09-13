@@ -1,0 +1,85 @@
+name: Q4-r2 Normalize ToggleBay QA Identity
+
+on:
+  push:
+    branches:
+      - togglebay-q3-integration-20260912
+    paths:
+      - .github/workflows/q4r2-normalize-qa.yml
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Normalize escaped authorities, process identity, and customer filenames
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          files = sorted(Path('scripts').glob('*.sh'))
+          replacements = [
+              (r'content://com\.painless\.pc\.file', r'content://com\.ramybaheeg\.togglebay\.file'),
+              (r'Process com\.painless\.pc', r'Process com\.ramybaheeg\.togglebay'),
+              ('power-toggles-folders.pcf', 'togglebay-folders.pcf'),
+              ('power-toggles-backup.zip', 'togglebay-widget.zip'),
+          ]
+          changed=[]
+          counts={old:0 for old,_ in replacements}
+          for path in files:
+              text=path.read_text(encoding='utf-8')
+              new=text
+              for old,repl in replacements:
+                  n=new.count(old)
+                  if n:
+                      counts[old]+=n
+                      new=new.replace(old,repl)
+              if new != text:
+                  path.write_text(new,encoding='utf-8')
+                  changed.append(str(path))
+          print('Replacement counts:')
+          for old,n in counts.items():
+              print(f'{old}: {n}')
+          print('Changed files:')
+          for p in changed:
+              print(p)
+          if not changed:
+              raise SystemExit('No Q4-r2 QA identity changes produced')
+
+          stale=[]
+          checks=[
+              re.compile(r'content://com\\\.painless\\\.pc\\\.file'),
+              re.compile(r'Process com\\\.painless\\\.pc'),
+              re.compile(r'power-toggles',re.I),
+          ]
+          for path in files:
+              for lineno,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
+                  if any(p.search(line) for p in checks):
+                      stale.append(f'{path}:{lineno}:{line}')
+          if stale:
+              print('Residual stale Q4-r2 identity expectations:')
+              print('\n'.join(stale))
+              raise SystemExit(2)
+          print('Residual stale escaped authority/process/filename expectations: ZERO')
+          PY
+
+      - name: Commit normalized QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'qa: normalize escaped ToggleBay identity and backup filenames'
+          git push origin HEAD:togglebay-q3-integration-20260912
