@@ -59,6 +59,7 @@ jobs:
           files += [Path('qa/FINAL_RELEASE_BOUNDARIES.md')]
           forbidden = [
               'content://com.painless.pc.file',
+              r'content://com\.painless\.pc\.file',
               'force-stop com.painless.pc',
               'run-as com.painless.pc',
               '--package com.painless.pc',
@@ -70,6 +71,7 @@ jobs:
               "applicationId 'com.painless.pc'",
               'com.painless.pc/.',
               'Process: com\\.painless\\.pc',
+              r'Process com\.painless\.pc',
               'ANR in com\\.painless\\.pc',
               'am_crash.*com\\.painless\\.pc',
               'am_anr.*com\\.painless\\.pc',
@@ -91,11 +93,11 @@ jobs:
                   if needle in text:
                       stale.append(f'{path}: {needle}')
 
-          brand=re.compile(r'power\s*toggle', re.I)
+          brand=re.compile(r'power(?:[\s_-])*toggles?', re.I)
           for path in sorted(Path('scripts').glob('*.sh')):
               for lineno,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
                   if brand.search(line):
-                      stale.append(f'{path}:{lineno}: historical brand label: {line}')
+                      stale.append(f'{path}:{lineno}: historical brand/filename label: {line}')
 
           Path('q1-stale-harness.txt').write_text('\n'.join(stale) + ('\n' if stale else ''), encoding='utf-8')
           if stale:
