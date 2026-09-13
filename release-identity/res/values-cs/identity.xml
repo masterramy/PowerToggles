@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wp_add_help">Chcete-li přidat widget, otevřete nabídku aplikací a na kartě Widgety vyberte položku ToggleBay. Dlouze stiskněte náhled widgetu a přetáhněte jej na domovskou obrazovku.</string>
+    <string name="ps_prem_label">Použít pluginy aplikace ToggleBay</string>
+    <string name="ps_prem_desc">Umožňuje povolit nebo zakázat pluginy aplikace ToggleBay</string>
+</resources>
