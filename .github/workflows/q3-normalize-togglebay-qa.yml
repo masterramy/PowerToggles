@@ -25,10 +25,6 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          app = 'com.ramybaheeg.togglebay'
-          old = 'com.painless.pc'
-          cls = 'com.painless.pc'
-
           files = sorted(Path('scripts').glob('*.sh'))
           files += [Path('qa/FINAL_RELEASE_BOUNDARIES.md')]
 
@@ -72,15 +68,37 @@ jobs:
               print(p)
           if not changed:
               raise SystemExit('No package-coupling changes produced')
+
+          forbidden = [
+              'content://com.painless.pc.file',
+              'force-stop com.painless.pc',
+              'run-as com.painless.pc',
+              '--package com.painless.pc',
+              'dumpsys package com.painless.pc',
+              'pidof com.painless.pc',
+              'PKG="com.painless.pc"',
+              "PKG='com.painless.pc'",
+              'applicationId "com.painless.pc"',
+              "applicationId 'com.painless.pc'",
+              'com.painless.pc/.',
+          ]
+          stale = []
+          for path in files:
+              if not path.exists():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              for needle in forbidden:
+                  if needle in text:
+                      stale.append((str(path), needle))
+          if stale:
+              print('Residual high-confidence stale installed-package contexts:')
+              for path, needle in stale:
+                  print(f'{path}: {needle}')
+              raise SystemExit(2)
+          print('High-confidence stale installed-package contexts: ZERO')
+
+          print('Intentional internal namespace/resource/consumer references remain for later audit.')
           PY
-
-          echo '== residual high-confidence stale installed-package contexts =='
-          stale=0
-          grep -RInE 'content://com\.painless\.pc\.file|force-stop com\.painless\.pc([[:space:]]|$)|run-as com\.painless\.pc([[:space:]]|$)|--package com\.painless\.pc([[:space:]]|$)|dumpsys package com\.painless\.pc([[:space:]]|$)|pidof com\.painless\.pc([[:space:]]|$)|PKG=["'"']com\.painless\.pc["'"']|applicationId ["'"']com\.painless\.pc["'"']|com\.painless\.pc/\.' scripts qa && stale=1 || true
-          test "$stale" -eq 0
-
-          echo '== intentional internal namespace/resource/consumer references remaining =='
-          grep -RInE 'com\.painless\.pc' scripts qa | head -250 || true
 
       - name: Commit normalized QA
         shell: bash
