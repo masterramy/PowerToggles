@@ -1,1 +1,0 @@
-Q3: PluginUpdateReceiver public app-specific action must be derived from BuildConfig.APPLICATION_ID.
