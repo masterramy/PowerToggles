@@ -3,7 +3,7 @@ set -euo pipefail
 
 OUT="runtime-evidence/screen-on-card"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs" "$OUT/ui"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.PublicationCompatProbeActivity"
 
 run_probe() {

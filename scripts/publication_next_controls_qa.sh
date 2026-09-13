@@ -3,7 +3,7 @@ set -u
 
 OUT="runtime-evidence/next-controls"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs" "$OUT/ui"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.PublicationRemainingProbeActivity"
 fail=0
 battery_result="UNKNOWN"

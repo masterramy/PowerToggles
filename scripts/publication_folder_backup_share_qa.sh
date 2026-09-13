@@ -6,7 +6,7 @@ mkdir -p "$OUT/screens" "$OUT/ui" "$OUT/state" "$OUT/logs"
 SRC="src/com/painless/pc/nav/FolderFrag.java"
 PROVIDER="src/com/painless/pc/FileProvider.java"
 QA_NAME="QA Folder 314159"
-SHARE_URI="content://com.painless.pc.file/folder-share"
+SHARE_URI="content://com.ramybaheeg.togglebay.file/folder-share"
 BACKUP_NAME="power-toggles-folders.pcf"
 CONSUMER_PKG="com.painless.pc.qaconsumer"
 rc=0
@@ -136,13 +136,13 @@ assert_documents_ui() {
 
 probe() {
   local action="$1"
-  adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-  adb shell am start -W -n com.painless.pc/.tracker.PublicationFolderProbeActivity --es probe "$action" >/dev/null
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationFolderProbeActivity --es probe "$action" >/dev/null
   sleep 1
 }
 
 pull_probe() {
-  adb shell run-as com.painless.pc cat shared_prefs/publication_folder_probe.xml > "$OUT/state/probe-prefs.xml"
+  adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_folder_probe.xml > "$OUT/state/probe-prefs.xml"
 }
 
 read_probe() {
@@ -159,9 +159,9 @@ PY
 }
 
 launch_folder() {
-  adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
   adb logcat -c
-  adb shell am start -W -n com.painless.pc/.settings.LaunchActivity \
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.settings.LaunchActivity \
     --es ':android:show_fragment' com.painless.pc.nav.FolderFrag \
     > "$OUT/state/folder-launch.txt"
   sleep 2
@@ -251,11 +251,11 @@ EOF
 }
 
 cleanup() {
-  adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
   adb shell am force-stop "$CONSUMER_PKG" >/dev/null 2>&1 || true
   adb shell pm uninstall "$CONSUMER_PKG" >/dev/null 2>&1 || true
   adb shell rm -f "/sdcard/Download/$BACKUP_NAME" >/dev/null 2>&1 || true
-  adb shell am start -W -n com.painless.pc/.tracker.PublicationFolderProbeActivity --es probe cleanup >/dev/null 2>&1 || true
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationFolderProbeActivity --es probe cleanup >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -302,7 +302,7 @@ if ! adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1; 
 fi
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
 grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
-adb exec-out run-as com.painless.pc cat files/folder.pcf > "$OUT/state/shared-folder.pcf"
+adb exec-out run-as com.ramybaheeg.togglebay cat files/folder.pcf > "$OUT/state/shared-folder.pcf"
 test -s "$OUT/state/shared-folder.pcf"
 unzip -t "$OUT/state/shared-folder.pcf" | tee "$OUT/state/shared-unzip-test.txt"
 unzip -p "$OUT/state/shared-folder.pcf" folders.txt > "$OUT/state/shared-folders.txt"
@@ -390,7 +390,7 @@ RESTORED_DB="$(read_probe restored_db)"
 printf 'restored_db=%s\n' "$RESTORED_DB" > "$OUT/state/restored.txt"
 
 # Process-death persistence must retain the restored folder and semantic row.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 launch_folder
 capture "12-restored-after-process-death"
 grep -Fq "text=\"$QA_NAME\"" "$OUT/ui/12-restored-after-process-death.xml"

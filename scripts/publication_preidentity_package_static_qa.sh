@@ -15,7 +15,7 @@ fail() {
 # package/SDK/version boundary until Ramy explicitly authorizes permanent release
 # identity changes; do not silently turn QA/restoration metadata into final identity.
 grep -Fq 'namespace "com.painless.pc"' "$BUILD" || fail "namespace drifted"
-grep -Fq 'applicationId "com.painless.pc"' "$BUILD" || fail "applicationId drifted"
+grep -Fq 'applicationId "com.ramybaheeg.togglebay"' "$BUILD" || fail "applicationId drifted"
 grep -Fq 'compileSdkVersion 36' "$BUILD" || fail "compileSdk is not 36"
 grep -Fq 'targetSdkVersion 36' "$BUILD" || fail "targetSdk is not 36"
 grep -Fq 'minSdkVersion 16' "$BUILD" || fail "minSdk drifted"

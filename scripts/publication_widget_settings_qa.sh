@@ -10,8 +10,8 @@ esac
 printf 'android_user_id=%s\n' "$USER_ID" > "$OUT/android-user.txt"
 
 cleanup() {
-  adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-  adb shell appwidget revokebind --package com.painless.pc --user "$USER_ID" >/dev/null 2>&1 || true
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+  adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$USER_ID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -23,13 +23,13 @@ probe() {
   # WidgetConfigActivity so Android 16 will permit the receiver-driven launch;
   # force-stopping only before the *next* probe removes that stale host without
   # deleting the framework AppWidget ID or its persisted widget settings.
-  adb shell am force-stop com.painless.pc >/dev/null
-  adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
     --es probe "$action" "$@"
 }
 
 pull_prefs() {
-  adb shell run-as com.painless.pc cat shared_prefs/publication_widget_host_probe.xml
+  adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml
 }
 
 dump_ui() {
@@ -82,7 +82,7 @@ PY
 # emulator host; the grant is revoked by the EXIT trap. Android 16's appwidget
 # shell path does not resolve the special USER_CURRENT (-2) token here, so use the
 # actual numeric foreground user returned by ActivityManager.
-adb shell appwidget grantbind --package com.painless.pc --user "$USER_ID" | tee "$OUT/grantbind.txt"
+adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$USER_ID" | tee "$OUT/grantbind.txt"
 adb logcat -c
 probe allocate_bind > "$OUT/allocate-bind.txt"
 pull_prefs > "$OUT/prefs.xml"
@@ -97,7 +97,7 @@ test "$BOUND" = "true"
 test "$PROVIDER_PRESENT" = "true"
 test -z "$ALLOCATE_ERROR"
 case "$PROVIDER" in
-  com.painless.pc/.PCWidgetActivity|com.painless.pc/com.painless.pc.PCWidgetActivity) ;;
+  com.ramybaheeg.togglebay/com.painless.pc.PCWidgetActivity|com.ramybaheeg.togglebay/com.painless.pc.PCWidgetActivity) ;;
   *) echo "Unexpected bound provider: $PROVIDER"; exit 1 ;;
 esac
 printf 'widget_id=%s\nbound=%s\nprovider=%s\n' "$WIDGET_ID" "$BOUND" "$PROVIDER" > "$OUT/binding-summary.txt"
@@ -107,7 +107,7 @@ assert_no_fatal allocate-bind
 # activity. This is the normal APPWIDGET_CONFIGURE entry path, not a synthetic ID.
 adb logcat -c
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$WIDGET_ID" \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$WIDGET_ID" \
   > "$OUT/configure-start.txt"
 sleep 2
 capture "30-widget-settings-genuine-create"
@@ -151,7 +151,7 @@ adb logcat -c
 probe reopen --ei widget_id "$WIDGET_ID" > "$OUT/reopen-dispatch.txt"
 sleep 2
 capture "31-widget-settings-genuine-reopen"
-grep -q 'com.painless.pc/.cfg.WidgetConfigActivity' runtime-evidence/state/31-widget-settings-genuine-reopen.activities.txt
+grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity' runtime-evidence/state/31-widget-settings-genuine-reopen.activities.txt
 pull_prefs > "$OUT/prefs.xml"
 test "$(read_pref reopen_widget_id)" = "$WIDGET_ID"
 grep -Fq "#$WIDGET_ID" "$OUT/prefs.xml"
@@ -186,7 +186,7 @@ adb logcat -c
 probe malformed > "$OUT/malformed-dispatch.txt"
 sleep 1
 assert_no_fatal malformed-id
-adb shell pidof com.painless.pc > "$OUT/process-after-malformed.txt"
+adb shell pidof com.ramybaheeg.togglebay > "$OUT/process-after-malformed.txt"
 test -s "$OUT/process-after-malformed.txt"
 
 printf 'ID33_WIDGET_SETTINGS=PASS\nwidget_id=%s\nbound_provider=%s\ngenuine_reopen=PASS\nstale_numeric=PASS_NO_FATAL\nmalformed_fragment=PASS_NO_FATAL\n' \

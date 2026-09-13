@@ -3,7 +3,7 @@ set -euo pipefail
 
 OUT="runtime-evidence/write-settings"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.Gate2aProbeActivity"
 
 set_write_settings_mode() {

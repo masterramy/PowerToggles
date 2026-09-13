@@ -26,10 +26,10 @@ def replace_once(path, old, new, label):
 # framework widget through the existing debug-only host probe, exercise the same
 # configurator/picker flow against it, then delete it and revoke bind authority.
 widget_old = r'''# Widget configurator and picker evidence.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1002 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1002 \
   > "$OUT/state/widget-config-interaction-start.txt" 2>&1
 sleep 2
 adb shell input tap 540 451
@@ -37,9 +37,9 @@ sleep 1
 capture "17-widget-style-expanded"
 grep -Eqi 'Full height|Huge icons|Indicator|Labels' "$OUT/ui/17-widget-style-expanded.xml"
 
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1003 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1003 \
   > "$OUT/state/widget-add-toggle-start.txt" 2>&1
 '''
 widget_new = r'''# Widget configurator and picker evidence against a genuine framework-bound ID.
@@ -47,22 +47,22 @@ RUNTIME_WIDGET_USER="$(adb shell am get-current-user | tr -d '\r')"
 case "$RUNTIME_WIDGET_USER" in
   ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $RUNTIME_WIDGET_USER" >&2; exit 1 ;;
 esac
-adb shell appwidget grantbind --package com.painless.pc --user "$RUNTIME_WIDGET_USER" > "$OUT/state/runtime-widget-grantbind.txt"
-adb shell am force-stop com.painless.pc
+adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$RUNTIME_WIDGET_USER" > "$OUT/state/runtime-widget-grantbind.txt"
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
-adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
   --es probe allocate_bind > "$OUT/state/runtime-widget-allocate-bind.txt"
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/publication_widget_host_probe.xml > "$OUT/state/runtime-widget-probe-prefs.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml > "$OUT/state/runtime-widget-probe-prefs.xml"
 RUNTIME_WIDGET_ID="$(python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); print(next(n.attrib["value"] for n in r if n.attrib.get("name")=="widget_id"))' "$OUT/state/runtime-widget-probe-prefs.xml")"
 test "$RUNTIME_WIDGET_ID" -gt 0
 grep -Eq 'name="bound" value="true"|value="true" name="bound"' "$OUT/state/runtime-widget-probe-prefs.xml"
 grep -Eq 'name="provider_info_present" value="true"|value="true" name="provider_info_present"' "$OUT/state/runtime-widget-probe-prefs.xml"
 
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$RUNTIME_WIDGET_ID" \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$RUNTIME_WIDGET_ID" \
   > "$OUT/state/widget-config-interaction-start.txt" 2>&1
 sleep 2
 adb shell input tap 540 451
@@ -70,9 +70,9 @@ sleep 1
 capture "17-widget-style-expanded"
 grep -Eqi 'Full height|Huge icons|Indicator|Labels' "$OUT/ui/17-widget-style-expanded.xml"
 
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$RUNTIME_WIDGET_ID" \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$RUNTIME_WIDGET_ID" \
   > "$OUT/state/widget-add-toggle-start.txt" 2>&1
 '''
 replace_once('scripts/gate2a_runtime_qa.sh', widget_old, widget_new,
@@ -82,10 +82,10 @@ cleanup_old = r'''capture "18b-widget-battery-visible"
 grep -qi 'Battery Info' "$OUT/ui/18b-widget-battery-visible.xml"
 adb shell input keyevent KEYCODE_BACK || true
 '''
-cleanup_new = cleanup_old + r'''adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+cleanup_new = cleanup_old + r'''adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
   --es probe delete --ei widget_id "$RUNTIME_WIDGET_ID" > "$OUT/state/runtime-widget-delete.txt"
-adb shell appwidget revokebind --package com.painless.pc --user "$RUNTIME_WIDGET_USER" >/dev/null 2>&1 || true
+adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$RUNTIME_WIDGET_USER" >/dev/null 2>&1 || true
 '''
 replace_once('scripts/gate2a_runtime_qa.sh', cleanup_old, cleanup_new,
              'genuine runtime widget cleanup')
@@ -95,8 +95,8 @@ replace_once('scripts/gate2a_runtime_qa.sh', cleanup_old, cleanup_new,
 # widgets correctly reopen in EditWidgetConfigActivity.
 replace_once(
     'scripts/publication_import_export_qa.sh',
-    "grep -q 'com.painless.pc/.cfg.WidgetConfigActivity' \"$OUT/state/22-roundtrip-persistence-reopen.activities.txt\"",
-    "grep -q 'com.painless.pc/.cfg.EditWidgetConfigActivity' \"$OUT/state/22-roundtrip-persistence-reopen.activities.txt\"",
+    "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity' \"$OUT/state/22-roundtrip-persistence-reopen.activities.txt\"",
+    "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.EditWidgetConfigActivity' \"$OUT/state/22-roundtrip-persistence-reopen.activities.txt\"",
     'import/export persistence reopen assertion repaired')
 
 # 3) The previous positive folder-share probe attempted to manufacture a URI
@@ -121,7 +121,7 @@ fi
 sleep 2
 adb shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
 sleep 1
-adb exec-out run-as com.painless.pc cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
+adb exec-out run-as com.ramybaheeg.togglebay cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
 test -s "$OUT/state/customer-share-created-folder.pcf"
 unzip -t "$OUT/state/customer-share-created-folder.pcf" | tee "$OUT/state/customer-share-created-unzip-test.txt"
 # `am` only propagates a URI grant for data/ClipData, not merely EXTRA_STREAM.
@@ -153,7 +153,7 @@ tap_node "02-share-target-source" "QA Folder Share Consumer"
 sleep 2
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
 grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
-adb exec-out run-as com.painless.pc cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
+adb exec-out run-as com.ramybaheeg.togglebay cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
 test -s "$OUT/state/customer-share-created-folder.pcf"
 unzip -t "$OUT/state/customer-share-created-folder.pcf" | tee "$OUT/state/customer-share-created-unzip-test.txt"
 '''

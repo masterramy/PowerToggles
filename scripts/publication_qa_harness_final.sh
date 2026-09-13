@@ -25,9 +25,9 @@ def replace_once(path, old, new, label):
 # publication-specific label and exhaustive picker audits. Shipping correctly
 # rejects unbound IDs. Allocate one genuine framework-bound widget, reuse it for
 # both audits, then delete it and revoke temporary bind authority.
-first_old = r'''adb shell am force-stop com.painless.pc
+first_old = r'''adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1004 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1004 \
   > runtime-evidence/state/publication-label-audit-start.txt 2>&1
 sleep 2
 adb shell input tap 850 312
@@ -37,30 +37,30 @@ first_new = r'''PUBLICATION_WIDGET_USER="$(adb shell am get-current-user | tr -d
 case "$PUBLICATION_WIDGET_USER" in
   ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $PUBLICATION_WIDGET_USER" >&2; exit 1 ;;
 esac
-adb shell appwidget grantbind --package com.painless.pc --user "$PUBLICATION_WIDGET_USER" \
+adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$PUBLICATION_WIDGET_USER" \
   > runtime-evidence/state/publication-widget-grantbind.txt
-adb shell am force-stop com.painless.pc
-adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+adb shell am force-stop com.ramybaheeg.togglebay
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
   --es probe allocate_bind > runtime-evidence/state/publication-widget-allocate-bind.txt
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/publication_widget_host_probe.xml \
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml \
   > runtime-evidence/state/publication-widget-probe-prefs.xml
 PUBLICATION_WIDGET_ID="$(python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); print(next(n.attrib["value"] for n in r if n.attrib.get("name")=="widget_id"))' runtime-evidence/state/publication-widget-probe-prefs.xml)"
 test "$PUBLICATION_WIDGET_ID" -gt 0
 grep -Eq 'name="bound" value="true"|value="true" name="bound"' runtime-evidence/state/publication-widget-probe-prefs.xml
 grep -Eq 'name="provider_info_present" value="true"|value="true" name="provider_info_present"' runtime-evidence/state/publication-widget-probe-prefs.xml
 publication_widget_cleanup() {
-  adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-  adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
     --es probe delete --ei widget_id "$PUBLICATION_WIDGET_ID" \
     > runtime-evidence/state/publication-widget-delete.txt 2>&1 || true
-  adb shell appwidget revokebind --package com.painless.pc --user "$PUBLICATION_WIDGET_USER" >/dev/null 2>&1 || true
+  adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$PUBLICATION_WIDGET_USER" >/dev/null 2>&1 || true
 }
 trap publication_widget_cleanup EXIT
 
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$PUBLICATION_WIDGET_ID" \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$PUBLICATION_WIDGET_ID" \
   > runtime-evidence/state/publication-label-audit-start.txt 2>&1
 sleep 2
 adb shell input tap 850 312
@@ -69,14 +69,14 @@ sleep 2
 replace_once('scripts/publication_runtime_qa.sh', first_old, first_new,
              'publication label audit moved to genuine bound widget')
 
-second_old = r'''adb shell am force-stop com.painless.pc
+second_old = r'''adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1005 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1005 \
   > runtime-evidence/state/publication-picker-inventory-start.txt 2>&1
 '''
-second_new = r'''adb shell am force-stop com.painless.pc
+second_new = r'''adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$PUBLICATION_WIDGET_ID" \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$PUBLICATION_WIDGET_ID" \
   > runtime-evidence/state/publication-picker-inventory-start.txt 2>&1
 '''
 replace_once('scripts/publication_runtime_qa.sh', second_old, second_new,

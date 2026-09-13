@@ -87,10 +87,10 @@ PY
 }
 
 launch_config() {
-  adb shell am force-stop com.painless.pc
+  adb shell am force-stop com.ramybaheeg.togglebay
   adb logcat -c
   adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-    -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1099 \
+    -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1099 \
     > "$OUT/state/config-start.txt" 2>&1
   sleep 2
   capture "00-config"
@@ -123,7 +123,7 @@ grep -Fq 'text="SAVE"' "$OUT/ui/02-backup-destination.xml"
 adb shell input keyevent KEYCODE_BACK || true
 sleep 1
 capture "03-backup-cancel-return"
-grep -Fq 'package="com.painless.pc"' "$OUT/ui/03-backup-cancel-return.xml"
+grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/03-backup-cancel-return.xml"
 
 # Re-open the exact customer overflow path and require modern document-open UI.
 tap_node "04-overflow-source" "More options"
@@ -138,7 +138,7 @@ assert_document_picker "05-restore-source"
 adb shell input keyevent KEYCODE_BACK || true
 sleep 1
 capture "06-restore-cancel-return"
-grep -Fq 'package="com.painless.pc"' "$OUT/ui/06-restore-cancel-return.xml"
+grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/06-restore-cancel-return.xml"
 
 # End-to-end round-trip proof uses a genuine framework-bound widget. Harness-only
 # mutation creates a known persisted divergence; backup creation, document picking,
@@ -150,8 +150,8 @@ esac
 printf 'android_user_id=%s\n' "$USER_ID" > "$OUT/state/android-user.txt"
 
 cleanup_roundtrip() {
-  adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-  adb shell appwidget revokebind --package com.painless.pc --user "$USER_ID" >/dev/null 2>&1 || true
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+  adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$USER_ID" >/dev/null 2>&1 || true
   adb shell rm -f /sdcard/Download/power-toggles-backup.zip >/dev/null 2>&1 || true
 }
 trap cleanup_roundtrip EXIT
@@ -159,13 +159,13 @@ trap cleanup_roundtrip EXIT
 probe() {
   local action="$1"
   shift || true
-  adb shell am force-stop com.painless.pc >/dev/null
-  adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+  adb shell am force-stop com.ramybaheeg.togglebay >/dev/null
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
     --es probe "$action" "$@"
 }
 
 pull_probe_prefs() {
-  adb shell run-as com.painless.pc cat shared_prefs/publication_widget_host_probe.xml
+  adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml
 }
 
 read_probe_pref() {
@@ -189,7 +189,7 @@ PY
 
 pull_widget_prefs() {
   local dest="$1"
-  adb shell run-as com.painless.pc cat shared_prefs/widget_preference.xml > "$dest"
+  adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/widget_preference.xml > "$dest"
   test -s "$dest"
 }
 
@@ -232,7 +232,7 @@ PY
 }
 
 adb shell rm -f /sdcard/Download/power-toggles-backup.zip >/dev/null 2>&1 || true
-adb shell appwidget grantbind --package com.painless.pc --user "$USER_ID" | tee "$OUT/state/grantbind.txt"
+adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$USER_ID" | tee "$OUT/state/grantbind.txt"
 adb logcat -c
 probe allocate_bind > "$OUT/state/allocate-bind.txt"
 pull_probe_prefs > "$OUT/state/probe-prefs.xml"
@@ -247,7 +247,7 @@ printf 'roundtrip_widget_id=%s\n' "$WIDGET_ID" > "$OUT/state/roundtrip-widget.tx
 # Save a genuine initial widget definition through the customer Done control.
 adb logcat -c
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$WIDGET_ID" \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$WIDGET_ID" \
   > "$OUT/state/roundtrip-configure-start.txt"
 sleep 2
 capture "10-roundtrip-genuine-create"
@@ -263,7 +263,7 @@ adb logcat -c
 probe reopen --ei widget_id "$WIDGET_ID" > "$OUT/state/roundtrip-reopen-dispatch.txt"
 sleep 2
 capture "12-roundtrip-reopen"
-grep -q 'com.painless.pc/.cfg.WidgetConfigActivity' "$OUT/state/12-roundtrip-reopen.activities.txt"
+grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity' "$OUT/state/12-roundtrip-reopen.activities.txt"
 
 # Create an actual backup document in Downloads using the shipping SAF path.
 tap_node "13-roundtrip-overflow-source" "More options"
@@ -279,7 +279,7 @@ adb logcat -c
 tap_node "15-roundtrip-save-source" "SAVE"
 sleep 4
 capture "15-roundtrip-save-return"
-grep -Fq 'package="com.painless.pc"' "$OUT/ui/15-roundtrip-save-return.xml"
+grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/15-roundtrip-save-return.xml"
 fatal_scan "15-roundtrip-save-return"
 
 for attempt in $(seq 1 10); do
@@ -319,10 +319,10 @@ for node in root:
     raise SystemExit(0)
 raise SystemExit('widget preference not found for mutation: ' + key)
 PY
-adb shell am force-stop com.painless.pc
-cat "$OUT/state/widget-prefs-mutated.xml" | adb shell run-as com.painless.pc sh -c 'cat > shared_prefs/widget_preference.xml'
-adb shell run-as com.painless.pc chmod 600 shared_prefs/widget_preference.xml
-adb shell run-as com.painless.pc rm -f shared_prefs/widget_preference.xml.bak
+adb shell am force-stop com.ramybaheeg.togglebay
+cat "$OUT/state/widget-prefs-mutated.xml" | adb shell run-as com.ramybaheeg.togglebay sh -c 'cat > shared_prefs/widget_preference.xml'
+adb shell run-as com.ramybaheeg.togglebay chmod 600 shared_prefs/widget_preference.xml
+adb shell run-as com.ramybaheeg.togglebay rm -f shared_prefs/widget_preference.xml.bak
 pull_widget_prefs "$OUT/state/widget-prefs-mutated-readback.xml"
 extract_widget_settings "$OUT/state/widget-prefs-mutated-readback.xml" "$WIDGET_ID" "$OUT/state/mutated-settings.json"
 python3 - "$OUT/state/baseline-settings.json" "$OUT/state/mutated-settings.json" <<'PY'
@@ -361,7 +361,7 @@ adb logcat -c
 tap_node "20-roundtrip-backup-select-source" "power-toggles-backup.zip"
 sleep 4
 capture "20-roundtrip-after-import"
-grep -Fq 'package="com.painless.pc"' "$OUT/ui/20-roundtrip-after-import.xml"
+grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/20-roundtrip-after-import.xml"
 fatal_scan "20-roundtrip-after-import"
 
 # Persist the imported in-memory definition through the real Done control.
@@ -375,13 +375,13 @@ compare_json "$OUT/state/baseline-settings.json" "$OUT/state/restored-settings.j
 
 # Force a fresh process and reopen the exact shipping widget-settings route to
 # prove the restored preference survives process death and remains consumable.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 sleep 1
 adb logcat -c
 probe reopen --ei widget_id "$WIDGET_ID" > "$OUT/state/roundtrip-persistence-reopen-dispatch.txt"
 sleep 2
 capture "22-roundtrip-persistence-reopen"
-grep -q 'com.painless.pc/.cfg.WidgetConfigActivity' "$OUT/state/22-roundtrip-persistence-reopen.activities.txt"
+grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity' "$OUT/state/22-roundtrip-persistence-reopen.activities.txt"
 fatal_scan "22-roundtrip-persistence-reopen"
 pull_widget_prefs "$OUT/state/widget-prefs-persistence-readback.xml"
 extract_widget_settings "$OUT/state/widget-prefs-persistence-readback.xml" "$WIDGET_ID" "$OUT/state/persistence-settings.json"

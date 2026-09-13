@@ -40,8 +40,8 @@ capture() {
   adb exec-out screencap -p > "$OUT/screens/${name}.png"
   adb shell dumpsys activity activities > "$OUT/state/${name}.activities.txt"
   adb shell dumpsys window windows > "$OUT/state/${name}.windows.txt"
-  adb shell dumpsys package com.painless.pc > "$OUT/state/${name}.package.txt"
-  grep -q "com.painless.pc" "$OUT/state/${name}.activities.txt"
+  adb shell dumpsys package com.ramybaheeg.togglebay > "$OUT/state/${name}.package.txt"
+  grep -q "com.ramybaheeg.togglebay" "$OUT/state/${name}.activities.txt"
   fatal_scan "$name"
 }
 
@@ -55,9 +55,9 @@ capture_external() {
 }
 
 launch_root() {
-  adb shell am force-stop com.painless.pc
+  adb shell am force-stop com.ramybaheeg.togglebay
   adb logcat -c
-  adb shell am start -W -n com.painless.pc/.settings.LaunchActivity
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.settings.LaunchActivity
   sleep 2
 }
 
@@ -120,26 +120,26 @@ launch_root > "$OUT/state/lifecycle.launch.txt"
 adb logcat -c
 adb shell input keyevent KEYCODE_HOME
 sleep 1
-adb shell am start -W -n com.painless.pc/.settings.LaunchActivity > "$OUT/state/lifecycle.resume.txt"
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.settings.LaunchActivity > "$OUT/state/lifecycle.resume.txt"
 sleep 2
 capture "07-background-resume"
 
 # Cold process restart check.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 sleep 1
 adb logcat -c
-adb shell am start -W -n com.painless.pc/.settings.LaunchActivity > "$OUT/state/cold-restart.txt"
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.settings.LaunchActivity > "$OUT/state/cold-restart.txt"
 sleep 2
 capture "08-cold-restart"
 
 # Basic configuration-activity survivability. A synthetic appWidgetId is used only
 # to prove that the configuration entry point can be constructed on API 36 without
 # immediately crashing; it is not claimed as an end-to-end launcher-hosted widget test.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
 set +e
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1001 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1001 \
   > "$OUT/state/widget-config-start.txt" 2>&1
 WIDGET_START_RC=$?
 set -e
@@ -149,16 +149,16 @@ echo "$WIDGET_START_RC" > "$OUT/state/widget-config-start.rc"
 
 # Exercise a real mutable preference and prove it survives a process restart.
 open_row "10-settings-before-toggle" 1010
-adb shell run-as com.painless.pc cat shared_prefs/widget_preference.xml > "$OUT/state/prefs-before-haptic.xml" 2>/dev/null || true
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/widget_preference.xml > "$OUT/state/prefs-before-haptic.xml" 2>/dev/null || true
 adb logcat -c
 adb shell input tap 540 506
 sleep 1
 capture "11-settings-haptic-on"
-adb shell run-as com.painless.pc cat shared_prefs/widget_preference.xml > "$OUT/state/prefs-haptic-on.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/widget_preference.xml > "$OUT/state/prefs-haptic-on.xml"
 grep -Eq 'name="heptic_feedback" value="true"|value="true" name="heptic_feedback"' "$OUT/state/prefs-haptic-on.xml"
 
-adb shell am force-stop com.painless.pc
-adb shell am start -W -n com.painless.pc/.settings.LaunchActivity > "$OUT/state/settings-persistence-relaunch.txt"
+adb shell am force-stop com.ramybaheeg.togglebay
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.settings.LaunchActivity > "$OUT/state/settings-persistence-relaunch.txt"
 sleep 1
 adb shell input tap 540 1010
 sleep 2
@@ -169,14 +169,14 @@ grep -Eq 'text="Haptic feedback"[^>]*checked="true"|checked="true"[^>]*text="Hap
 # Restore the changed preference so the remainder of the suite is clean.
 adb shell input tap 540 506
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/widget_preference.xml > "$OUT/state/prefs-haptic-restored.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/widget_preference.xml > "$OUT/state/prefs-haptic-restored.xml"
 if grep -Eq 'name="heptic_feedback" value="true"|value="true" name="heptic_feedback"' "$OUT/state/prefs-haptic-restored.xml"; then
   echo "Haptic preference failed to restore"
   exit 1
 fi
 
 # Notification-widget functional path on targetSdk 36.
-adb shell pm revoke com.painless.pc android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+adb shell pm revoke com.ramybaheeg.togglebay android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 launch_root > "$OUT/state/notification-permission-root.txt"
 adb shell input tap 540 548
 sleep 2
@@ -189,7 +189,7 @@ grep -q 'package="com.google.android.permissioncontroller"' "$OUT/ui/13-notifica
 grep -q 'Allow Power Toggles to send you notifications?' "$OUT/ui/13-notification-permission-prompt.xml"
 grep -q 'text="Allow"' "$OUT/ui/13-notification-permission-prompt.xml"
 
-adb shell pm grant com.painless.pc android.permission.POST_NOTIFICATIONS
+adb shell pm grant com.ramybaheeg.togglebay android.permission.POST_NOTIFICATIONS
 adb shell input keyevent KEYCODE_BACK || true
 sleep 1
 launch_root > "$OUT/state/notification-enabled-root.txt"
@@ -223,10 +223,10 @@ fi
 grep -q 'power_toggles_controls' "$OUT/state/notification-disabled.dumpsys.txt"
 
 # Widget configurator and picker evidence.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1002 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1002 \
   > "$OUT/state/widget-config-interaction-start.txt" 2>&1
 sleep 2
 adb shell input tap 540 451
@@ -234,9 +234,9 @@ sleep 1
 capture "17-widget-style-expanded"
 grep -Eqi 'Full height|Huge icons|Indicator|Labels' "$OUT/ui/17-widget-style-expanded.xml"
 
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1003 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1003 \
   > "$OUT/state/widget-add-toggle-start.txt" 2>&1
 sleep 2
 adb logcat -c
@@ -272,23 +272,23 @@ grep -qi 'Battery Info' "$OUT/ui/18b-widget-battery-visible.xml"
 # F1 settings-write: grant the Android special-access app-op in the controlled
 # emulator, invoke the real AutoRotateTracker through the debug-only probe, prove
 # the system setting actually changes, and restore the exact original value.
-adb shell appops set com.painless.pc WRITE_SETTINGS allow
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell appops set com.ramybaheeg.togglebay WRITE_SETTINGS allow
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe autorotate_toggle > "$OUT/state/fidelity-autorotate-toggle.txt"
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/fidelity-autorotate.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/gate2a_probe.xml > "$OUT/state/fidelity-autorotate.xml"
 grep -Eq 'name="rotation_changed" value="true"|value="true" name="rotation_changed"' "$OUT/state/fidelity-autorotate.xml"
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe autorotate_restore > "$OUT/state/fidelity-autorotate-restore.txt"
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/fidelity-autorotate-restored.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/gate2a_probe.xml > "$OUT/state/fidelity-autorotate-restored.xml"
 grep -Eq 'name="rotation_restore_ok" value="true"|value="true" name="rotation_restore_ok"' "$OUT/state/fidelity-autorotate-restored.xml"
-adb shell appops set com.painless.pc WRITE_SETTINGS default || true
+adb shell appops set com.ramybaheeg.togglebay WRITE_SETTINGS default || true
 
 # F2 Wi-Fi: on Android 10+ the restored tracker must hand off to the supported
 # system Wi-Fi panel rather than pretending WifiManager.setWifiEnabled succeeded.
 adb logcat -c
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe wifi > "$OUT/state/fidelity-wifi-launch.txt"
 sleep 2
 capture_external "19-fidelity-wifi-panel"
@@ -302,7 +302,7 @@ sleep 1
 # fallback for disable without crashing.
 grep -q 'ACTION_REQUEST_ENABLE' src/com/painless/pc/tracker/BluetoothTracker.java
 adb logcat -c
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe bluetooth_disable > "$OUT/state/fidelity-bluetooth-launch.txt"
 sleep 2
 capture_external "20-fidelity-bluetooth-settings"
@@ -325,9 +325,9 @@ echo "F2 Bluetooth consent/settings fallback: PASS" >> "$OUT/state/fidelity-summ
 echo "F3 WiMAX retired from picker: PASS" >> "$OUT/state/fidelity-summary.txt"
 
 # Final package/install facts and permission state.
-adb shell dumpsys package com.painless.pc > "$OUT/package-final.txt"
-adb shell pm list packages -f | grep 'com.painless.pc' > "$OUT/package-installed.txt"
-adb shell appops get com.painless.pc > "$OUT/appops.txt" 2>&1 || true
+adb shell dumpsys package com.ramybaheeg.togglebay > "$OUT/package-final.txt"
+adb shell pm list packages -f | grep 'com.ramybaheeg.togglebay' > "$OUT/package-installed.txt"
+adb shell appops get com.ramybaheeg.togglebay > "$OUT/appops.txt" 2>&1 || true
 adb shell dumpsys notification --noredact > "$OUT/notification-final.txt"
 
 find "$OUT/screens" -maxdepth 1 -type f -name '*.png' -printf '%f\n' | sort > "$OUT/screenshot-index.txt"

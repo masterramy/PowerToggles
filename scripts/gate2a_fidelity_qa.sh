@@ -37,34 +37,34 @@ capture() {
 # the running app can read a bounded battery percentage through production code.
 grep -q 'BatteryTracker.class' src/com/painless/pc/TrackerManager.java
 grep -Eq 'new int\[\].*15' src/com/painless/pc/picker/TogglePicker.java
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe battery > "$OUT/state/battery-probe.txt"
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/battery.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/gate2a_probe.xml > "$OUT/state/battery.xml"
 grep -Eq 'name="battery_valid" value="true"|value="true" name="battery_valid"' "$OUT/state/battery.xml"
 
 # F1 settings-write: invoke the real AutoRotateTracker through the debug-only
 # probe, prove the Android system setting actually changes, then restore it.
-adb shell appops set com.painless.pc WRITE_SETTINGS allow
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell appops set com.ramybaheeg.togglebay WRITE_SETTINGS allow
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe autorotate_toggle > "$OUT/state/autorotate-toggle.txt"
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/autorotate.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/gate2a_probe.xml > "$OUT/state/autorotate.xml"
 grep -Eq 'name="rotation_changed" value="true"|value="true" name="rotation_changed"' "$OUT/state/autorotate.xml"
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe autorotate_restore > "$OUT/state/autorotate-restore.txt"
 sleep 1
-adb shell run-as com.painless.pc cat shared_prefs/gate2a_probe.xml > "$OUT/state/autorotate-restored.xml"
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/gate2a_probe.xml > "$OUT/state/autorotate-restored.xml"
 grep -Eq 'name="rotation_restore_ok" value="true"|value="true" name="rotation_restore_ok"' "$OUT/state/autorotate-restored.xml"
-adb shell appops set com.painless.pc WRITE_SETTINGS default || true
+adb shell appops set com.ramybaheeg.togglebay WRITE_SETTINGS default || true
 
 # F2 Wi-Fi: Android 10+ must hand off to the supported system Wi-Fi panel.
 # Isolate each external probe in a fresh app process so a no-history probe
 # activity cannot absorb a later command as a stale top-instance delivery.
 grep -q 'Settings.Panel.ACTION_WIFI' src/com/painless/pc/tracker/WifiStateTracker.java
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe wifi > "$OUT/state/wifi-launch.txt"
 sleep 2
 capture "01-fidelity-wifi-panel"
@@ -77,9 +77,9 @@ sleep 1
 # adapter enable/disable. Source proves consent intent; runtime proves settings fallback.
 grep -q 'ACTION_REQUEST_ENABLE' src/com/painless/pc/tracker/BluetoothTracker.java
 grep -q 'ACTION_BLUETOOTH_SETTINGS' src/com/painless/pc/tracker/BluetoothTracker.java
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb logcat -c
-adb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \
   --es probe bluetooth_disable > "$OUT/state/bluetooth-launch.txt"
 sleep 2
 capture "02-fidelity-bluetooth-settings"
@@ -105,8 +105,8 @@ F2 Bluetooth consent/settings fallback + rendered settings: PASS
 F3 WiMAX retired from modern picker with historical ID preserved: PASS
 EOF
 
-adb shell dumpsys package com.painless.pc > "$OUT/state/package-final.txt"
-adb shell pm list packages -f | grep 'com.painless.pc' > "$OUT/state/package-installed.txt"
+adb shell dumpsys package com.ramybaheeg.togglebay > "$OUT/state/package-final.txt"
+adb shell pm list packages -f | grep 'com.ramybaheeg.togglebay' > "$OUT/state/package-installed.txt"
 find "$OUT/screens" -maxdepth 1 -type f -name '*.png' -printf '%f\n' | sort > "$OUT/screenshot-index.txt"
 cat "$OUT/state/fidelity-summary.txt"
 echo "Gate 2A fidelity QA complete"

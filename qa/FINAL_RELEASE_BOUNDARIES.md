@@ -17,7 +17,7 @@ Purpose: preserve the exact remaining boundary between the current pre-identity 
 
 Current repository values are historical/pre-identity values, not a silent final-identity decision:
 
-- application/package ID: `com.painless.pc`
+- application/package ID: `com.ramybaheeg.togglebay`
 - Gradle version name: `6.0.4-gate2a`
 - manifest version name: `6.0.4`
 - app label/icon: current historical Power Toggles resources

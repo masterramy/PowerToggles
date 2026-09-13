@@ -204,9 +204,9 @@ publication_dump_ui_retry() {
   return 1
 }
 
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1004 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1004 \
   > runtime-evidence/state/publication-label-audit-start.txt 2>&1
 sleep 2
 adb shell input tap 850 312
@@ -242,9 +242,9 @@ fi
 # Exhaustively inventory the real new-toggle picker. This is deliberately QA-only:
 # stable historical tracker IDs remain untouched, while the customer-facing picker
 # must expose every intended surviving control and none of the retired/root-era set.
-adb shell am force-stop com.painless.pc
+adb shell am force-stop com.ramybaheeg.togglebay
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-  -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1005 \
+  -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1005 \
   > runtime-evidence/state/publication-picker-inventory-start.txt 2>&1
 sleep 2
 adb shell input tap 850 312

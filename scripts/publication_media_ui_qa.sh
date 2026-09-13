@@ -3,7 +3,7 @@ set -euo pipefail
 
 OUT="runtime-evidence/media-ui"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs" "$OUT/ui"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.Gate2aProbeActivity"
 
 capture_state() {

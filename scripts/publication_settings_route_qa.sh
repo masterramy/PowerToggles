@@ -9,8 +9,8 @@ capture_route() {
   local slug="$2"
 
   adb logcat -c || true
-  adb shell am force-stop com.painless.pc
-  adb shell am start -W -n com.painless.pc/.tracker.Gate2aProbeActivity --es probe "$probe" \
+  adb shell am force-stop com.ramybaheeg.togglebay
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity --es probe "$probe" \
     > "$OUT/state/${slug}-start.txt" 2>&1
   sleep 2
 

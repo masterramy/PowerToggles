@@ -3,7 +3,7 @@ set -euo pipefail
 
 OUT="runtime-evidence/rotation-setting"
 mkdir -p "$OUT/state" "$OUT/logs"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.PublicationCompatProbeActivity"
 
 run_probe() {

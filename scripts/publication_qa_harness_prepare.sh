@@ -48,22 +48,22 @@ for name in ('scripts/gate2a_fidelity_qa.sh','scripts/gate2a_runtime_qa.sh'):
         raise SystemExit(f'{name}: unexpected ACTION_REQUEST_ENABLE shape')
     modern = "grep -q 'ACTION_BLUETOOTH_SETTINGS' src/com/painless/pc/tracker/BluetoothTracker.java"
     if modern not in p.read_text():
-        marker = "adb logcat -c\nadb shell am start -W -n com.painless.pc/com.painless.pc.tracker.Gate2aProbeActivity \\\n  --es probe bluetooth_disable"
+        marker = "adb logcat -c\nadb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity \\\n  --es probe bluetooth_disable"
         replace_once(name, marker, modern + "\n" + marker, 'modern Bluetooth settings-source assertion')
 
 # 3) Preserve the import/export fixture write inside run-as.
 replace_once(
     'scripts/publication_import_export_qa.sh',
-    "cat \"$OUT/state/widget-prefs-mutated.xml\" | adb shell run-as com.painless.pc sh -c 'cat > shared_prefs/widget_preference.xml'",
-    "adb shell \"run-as com.painless.pc sh -c 'cat > shared_prefs/widget_preference.xml'\" < \"$OUT/state/widget-prefs-mutated.xml\"",
+    "cat \"$OUT/state/widget-prefs-mutated.xml\" | adb shell run-as com.ramybaheeg.togglebay sh -c 'cat > shared_prefs/widget_preference.xml'",
+    "adb shell \"run-as com.ramybaheeg.togglebay sh -c 'cat > shared_prefs/widget_preference.xml'\" < \"$OUT/state/widget-prefs-mutated.xml\"",
     'run-as mutation redirect repaired')
 
 # 4) Replace the fake initial widget ID with a genuine framework-bound widget.
 old_launch = r'''launch_config() {
-  adb shell am force-stop com.painless.pc
+  adb shell am force-stop com.ramybaheeg.togglebay
   adb logcat -c
   adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-    -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1099 \
+    -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId 1099 \
     > "$OUT/state/config-start.txt" 2>&1
   sleep 2
   capture "00-config"
@@ -74,20 +74,20 @@ new_launch = r'''launch_config() {
   case "$INITIAL_USER_ID" in
     ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $INITIAL_USER_ID" >&2; return 1 ;;
   esac
-  adb shell appwidget grantbind --package com.painless.pc --user "$INITIAL_USER_ID" > "$OUT/state/initial-grantbind.txt"
-  adb shell am force-stop com.painless.pc
+  adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$INITIAL_USER_ID" > "$OUT/state/initial-grantbind.txt"
+  adb shell am force-stop com.ramybaheeg.togglebay
   adb logcat -c
-  adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+  adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
     --es probe allocate_bind > "$OUT/state/initial-allocate-bind.txt"
   sleep 1
-  adb shell run-as com.painless.pc cat shared_prefs/publication_widget_host_probe.xml > "$OUT/state/initial-probe-prefs.xml"
+  adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml > "$OUT/state/initial-probe-prefs.xml"
   INITIAL_WIDGET_ID="$(python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); print(next(n.attrib["value"] for n in r if n.attrib.get("name")=="widget_id"))' "$OUT/state/initial-probe-prefs.xml")"
   test "$INITIAL_WIDGET_ID" -gt 0
   grep -Eq 'name="bound" value="true"|value="true" name="bound"' "$OUT/state/initial-probe-prefs.xml"
   grep -Eq 'name="provider_info_present" value="true"|value="true" name="provider_info_present"' "$OUT/state/initial-probe-prefs.xml"
-  adb shell am force-stop com.painless.pc
+  adb shell am force-stop com.ramybaheeg.togglebay
   adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
-    -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId "$INITIAL_WIDGET_ID" \
+    -n com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity --ei appWidgetId "$INITIAL_WIDGET_ID" \
     > "$OUT/state/config-start.txt" 2>&1
   sleep 2
   capture "00-config"
@@ -96,12 +96,12 @@ new_launch = r'''launch_config() {
 replace_once('scripts/publication_import_export_qa.sh', old_launch, new_launch,
              'synthetic initial widget replaced by genuine bound widget')
 cleanup_anchor = r'''capture "06-restore-cancel-return"
-grep -Fq 'package="com.painless.pc"' "$OUT/ui/06-restore-cancel-return.xml"
+grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/06-restore-cancel-return.xml"
 '''
-cleanup_new = cleanup_anchor + r'''adb shell am force-stop com.painless.pc >/dev/null 2>&1 || true
-adb shell am start -W -n com.painless.pc/.tracker.PublicationWidgetHostProbeActivity \
+cleanup_new = cleanup_anchor + r'''adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
   --es probe delete --ei widget_id "$INITIAL_WIDGET_ID" > "$OUT/state/initial-widget-delete.txt"
-adb shell appwidget revokebind --package com.painless.pc --user "$INITIAL_USER_ID" >/dev/null 2>&1 || true
+adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$INITIAL_USER_ID" >/dev/null 2>&1 || true
 '''
 replace_once('scripts/publication_import_export_qa.sh', cleanup_anchor, cleanup_new,
              'initial genuine widget cleanup')
@@ -109,13 +109,13 @@ replace_once('scripts/publication_import_export_qa.sh', cleanup_anchor, cleanup_
 # 5) Tracker 33 reopens an existing widget in EditWidgetConfigActivity.
 replace_once(
     'scripts/publication_widget_settings_qa.sh',
-    "grep -q 'com.painless.pc/.cfg.WidgetConfigActivity' runtime-evidence/state/31-widget-settings-genuine-reopen.activities.txt",
-    "grep -q 'com.painless.pc/.cfg.EditWidgetConfigActivity' runtime-evidence/state/31-widget-settings-genuine-reopen.activities.txt",
+    "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity' runtime-evidence/state/31-widget-settings-genuine-reopen.activities.txt",
+    "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.EditWidgetConfigActivity' runtime-evidence/state/31-widget-settings-genuine-reopen.activities.txt",
     'ID33 widget-settings reopen assertion repaired')
 replace_once(
     'scripts/publication_import_export_qa.sh',
-    "grep -q 'com.painless.pc/.cfg.WidgetConfigActivity' \"$OUT/state/12-roundtrip-reopen.activities.txt\"",
-    "grep -q 'com.painless.pc/.cfg.EditWidgetConfigActivity' \"$OUT/state/12-roundtrip-reopen.activities.txt\"",
+    "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity' \"$OUT/state/12-roundtrip-reopen.activities.txt\"",
+    "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.EditWidgetConfigActivity' \"$OUT/state/12-roundtrip-reopen.activities.txt\"",
     'import/export ID33 reopen assertion repaired')
 
 # 6) Synthetic appWidgetId 1001 is deliberately rejected by shipping code on API 36.
@@ -159,7 +159,7 @@ fi
 sleep 2
 adb shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
 sleep 1
-adb exec-out run-as com.painless.pc cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
+adb exec-out run-as com.ramybaheeg.togglebay cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
 test -s "$OUT/state/customer-share-created-folder.pcf"
 unzip -t "$OUT/state/customer-share-created-folder.pcf" | tee "$OUT/state/customer-share-created-unzip-test.txt"
 # `am` only propagates a URI grant for data/ClipData, not merely EXTRA_STREAM.

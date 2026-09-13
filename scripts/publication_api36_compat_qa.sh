@@ -3,7 +3,7 @@ set -u
 
 OUT="runtime-evidence/api36-compat"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs" "$OUT/ui"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.PublicationCompatProbeActivity"
 fail=0
 screen_on_result="UNKNOWN"

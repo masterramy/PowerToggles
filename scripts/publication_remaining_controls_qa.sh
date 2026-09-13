@@ -3,7 +3,7 @@ set -u
 
 OUT="runtime-evidence/remaining-controls"
 mkdir -p "$OUT/screens" "$OUT/state" "$OUT/logs" "$OUT/ui"
-PKG="com.painless.pc"
+PKG="com.ramybaheeg.togglebay"
 PROBE="$PKG/.tracker.PublicationRemainingProbeActivity"
 ADMIN="$PKG/.LockAdmin"
 fail=0
