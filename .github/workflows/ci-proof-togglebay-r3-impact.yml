@@ -1,0 +1,143 @@
+name: Frozen ToggleBay r3 Export Impact Proof
+
+on:
+  push:
+    branches: [ ci-proof-togglebay-r3-impact-20260912 ]
+
+jobs:
+  impact-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact Q4-r3 candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: 25b564011204fc03092492e3677105a0942b8e62
+          fetch-depth: 1
+
+      - name: Verify exact frozen candidate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "25b564011204fc03092492e3677105a0942b8e62"
+          test "$(git rev-parse 'HEAD^{tree}')" = "82a69df8b674a04d16ac3fb003161ccf7ea6b022"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD | tee impact-candidate-head.txt
+          git rev-parse 'HEAD^{tree}' | tee impact-candidate-tree.txt
+          bash scripts/publication_backup_privacy_static_qa.sh
+          grep -Fq '"togglebay-widget" + fileExtension' src/com/painless/pc/util/ImportExportActivity.java
+          grep -Fq 'DEFAULT_THEME_NAME = "togglebay-theme" + THEME_EXTENSION' src/com/painless/pc/cfg/WidgetConfigActivity.java
+          ! grep -RInEi 'power-toggles-(backup|theme)' src
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36 dependencies
+        shell: bash
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build exact Q4-r3 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace clean assembleDebug
+          APK="$(find build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee impact-apk-badging.txt
+          grep -q "package: name='com.ramybaheeg.togglebay' versionCode='1' versionName='1.0.0'" impact-apk-badging.txt
+          sha256sum "$APK" | tee impact-build-sha256.txt
+          unzip -p "$APK" classes.dex | strings > impact-dex-strings.txt
+          grep -Fq 'togglebay-widget' impact-dex-strings.txt
+          grep -Fq 'togglebay-theme' impact-dex-strings.txt
+          ! grep -Eq 'power-toggles-(backup|theme)' impact-dex-strings.txt
+
+      - name: Create and boot clean API 36 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/togglebay-r3-avd"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/togglebay-r3-android-user"
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME" >> "$GITHUB_ENV"
+          echo no | avdmanager create avd --force --name togglebay_r3_api36 --package "system-images;android-36;google_apis;x86_64" --device pixel_6
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd togglebay_r3_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > impact-emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" >> "$GITHUB_ENV"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then cat impact-emulator.log; exit 1; fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then adb devices -l; exit 0; fi
+            sleep 2
+          done
+          cat impact-emulator.log
+          exit 1
+
+      - name: Install exact candidate and prepare QA fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb install -r "$APK"
+          adb shell pm path com.ramybaheeg.togglebay | tee impact-package-path.txt
+          grep -q '^package:' impact-package-path.txt
+          if adb shell pm path com.painless.pc | grep -q '^package:'; then exit 1; fi
+          bash scripts/publication_qa_harness_prepare.sh
+
+      - name: Prove real backup and restore customer path
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/publication_import_export_qa.sh
+          grep -Fq 'backup_destination=PASS_SAF_DOCUMENT_CREATE' runtime-evidence/import-export/summary.txt
+          grep -Fq 'restore_source=PASS_SAF_DOCUMENT_OPEN' runtime-evidence/import-export/summary.txt
+          grep -Fq 'actual_backup_file=PASS_NONEMPTY_VALID_ZIP' runtime-evidence/import-export/summary.txt
+          grep -Fq 'backup_config_integrity=PASS' runtime-evidence/import-export/summary.txt
+          grep -Fq 'restore_data_integrity=PASS' runtime-evidence/import-export/summary.txt
+          grep -Fq 'restore_process_persistence=PASS' runtime-evidence/import-export/summary.txt
+          grep -Fq 'text="togglebay-widget.zip"' runtime-evidence/import-export/ui/02-backup-destination.xml
+          grep -Fq 'text="togglebay-widget.zip"' runtime-evidence/import-export/ui/14-roundtrip-create-document.xml
+          ! grep -RInEi 'power-toggles-(backup|theme)' runtime-evidence/import-export/ui
+
+      - name: Verify frozen shipping-source immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p impact-state
+          git diff --name-only > impact-state/tracked-dirty-files.txt
+          if grep -E '^(src/|res/|release-identity/|AndroidManifest\.xml$|build\.gradle$)' impact-state/tracked-dirty-files.txt | tee impact-state/shipping-source-drift.txt | grep -q .; then
+            echo 'Shipping source drifted during impact proof' >&2
+            exit 1
+          fi
+          : > impact-state/shipping-source-drift.txt
+          git rev-parse HEAD > impact-state/final-head.txt
+          git rev-parse 'HEAD^{tree}' > impact-state/final-tree.txt
+          test "$(cat impact-state/final-head.txt)" = "25b564011204fc03092492e3677105a0942b8e62"
+          test "$(cat impact-state/final-tree.txt)" = "82a69df8b674a04d16ac3fb003161ccf7ea6b022"
+
+      - name: Upload r3 impact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: togglebay-r3-export-impact-25b56401
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            impact-candidate-head.txt
+            impact-candidate-tree.txt
+            impact-apk-badging.txt
+            impact-build-sha256.txt
+            impact-dex-strings.txt
+            impact-package-path.txt
+            impact-emulator.log
+            impact-state/
+            runtime-evidence/import-export/
