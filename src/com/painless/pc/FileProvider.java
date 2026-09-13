@@ -27,7 +27,7 @@ import java.util.UUID;
  */
 public class FileProvider extends ContentProvider {
 
-  private static final String AUTHORITY = "com.painless.pc.file";
+  private static final String AUTHORITY = "app.sufficient.togglebay.file";
   public static final String FOLDER_SHARE_URI = "content://" + AUTHORITY + "/folder-share";
   public static final String WIDGET_SHARE_URI = "content://" + AUTHORITY + "/widget-share";
   public static final String CROP_URI = "content://" + AUTHORITY + "/crop";
@@ -104,6 +104,11 @@ public class FileProvider extends ContentProvider {
   }
 
   @Override
+  public int update(Uri uri, ContentValues values, String[] selectionArgs) {
+    return 0;
+  }
+
+  @Override
   public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
     return 0;
   }
@@ -125,10 +130,6 @@ public class FileProvider extends ContentProvider {
       enforceReadGrant(uri, "widget share");
       result = widgetShareFile(getContext());
     } else if (isWidgetBackUri(uri)) {
-      // RemoteViews image URIs are dereferenced by the launcher/SystemUI process.
-      // AppWidgetService validates that *this app* can access the URI but does not
-      // automatically grant that URI to every host. Keep this route exported/read-only,
-      // while requiring an unguessable per-widget capability for all new external reads.
       if (!"r".equals(mode)) {
         throw new FileNotFoundException("Widget background is read-only");
       }
@@ -146,10 +147,6 @@ public class FileProvider extends ContentProvider {
           throw new FileNotFoundException("App crop result is read-only");
         }
       } else {
-        // The selected crop activity receives an exact temporary READ grant to this
-        // app-owned output URI via ClipData. Treat that grant as the capability token
-        // for a write-only crop result, avoiding a broad WRITE grant that would also
-        // propagate to the user's source image in Intent data.
         if (!("w".equals(mode) || "wt".equals(mode))) {
           throw new FileNotFoundException("External crop output is write-only");
         }
@@ -176,7 +173,6 @@ public class FileProvider extends ContentProvider {
     int callerUid = Binder.getCallingUid();
     List<String> segments = uri.getPathSegments();
 
-    // New capability URI: /back/<widgetId>/<unguessable-token>
     if (segments != null && segments.size() == 3 && BACK_PATH_SEGMENT.equals(segments.get(0))) {
       try {
         int widgetId = Integer.parseInt(segments.get(1));
@@ -193,10 +189,6 @@ public class FileProvider extends ContentProvider {
       }
     }
 
-    // Same-UID compatibility for historical internal URIs of the form /back/?<id>.
-    // During an app upgrade a launcher may briefly retain an already-rendered old
-    // RemoteViews. Permit only the currently resolved HOME host (or Android system UID)
-    // to consume that legacy URI until the next widget update publishes a capability URI.
     if (segments != null && segments.size() == 1 && BACK_PATH_SEGMENT.equals(segments.get(0))) {
       if (callerUid != Process.myUid() && callerUid != Process.SYSTEM_UID && !isCurrentHomeUid(context, callerUid)) {
         throw new SecurityException("Legacy widget background access denied");
@@ -244,9 +236,6 @@ public class FileProvider extends ContentProvider {
     }
   }
 
-  /**
-   * Copied from ContentResolver.java
-   */
   private static int modeToMode(String mode) {
       int modeBits;
       if ("r".equals(mode)) {
@@ -288,7 +277,6 @@ public class FileProvider extends ContentProvider {
     return new File(context.getFilesDir(), backFileName(widgetId));
   }
 
-  /** Returns the launcher-facing capability URI for a widget background image. */
   public static Uri widgetBackUri(Context context, int widgetId) {
     File backFile = widgetBackFile(context, widgetId);
     return new Uri.Builder()
