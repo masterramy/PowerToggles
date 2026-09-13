@@ -36,9 +36,21 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Install Android API 36 dependencies
+      - name: Install Android API 36 dependencies with retry
         shell: bash
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64"
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator"
+          for attempt in 1 2 3; do
+            echo "API36 system image install attempt $attempt"
+            if sdkmanager "system-images;android-36;google_apis;x86_64"; then
+              exit 0
+            fi
+            rm -rf "$ANDROID_HOME/system-images/android-36/google_apis/x86_64" "$HOME/.android/cache" || true
+            sleep $((attempt * 5))
+          done
+          echo 'API36 system image failed after 3 attempts' >&2
+          exit 1
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -55,7 +67,8 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee impact-apk-badging.txt
           grep -q "package: name='com.ramybaheeg.togglebay' versionCode='1' versionName='1.0.0'" impact-apk-badging.txt
           sha256sum "$APK" | tee impact-build-sha256.txt
-          unzip -p "$APK" classes.dex | strings > impact-dex-strings.txt
+          : > impact-dex-strings.txt
+          while IFS= read -r dex; do unzip -p "$APK" "$dex" | strings >> impact-dex-strings.txt; done < <(unzip -Z1 "$APK" 'classes*.dex')
           grep -Fq 'togglebay-widget' impact-dex-strings.txt
           grep -Fq 'togglebay-theme' impact-dex-strings.txt
           ! grep -Eq 'power-toggles-(backup|theme)' impact-dex-strings.txt
