@@ -10,11 +10,13 @@ fail() {
   exit 1
 }
 
-# AppWidgetManager delivers provider lifecycle broadcasts explicitly. The provider
-# no longer has a supported cross-app custom IPC surface, so it must stay
-# non-exported rather than allowing arbitrary apps to force redraw work.
-grep -Fq '<receiver android:name=".PCWidgetActivity" android:exported="false"' "$MANIFEST" \
-  || fail "AppWidget provider is externally exported"
+# Android's AppWidget host/service discovers the provider through this receiver.
+# A non-exported receiver is still visible to package-manager queries but is not
+# registered by AppWidgetService as a bindable provider on current Android, which
+# leaves real widget hosts unable to bind it. Keep only the framework widget
+# action here and export the provider as required by the AppWidget contract.
+grep -Fq '<receiver android:name=".PCWidgetActivity" android:exported="true"' "$MANIFEST" \
+  || fail "AppWidget provider is not exported for framework host binding"
 grep -Fq '<action android:name="android.appwidget.action.APPWIDGET_UPDATE" />' "$MANIFEST" \
   || fail "AppWidget update filter missing"
 grep -Fq 'android:name="android.appwidget.provider" android:resource="@xml/widgetprovider"' "$MANIFEST" \
@@ -30,4 +32,4 @@ grep -Fq 'private static final String BUZZPIA_ACTION = "com.buzzpia.aqua.appwidg
 grep -Fq 'action.startsWith(BUZZPIA_ACTION)' "$PROVIDER" \
   || fail "Retired Buzzpia actions are not denied"
 
-echo "PASS: AppWidget provider remains framework-only and non-exported"
+echo "PASS: AppWidget provider is framework-bindable with retired custom IPC denied"
