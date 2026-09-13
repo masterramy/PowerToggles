@@ -147,6 +147,9 @@ adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$PUBLI
     # Android's compact sharesheet can hide a newly installed QA target behind
     # "See all". Expand it through the rendered customer chooser before selecting
     # the external consumer so the URI grant originates from ToggleBay itself.
+    # publication_qa_harness_prepare.sh runs before this translator and may already
+    # have replaced the original chooser block with its deterministic system-target
+    # proof. Support both shapes and fail closed on any third/unexpected shape.
     if name == 'scripts/publication_folder_backup_share_qa.sh':
         share_anchor = '''adb logcat -c
 tap_node "02-share-source" "Share"
@@ -176,9 +179,61 @@ if ! adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1; 
   fi
 fi
 '''
-        if share_anchor not in text:
+        prepared_positive_anchor = '''# `am` only propagates a URI grant for data/ClipData, not merely EXTRA_STREAM.
+# Shipping ACTION_SEND uses ClipData; attach the same URI as data here so the
+# controlled external consumer receives a real Android URI permission grant.
+adb shell am start -W -a android.intent.action.SEND -t application/zip \\
+  -d "$SHARE_URI" -f 0x1 -n "$CONSUMER_PKG/.ShareReceiverActivity" \\
+  --eu android.intent.extra.STREAM "$SHARE_URI" > "$OUT/state/share-positive-start.txt" 2>&1
+sleep 1
+adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\\.ramybaheeg\\.togglebay\\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+'''
+        prepared_positive_replacement = '''# Prove the positive grant through ToggleBay's rendered customer chooser. The
+# preceding deterministic system-target proof returns with BACK; tolerate one
+# additional nested system surface before requiring the Folder action mode again.
+if ! wait_for_node "02-share-return-wait" "Share" 3; then
+  adb shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 1
+fi
+if ! wait_for_node "02-share-return-wait-retry" "Share" 5; then
+  echo "Folder Share action did not return after system-target archive proof" >&2
+  exit 1
+fi
+adb logcat -c
+tap_node "02-share-consumer-source" "Share"
+sleep 2
+if ! wait_for_node "02-share-consumer-wait" "QA Folder Share Consumer" 3; then
+  if wait_for_node "02-share-see-all-wait" "See all" 3; then
+    tap_node "02-share-see-all-source" "See all"
+    sleep 2
+  else
+    echo "QA Folder Share Consumer and See all were both absent from the rendered chooser" >&2
+    exit 1
+  fi
+fi
+if ! wait_for_node "02-share-consumer-expanded-wait" "QA Folder Share Consumer" 8; then
+  echo "QA Folder Share Consumer did not render after chooser expansion" >&2
+  exit 1
+fi
+capture "02-share-consumer-target-list"
+tap_node "02-share-consumer-target-source" "QA Folder Share Consumer"
+for attempt in $(seq 1 10); do
+  adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1 && break
+  sleep 1
+done
+adb shell run-as "$CONSUMER_PKG" test -s files/result.txt
+adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\\.ramybaheeg\\.togglebay\\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+'''
+        if prepared_positive_anchor in text:
+            text = text.replace(prepared_positive_anchor, prepared_positive_replacement, 1)
+        elif share_anchor in text:
+            text = text.replace(share_anchor, share_replacement, 1)
+        elif '02-share-consumer-expanded-wait' in text:
+            print(f'{name}: folder sharesheet already normalized')
+        else:
             raise SystemExit(f'{name}: folder sharesheet anchor missing')
-        text = text.replace(share_anchor, share_replacement, 1)
 
     # The inherited Gate 2A runtime probe used synthetic AppWidget IDs for its
     # configurator/picker interaction slice. Shipping code now correctly rejects
