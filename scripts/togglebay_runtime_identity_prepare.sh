@@ -37,12 +37,21 @@ for name in runtime_scripts:
     text = text.replace('com.painless.pc', 'com.ramybaheeg.togglebay')
 
     # Component classes intentionally remain in the restored Java namespace.
+    # Cover both literal package components and the shell-variable shorthand used by
+    # the publication probes.  A component like "$PKG/.tracker.Probe" is wrong once
+    # applicationId differs from the Java namespace: Android expands it to
+    # com.ramybaheeg.togglebay.tracker.Probe, which does not exist.  Keep the
+    # installed package on the left of '/' and the restored Java class on the right.
     text = text.replace(
         'com.ramybaheeg.togglebay/.',
         'com.ramybaheeg.togglebay/com.painless.pc.')
     text = text.replace(
         'com.ramybaheeg.togglebay/com.ramybaheeg.togglebay.',
         'com.ramybaheeg.togglebay/com.painless.pc.')
+    for package_var in ('$PKG', '${PKG}', '$PACKAGE', '${PACKAGE}', '$APP_PACKAGE', '${APP_PACKAGE}'):
+        text = text.replace(
+            package_var + '/.',
+            package_var + '/com.painless.pc.')
 
     # Runtime scripts also contain source-tree assertions. The source namespace is
     # deliberately unchanged, so restore path/package assertions after translating
@@ -51,6 +60,18 @@ for name in runtime_scripts:
     text = text.replace('qa-debug/src/com/ramybaheeg/togglebay', 'qa-debug/src/com/painless/pc')
     text = text.replace('package com.ramybaheeg.togglebay', 'package com.painless.pc')
     text = text.replace('import com.ramybaheeg.togglebay', 'import com.painless.pc')
+
+    # Fail closed if the main-app package still uses relative component shorthand.
+    # That form is only valid when applicationId and Java namespace are identical.
+    bad = [
+        'com.ramybaheeg.togglebay/.',
+        '$PKG/.', '${PKG}/.',
+        '$PACKAGE/.', '${PACKAGE}/.',
+        '$APP_PACKAGE/.', '${APP_PACKAGE}/.',
+    ]
+    leftovers = [token for token in bad if token in text]
+    if leftovers:
+        raise SystemExit(f'{name}: unresolved ToggleBay component shorthand: {leftovers}')
 
     p.write_text(text)
     print(f'{name}: ToggleBay runtime identity normalized')
