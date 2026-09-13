@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    android:versionCode="160604"
-    android:versionName="6.0.4" >
+    android:versionCode="1"
+    android:versionName="1.0.0" >
 
     <permission
-        android:name="com.painless.pc.permission.CONTROL_PLUGIN"
-        android:description="@string/ps_prem_desc"
+        android:name="app.sufficient.togglebay.permission.CONTROL_PLUGIN"
+        android:description="@string/togglebay_plugin_permission_desc"
         android:icon="@drawable/icon_toggle_plugin"
-        android:label="@string/ps_prem_label"
+        android:label="@string/togglebay_plugin_permission_label"
         android:protectionLevel="signature" />
     <permission
-        android:name="com.painless.pc.permission.READ_FOLDER_SHARE"
+        android:name="app.sufficient.togglebay.permission.READ_FOLDER_SHARE"
         android:protectionLevel="signature" />
 
     <uses-permission android:name="net.dinglisch.android.tasker.PERMISSION_RUN_TASKS" />
-    <uses-permission android:name="com.painless.pc.permission.CONTROL_PLUGIN" />
+    <uses-permission android:name="app.sufficient.togglebay.permission.CONTROL_PLUGIN" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Direct Wi-Fi control is used only through Android 9; Android 10+ is system-mediated. -->
     <uses-permission
@@ -102,7 +102,7 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@drawable/widget_icon"
+        android:icon="@drawable/togglebay_launcher"
         android:label="@string/app_name" >
         <!-- AppWidgetManager delivers the provider's framework broadcasts explicitly;
              this receiver has no supported cross-app custom IPC surface. Keep it
@@ -136,7 +136,7 @@
         </receiver>
         <provider
             android:name="FileProvider"
-            android:authorities="com.painless.pc.file"
+            android:authorities="app.sufficient.togglebay.file"
             android:exported="true"
             android:grantUriPermissions="true"
             android:multiprocess="true" >
@@ -147,14 +147,14 @@
                  only for the user-selected share recipient. -->
             <path-permission
                 android:path="/folder-share"
-                android:readPermission="com.painless.pc.permission.READ_FOLDER_SHARE" />
+                android:readPermission="app.sufficient.togglebay.permission.READ_FOLDER_SHARE" />
         </provider>
-        <receiver android:name="LockAdmin" android:description="@string/admin_desc" android:exported="true" android:label="@string/admin_label" android:permission="android.permission.BIND_DEVICE_ADMIN" >
+        <receiver android:name="LockAdmin" android:description="@string/admin_desc" android:exported="true" android:label="@string/togglebay_admin_label" android:permission="android.permission.BIND_DEVICE_ADMIN" >
             <meta-data android:name="android.app.device_admin" android:resource="@xml/lock_admin" />
             <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
         </receiver>
 
-        <activity android:name=".settings.LaunchActivity" android:exported="true" android:icon="@drawable/widget_icon" android:label="@string/app_name" android:theme="@style/activityTheme" >
+        <activity android:name=".settings.LaunchActivity" android:exported="true" android:icon="@drawable/togglebay_launcher" android:label="@string/app_name" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
         <activity-alias android:name=".NotificationSettings" android:clearTaskOnLaunch="true" android:exported="true" android:targetActivity=".settings.LaunchActivity" >
@@ -203,10 +203,10 @@
             <intent-filter><action android:name="net.dinglisch.android.tasker.ACTION_TASK_COMPLETE" /><data android:scheme="task" /></intent-filter>
             <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING" /><action android:name="com.painless.pc.ACTION_STATE_CHANGED" /></intent-filter>
         </receiver>
-        <activity android:name=".settings.TaskerToggleSetup" android:exported="true" android:icon="@drawable/widget_icon" android:label="@string/ps_tasker_setup" android:theme="@style/activityTheme" >
+        <activity android:name=".settings.TaskerToggleSetup" android:exported="true" android:icon="@drawable/togglebay_launcher" android:label="@string/ps_tasker_setup" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.EDIT_SETTING" /></intent-filter>
         </activity>
-        <activity android:name=".settings.TaskerRefresh" android:exported="true" android:icon="@drawable/widget_icon" android:label="@string/ps_refresh" android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+        <activity android:name=".settings.TaskerRefresh" android:exported="true" android:icon="@drawable/togglebay_launcher" android:label="@string/togglebay_tasker_refresh" android:theme="@android:style/Theme.Translucent.NoTitleBar" >
             <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.EDIT_SETTING" /></intent-filter>
         </activity>
     </application>
