@@ -2,6 +2,9 @@ name: Q1 ToggleBay Integration
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - togglebay-q3-integration-20260912
 
 jobs:
   q1:
@@ -35,11 +38,10 @@ jobs:
           echo '== all SIGNAURE_PERMISSION references =='
           grep -RIn 'SIGNAURE_PERMISSION' src || true
           echo '== legacy customer-visible branding candidates =='
-          grep -RInE 'Power[[:space:]]*Toggles|PowerToggle|PowerToggles' res release-identity README.md || true
-          echo '== branded main-resource name matrix =='
-          grep -RInE 'Power[[:space:]]*Toggles|PowerToggle|PowerToggles' res \
-            | sed -n 's#^\([^:]*\):[0-9]*:.*<string name="\([^"]*\)".*#\1\t\2#p' \
-            | sort -u || true
+          grep -RInEi 'Power[[:space:]]*Toggles|Power[[:space:]]*Toggle|Power[[:space:]]*Toogle' res release-identity README.md || true
+          echo '== package-dependent QA/script references =='
+          grep -RInE 'com\.painless\.pc|content://com\.painless\.pc' qa scripts > q1-package-couplings.txt || true
+          cat q1-package-couplings.txt
 
       - name: Build debug and release
         shell: bash
@@ -71,6 +73,36 @@ jobs:
           ! grep -q 'android:authorities="com.painless.pc.file"' "$DEBUG_MANIFEST"
           ! grep -q 'android:authorities="com.painless.pc.file"' "$RELEASE_MANIFEST"
 
+      - name: Fail closed on packaged legacy customer branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find build/outputs/apk/debug -type f -name '*.apk' | head -1)"
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)"
+          echo "APK=$APK"
+          echo "AAPT2=$AAPT2"
+          test -f "$APK"
+          test -x "$AAPT2"
+          "$AAPT2" dump resources "$APK" > q1-packaged-resources.txt
+          if ! awk '
+            /^resource .* string\// { name=$3 }
+            {
+              low=tolower($0)
+              if (low ~ /power[[:space:]]*toggles/ || low ~ /power[[:space:]]*toggle/ || low ~ /power[[:space:]]*toogle/) {
+                if (name !~ /string\/stat_open_source_summary$/ && name !~ /string\/stat_license_summary$/) {
+                  print name ": " $0
+                  bad=1
+                }
+              }
+            }
+            END { exit bad ? 1 : 0 }
+          ' q1-packaged-resources.txt > q1-unexpected-legacy-brand.txt; then
+            echo 'Unexpected packaged historical branding:'
+            cat q1-unexpected-legacy-brand.txt
+            exit 1
+          fi
+          echo 'Packaged customer-brand leak gate: PASS'
+
       - name: Package Q1 evidence
         if: always()
         shell: bash
@@ -81,6 +113,7 @@ jobs:
           git rev-parse HEAD^{tree} > q1-evidence/tree.txt
           git status --short > q1-evidence/git-status.txt
           cp build.gradle AndroidManifest.xml README.md q1-evidence/ 2>/dev/null || true
+          cp q1-package-couplings.txt q1-packaged-resources.txt q1-unexpected-legacy-brand.txt q1-evidence/ 2>/dev/null || true
           if [ -d build/intermediates ]; then
             find build/intermediates \( -path '*merged_manifest*AndroidManifest.xml' -o -path '*merged_manifests*debug*AndroidManifest.xml' \) \
               | while read -r f; do cp "$f" "q1-evidence/$(echo "$f" | tr '/' '_')" || true; done
