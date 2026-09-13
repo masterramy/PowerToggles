@@ -27,7 +27,7 @@ import java.util.UUID;
  */
 public class FileProvider extends ContentProvider {
 
-  private static final String AUTHORITY = "app.sufficient.togglebay.file";
+  private static final String AUTHORITY = "com.ramybaheeg.togglebay.file";
   public static final String FOLDER_SHARE_URI = "content://" + AUTHORITY + "/folder-share";
   public static final String WIDGET_SHARE_URI = "content://" + AUTHORITY + "/widget-share";
   public static final String CROP_URI = "content://" + AUTHORITY + "/crop";
