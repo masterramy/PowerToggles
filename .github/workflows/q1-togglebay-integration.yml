@@ -1,6 +1,9 @@
 name: Q1 ToggleBay Integration
 
 on:
+  push:
+    branches:
+      - togglebay-q3-integration-20260912
   workflow_dispatch:
 
 jobs:
@@ -62,10 +65,14 @@ jobs:
           grep -n 'package="com.ramybaheeg.togglebay"' "$RELEASE_MANIFEST"
           grep -n 'com.ramybaheeg.togglebay.file' "$DEBUG_MANIFEST"
           grep -n 'com.ramybaheeg.togglebay.file' "$RELEASE_MANIFEST"
+          grep -n 'com.painless.pc.togglebay.FileProvider' "$DEBUG_MANIFEST"
+          grep -n 'com.painless.pc.togglebay.FileProvider' "$RELEASE_MANIFEST"
+          grep -n 'com.painless.pc.togglebay.PluginUpdateReceiver' "$DEBUG_MANIFEST"
+          grep -n 'com.painless.pc.togglebay.PluginUpdateReceiver' "$RELEASE_MANIFEST"
           grep -n 'com.painless.pc.settings.LaunchActivity' "$DEBUG_MANIFEST"
           grep -n 'com.painless.pc.settings.LaunchActivity' "$RELEASE_MANIFEST"
-          ! grep -q 'com.painless.pc.file' "$DEBUG_MANIFEST"
-          ! grep -q 'com.painless.pc.file' "$RELEASE_MANIFEST"
+          ! grep -q 'android:authorities="com.painless.pc.file"' "$DEBUG_MANIFEST"
+          ! grep -q 'android:authorities="com.painless.pc.file"' "$RELEASE_MANIFEST"
 
       - name: Package Q1 evidence
         if: always()
@@ -78,7 +85,7 @@ jobs:
           git status --short > q1-evidence/git-status.txt
           cp build.gradle AndroidManifest.xml README.md q1-evidence/ 2>/dev/null || true
           if [ -d build/intermediates ]; then
-            find build/intermediates \( -path '*merged_manifest*AndroidManifest.xml' -o -path '*merged_manifests*AndroidManifest.xml' \) \
+            find build/intermediates \( -path '*merged_manifest*AndroidManifest.xml' -o -path '*merged_manifests*debug*AndroidManifest.xml' \) \
               | while read -r f; do cp "$f" "q1-evidence/$(echo "$f" | tr '/' '_')" || true; done
           fi
 
