@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">ToggleBay Bildschirmsperre</string>
+    <string name="wp_add_help">Um ein Widget hinzuzufügen, öffnen Sie den App-Drawer, suchen im Widget-Reiter nach den ToggleBay-Widgets. Drücken Sie lange auf die Widget-Vorschau und lassen Sie es am Bildschirm fallen.</string>
+    <string name="ps_prem_label">ToggleBay-Plugins verwenden</string>
+    <string name="ps_prem_desc">Kann ToggleBay-Plugins durch ein- oder ausschalten steuern</string>
+    <string name="ps_refresh">ToggleBay aktualisieren</string>
+</resources>
