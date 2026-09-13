@@ -43,8 +43,12 @@ android {
             manifest.srcFile 'AndroidManifest.xml'
         }
         debug {
+            res.srcDirs = ['release-identity/res']
             java.srcDirs = ['qa-debug/src']
             manifest.srcFile 'qa-debug/AndroidManifest.xml'
+        }
+        release {
+            res.srcDirs = ['release-identity/res']
         }
     }
     lintOptions {
