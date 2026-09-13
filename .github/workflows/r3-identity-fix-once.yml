@@ -1,0 +1,71 @@
+name: ToggleBay r3 identity fix once
+
+on:
+  push:
+    branches:
+      - togglebay-q3-integration-20260912
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'ci: stage one-shot ToggleBay r3 filename correction'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: togglebay-q3-integration-20260912
+          fetch-depth: 0
+      - name: Verify base and apply exact r3 correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "fe4f6ef19a08f9c79fdc2f626bac0f3b8d6635fa"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/r3-identity-fix-once.yml"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('src/com/painless/pc/util/ImportExportActivity.java'): [
+                  ('"power-toggles-backup" + fileExtension', '"togglebay-widget" + fileExtension'),
+              ],
+              Path('src/com/painless/pc/cfg/WidgetConfigActivity.java'): [
+                  ('private static final String DEFAULT_THEME_NAME = "power-toggles-theme" + THEME_EXTENSION;',
+                   'private static final String DEFAULT_THEME_NAME = "togglebay-theme" + THEME_EXTENSION;'),
+              ],
+          }
+          for path, pairs in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if text.count(old) != 1:
+                      raise SystemExit(f'{path}: expected exactly one preimage for {old!r}, found {text.count(old)}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+
+          q1 = Path('.github/workflows/q1-togglebay-integration.yml')
+          text = q1.read_text(encoding='utf-8')
+          old = "low ~ /power[[:space:]]*toggles/ || low ~ /power[[:space:]]*toggle/ || low ~ /power[[:space:]]*toogle/"
+          new = "low ~ /power[[:space:]-]*toggles/ || low ~ /power[[:space:]-]*toggle/ || low ~ /power[[:space:]-]*toogle/"
+          if text.count(old) != 1:
+              raise SystemExit(f'Q1 packaged-brand regex preimage count={text.count(old)}')
+          text = text.replace(old, new)
+          anchor = "          echo 'Packaged customer-brand leak gate: PASS'\n"
+          extra = """          DEX_STRINGS=q1-apk-dex-strings.txt\n          : > \"$DEX_STRINGS\"\n          while IFS= read -r dex; do\n            unzip -p \"$APK\" \"$dex\" | strings >> \"$DEX_STRINGS\"\n          done < <(unzip -Z1 \"$APK\" 'classes*.dex')\n          if grep -Eqi 'power-toggles-(backup|theme)' \"$DEX_STRINGS\"; then\n            echo 'Unexpected compiled legacy export filename:'\n            grep -Ei 'power-toggles-(backup|theme)' \"$DEX_STRINGS\"\n            exit 1\n          fi\n          grep -Fq 'togglebay-widget' \"$DEX_STRINGS\"\n          grep -Fq 'togglebay-theme' \"$DEX_STRINGS\"\n          echo 'Compiled customer filename identity gate: PASS'\n          echo 'Packaged customer-brand leak gate: PASS'\n"""
+          if text.count(anchor) != 1:
+              raise SystemExit(f'Q1 insertion anchor count={text.count(anchor)}')
+          text = text.replace(anchor, extra)
+          q1.write_text(text, encoding='utf-8')
+          PY
+          rm .github/workflows/r3-identity-fix-once.yml
+          git diff --check
+          test "$(git diff --name-only HEAD | sort)" = "$(printf '%s\n' .github/workflows/q1-togglebay-integration.yml src/com/painless/pc/cfg/WidgetConfigActivity.java src/com/painless/pc/util/ImportExportActivity.java | sort)"
+      - name: Commit exact r3 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Gate 2A Apps Alfred'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'release: remove legacy export filenames for ToggleBay'
+          git push origin HEAD:togglebay-q3-integration-20260912
