@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'ci: stage one-shot ToggleBay r3 filename correction'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +20,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "fe4f6ef19a08f9c79fdc2f626bac0f3b8d6635fa"
-          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/r3-identity-fix-once.yml"
+          BASE=fe4f6ef19a08f9c79fdc2f626bac0f3b8d6635fa
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git diff --name-only "$BASE" HEAD)" = ".github/workflows/r3-identity-fix-once.yml"
           python3 - <<'PY'
           from pathlib import Path
 
