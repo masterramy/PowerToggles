@@ -1,0 +1,150 @@
+name: Q3 ToggleBay AppWidget Diagnostic
+
+on:
+  push:
+    branches:
+      - q3-togglebay-identity-closure-20260913
+  workflow_dispatch:
+
+jobs:
+  appwidget-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build exact debug candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon assembleDebug
+          APK="$(find build/outputs/apk/debug -type f -name '*.apk' | head -1)"
+          test -f "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          mkdir -p widget-diagnostic
+          git rev-parse HEAD > widget-diagnostic/head.txt
+          git rev-parse 'HEAD^{tree}' > widget-diagnostic/tree.txt
+          sha256sum "$APK" > widget-diagnostic/apk-sha256.txt
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)"
+          "$AAPT2" dump badging "$APK" > widget-diagnostic/apk-badging.txt
+          DEBUG_MANIFEST="$(find build/intermediates \( -path '*merged_manifest*debug*AndroidManifest.xml' -o -path '*merged_manifests*debug*AndroidManifest.xml' \) | head -1)"
+          test -n "$DEBUG_MANIFEST"
+          cp "$DEBUG_MANIFEST" widget-diagnostic/debug-merged-manifest.xml
+
+      - name: Install API 36 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "emulator" "platforms;android-36" "system-images;android-36;google_apis;x86_64"
+          echo "ANDROID_AVD_HOME=$RUNNER_TEMP/widget-avd" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$RUNNER_TEMP/widget-android-user" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/widget-avd" "$RUNNER_TEMP/widget-android-user"
+
+      - name: Create and boot API 36 AVD
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/widget-avd"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/widget-android-user"
+          echo no | avdmanager create avd --force --name togglebay_widget_api36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          sudo chmod 666 /dev/kvm || true
+          "$ANDROID_HOME/emulator/emulator" -avd togglebay_widget_api36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data > widget-diagnostic/emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" >> "$GITHUB_ENV"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              cat widget-diagnostic/emulator.log
+              exit 1
+            fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              adb devices -l > widget-diagnostic/adb-devices.txt
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Emulator boot timeout'
+          cat widget-diagnostic/emulator.log
+          exit 1
+
+      - name: Install candidate and capture provider discovery
+        shell: bash
+        run: |
+          set +e
+          adb logcat -c
+          adb install -r "$APK" > widget-diagnostic/install.txt 2>&1
+          INSTALL_RC=$?
+          echo "install_rc=$INSTALL_RC" > widget-diagnostic/diagnostic-status.txt
+          sleep 3
+          adb shell pm list packages -f | grep 'com.ramybaheeg.togglebay' > widget-diagnostic/package-list.txt 2>&1
+          adb shell dumpsys package com.ramybaheeg.togglebay > widget-diagnostic/dumpsys-package.txt 2>&1
+          adb shell dumpsys appwidget > widget-diagnostic/dumpsys-appwidget-before.txt 2>&1
+          adb shell cmd package query-receivers --brief -a android.appwidget.action.APPWIDGET_UPDATE > widget-diagnostic/query-receivers-brief.txt 2>&1
+          adb shell cmd package query-receivers -a android.appwidget.action.APPWIDGET_UPDATE > widget-diagnostic/query-receivers-full.txt 2>&1
+          adb shell pm query-receivers -a android.appwidget.action.APPWIDGET_UPDATE > widget-diagnostic/pm-query-receivers.txt 2>&1
+          adb shell cmd appwidget help > widget-diagnostic/cmd-appwidget-help.txt 2>&1
+          adb shell appwidget help > widget-diagnostic/appwidget-help.txt 2>&1
+          adb shell dumpsys package com.ramybaheeg.togglebay | grep -n -C 8 -E 'PCWidgetActivity|APPWIDGET_UPDATE|appwidget.provider|WidgetConfigActivity' > widget-diagnostic/provider-package-extract.txt 2>&1
+          adb logcat -d > widget-diagnostic/install-and-discovery.logcat.txt 2>&1
+          exit 0
+
+      - name: Exercise exact debug host bind probe
+        shell: bash
+        run: |
+          set +e
+          USER_ID="$(adb shell am get-current-user | tr -d '\r')"
+          printf 'android_user_id=%s\n' "$USER_ID" > widget-diagnostic/android-user.txt
+          adb logcat -c
+          adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$USER_ID" > widget-diagnostic/grantbind.txt 2>&1
+          GRANT_RC=$?
+          echo "grantbind_rc=$GRANT_RC" >> widget-diagnostic/diagnostic-status.txt
+          adb shell cmd appwidget grantbind --package com.ramybaheeg.togglebay --user "$USER_ID" > widget-diagnostic/cmd-grantbind.txt 2>&1
+          echo "cmd_grantbind_rc=$?" >> widget-diagnostic/diagnostic-status.txt
+          adb shell am force-stop com.ramybaheeg.togglebay
+          adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity --es probe allocate_bind > widget-diagnostic/probe-start.txt 2>&1
+          echo "probe_start_rc=$?" >> widget-diagnostic/diagnostic-status.txt
+          sleep 2
+          adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml > widget-diagnostic/probe-prefs.xml 2> widget-diagnostic/probe-prefs.err
+          echo "probe_prefs_rc=$?" >> widget-diagnostic/diagnostic-status.txt
+          adb shell dumpsys appwidget > widget-diagnostic/dumpsys-appwidget-after.txt 2>&1
+          adb shell dumpsys package com.ramybaheeg.togglebay > widget-diagnostic/dumpsys-package-after.txt 2>&1
+          adb shell dumpsys activity activities > widget-diagnostic/dumpsys-activities.txt 2>&1
+          adb logcat -d > widget-diagnostic/bind-probe.logcat.txt 2>&1
+          exit 0
+
+      - name: Summarize diagnostic
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== candidate ==='
+            cat widget-diagnostic/head.txt 2>/dev/null
+            cat widget-diagnostic/tree.txt 2>/dev/null
+            cat widget-diagnostic/apk-sha256.txt 2>/dev/null
+            echo '=== status ==='
+            cat widget-diagnostic/diagnostic-status.txt 2>/dev/null
+            echo '=== probe prefs ==='
+            cat widget-diagnostic/probe-prefs.xml 2>/dev/null
+            echo '=== provider query ==='
+            cat widget-diagnostic/query-receivers-brief.txt 2>/dev/null
+            echo '=== appwidget service ToggleBay lines before ==='
+            grep -in -C 5 -E 'togglebay|PCWidgetActivity|com\.painless\.pc' widget-diagnostic/dumpsys-appwidget-before.txt 2>/dev/null
+            echo '=== appwidget service ToggleBay lines after ==='
+            grep -in -C 5 -E 'togglebay|PCWidgetActivity|com\.painless\.pc' widget-diagnostic/dumpsys-appwidget-after.txt 2>/dev/null
+          } | tee widget-diagnostic/summary.txt
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: q3-togglebay-appwidget-diagnostic-${{ github.sha }}
+          path: widget-diagnostic
+          if-no-files-found: error
