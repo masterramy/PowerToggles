@@ -178,8 +178,8 @@
         </activity>
         <activity android:name=".acts.BrightnessActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name="FlashActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:screenOrientation="portrait" android:theme="@style/flashTheme" />
-        <activity android:name="BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
-        <activity android:name="RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
+        <activity android:name="BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
+        <activity android:name="RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
         <activity android:name=".acts.BrightnessSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name=".acts.VolumeSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name="ProxyActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
