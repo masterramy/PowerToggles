@@ -62,6 +62,12 @@ for name in runtime_scripts:
             package_var + '/.',
             package_var + '/com.painless.pc.')
 
+    # PreferenceActivity fragment extras contain Java class names rather than Android
+    # package/component identities. Keep those extras in the retained source namespace.
+    text = text.replace(
+        "--es ':android:show_fragment' com.ramybaheeg.togglebay.",
+        "--es ':android:show_fragment' com.painless.pc.")
+
     # Runtime scripts also contain source-tree assertions and generated Java source.
     # The Java/source namespace is deliberately unchanged. Restore only actual Java
     # package declarations (line-start anchored), never arbitrary shell text such as
@@ -79,12 +85,38 @@ for name in runtime_scripts:
         'Allow Power Toggles to send you notifications?',
         'Allow ToggleBay to send you notifications?')
 
+    # The public identity migration intentionally renamed customer-visible backup
+    # filenames. Keep the rendered SAF assertions and all round-trip fixture paths
+    # bound to the exact shipping names rather than the historical product name.
+    if name == 'scripts/publication_import_export_qa.sh':
+        text = text.replace('power-toggles-backup.zip', 'togglebay-backup.zip')
+    if name == 'scripts/publication_folder_backup_share_qa.sh':
+        text = text.replace('power-toggles-folders.pcf', 'togglebay-folders.pcf')
+
     # The folder-share QA script generates a completely separate external consumer
     # application inside a heredoc. It intentionally follows the translated public
     # package and must NOT be restored to the app's historical source namespace.
     text = text.replace(
         'package com.painless.pc.qaconsumer;',
         'package com.ramybaheeg.togglebay.qaconsumer;')
+
+    # The inherited Gate 2A runtime probe used synthetic AppWidget IDs for its
+    # configurator/picker interaction slice. Shipping code now correctly rejects
+    # unowned synthetic IDs. Replace those two QA-only IDs with one genuinely
+    # framework-allocated/bound widget, then delete it at the end of the slice.
+    if name == 'scripts/gate2a_runtime_qa.sh':
+        widget_anchor = '''# Widget configurator and picker evidence.\nadb shell am force-stop com.ramybaheeg.togglebay\n'''
+        widget_setup = '''# Widget configurator and picker evidence.\nGATE2A_USER_ID="$(adb shell am get-current-user | tr -d '\\r')"\ncase "$GATE2A_USER_ID" in\n  ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $GATE2A_USER_ID" >&2; exit 1 ;;\nesac\nadb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$GATE2A_USER_ID" > "$OUT/state/gate2a-widget-grantbind.txt"\nadb shell am force-stop com.ramybaheeg.togglebay\nadb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \\\n  --es probe allocate_bind > "$OUT/state/gate2a-widget-allocate-bind.txt"\nsleep 1\nadb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml > "$OUT/state/gate2a-widget-probe-prefs.xml"\nGATE2A_WIDGET_ID="$(python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); print(next(n.attrib["value"] for n in r if n.attrib.get("name")=="widget_id"))' "$OUT/state/gate2a-widget-probe-prefs.xml")"\ntest "$GATE2A_WIDGET_ID" -gt 0\ngrep -Eq 'name="bound" value="true"|value="true" name="bound"' "$OUT/state/gate2a-widget-probe-prefs.xml"\ngrep -Eq 'name="provider_info_present" value="true"|value="true" name="provider_info_present"' "$OUT/state/gate2a-widget-probe-prefs.xml"\nadb shell am force-stop com.ramybaheeg.togglebay\n'''
+        if widget_anchor not in text:
+            raise SystemExit(f'{name}: widget configurator anchor missing')
+        text = text.replace(widget_anchor, widget_setup, 1)
+        text = text.replace('--ei appWidgetId 1002', '--ei appWidgetId "$GATE2A_WIDGET_ID"', 1)
+        text = text.replace('--ei appWidgetId 1003', '--ei appWidgetId "$GATE2A_WIDGET_ID"', 1)
+        cleanup_anchor = '# Final package/install facts and permission state.\n'
+        cleanup = '''adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true\nadb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \\\n  --es probe delete --ei widget_id "$GATE2A_WIDGET_ID" > "$OUT/state/gate2a-widget-delete.txt"\nadb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$GATE2A_USER_ID" >/dev/null 2>&1 || true\n\n# Final package/install facts and permission state.\n'''
+        if cleanup_anchor not in text:
+            raise SystemExit(f'{name}: widget cleanup anchor missing')
+        text = text.replace(cleanup_anchor, cleanup, 1)
 
     # Fail closed if the main-app package still uses relative component shorthand or
     # if a shell package-option was accidentally restored to the historical package.
@@ -94,6 +126,7 @@ for name in runtime_scripts:
         '$PACKAGE/.', '${PACKAGE}/.',
         '$APP_PACKAGE/.', '${APP_PACKAGE}/.',
         '--package com.painless.pc',
+        "--es ':android:show_fragment' com.ramybaheeg.togglebay.",
     ]
     leftovers = [token for token in bad if token in text]
     if leftovers:
