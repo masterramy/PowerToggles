@@ -1,6 +1,6 @@
 # ToggleBay Privacy Policy
 
-ToggleBay is published by Sufficient Systems.
+ToggleBay is published by Ramy Baheeg.
 
 ToggleBay does not include advertising, analytics, tracking SDKs, user accounts, or cloud synchronization. The app does not request the Android `INTERNET` permission.
 
