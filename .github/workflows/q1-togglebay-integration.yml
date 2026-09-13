@@ -82,7 +82,7 @@ jobs:
           test -x "$AAPT2"
           "$AAPT2" dump resources "$APK" > q1-packaged-resources.txt
           if ! awk '
-            /^resource .* string\// { name=$3 }
+            /^[[:space:]]*resource .* string\// { name=$3 }
             {
               low=tolower($0)
               if (low ~ /power[[:space:]]*toggles/ || low ~ /power[[:space:]]*toggle/ || low ~ /power[[:space:]]*toogle/) {
