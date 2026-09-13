@@ -6,6 +6,7 @@ set -euo pipefail
 # com.ramybaheeg.togglebay. Static source QA runs before this script.
 python3 - <<'PY'
 from pathlib import Path
+import re
 
 runtime_scripts = [
     'scripts/gate2a_runtime_qa.sh',
@@ -61,13 +62,22 @@ for name in runtime_scripts:
             package_var + '/.',
             package_var + '/com.painless.pc.')
 
-    # Runtime scripts also contain source-tree assertions. The source namespace is
-    # deliberately unchanged, so restore path/package assertions after translating
-    # Android runtime identity.
+    # Runtime scripts also contain source-tree assertions and generated Java source.
+    # The Java/source namespace is deliberately unchanged. Restore only actual Java
+    # package declarations (line-start anchored), never arbitrary shell text such as
+    # `--package com.ramybaheeg.togglebay` or `dumpsys package ...`: those commands
+    # must continue to address the installed public applicationId.
     text = text.replace('src/com/ramybaheeg/togglebay', 'src/com/painless/pc')
     text = text.replace('qa-debug/src/com/ramybaheeg/togglebay', 'qa-debug/src/com/painless/pc')
-    text = text.replace('package com.ramybaheeg.togglebay', 'package com.painless.pc')
+    text = re.sub(r'(?m)^package com\.ramybaheeg\.togglebay', 'package com.painless.pc', text)
+    text = text.replace("'package com.ramybaheeg.togglebay", "'package com.painless.pc")
     text = text.replace('import com.ramybaheeg.togglebay', 'import com.painless.pc')
+
+    # The Android 13+ permission controller renders the final public app label.
+    # Keep the customer-visible notification-permission assertion bound to ToggleBay.
+    text = text.replace(
+        'Allow Power Toggles to send you notifications?',
+        'Allow ToggleBay to send you notifications?')
 
     # The folder-share QA script generates a completely separate external consumer
     # application inside a heredoc. It intentionally follows the translated public
@@ -76,17 +86,18 @@ for name in runtime_scripts:
         'package com.painless.pc.qaconsumer;',
         'package com.ramybaheeg.togglebay.qaconsumer;')
 
-    # Fail closed if the main-app package still uses relative component shorthand.
-    # That form is only valid when applicationId and Java namespace are identical.
+    # Fail closed if the main-app package still uses relative component shorthand or
+    # if a shell package-option was accidentally restored to the historical package.
     bad = [
         'com.ramybaheeg.togglebay/.',
         '$PKG/.', '${PKG}/.',
         '$PACKAGE/.', '${PACKAGE}/.',
         '$APP_PACKAGE/.', '${APP_PACKAGE}/.',
+        '--package com.painless.pc',
     ]
     leftovers = [token for token in bad if token in text]
     if leftovers:
-        raise SystemExit(f'{name}: unresolved ToggleBay component shorthand: {leftovers}')
+        raise SystemExit(f'{name}: unresolved ToggleBay runtime identity: {leftovers}')
 
     p.write_text(text)
     print(f'{name}: ToggleBay runtime identity normalized')
