@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">ToggleBay 屏幕锁定</string>
+    <string name="notify_collapse_summary">当按下任何一个ToggleBay通知栏按钮后自动折叠通知栏</string>
+    <string name="wp_add_help">要添加一个小部件，请打开应用程序列表，选择窗口小部件选项卡，找到ToggleBay 小部件。长按小部件进行预览，并将其拖动以添加到主屏幕。</string>
+    <string name="ps_prem_label">使用ToggleBay插件</string>
+    <string name="ps_prem_desc">可通过滑动控制ToggleBay插件</string>
+</resources>
