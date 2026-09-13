@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">Экран блокировки ToggleBay</string>
+    <string name="wp_add_help">Для добавления виджета откройте меню приложений и найдите виджет ToggleBay на вкладке Виджетов. Долго нажмите на изображении виджета и перетащите его на Главный экран.</string>
+    <string name="ps_prem_label">Использовать плагины ToggleBay</string>
+    <string name="ps_prem_desc">Можно управлять плагинами ToggleBay, включая или отключая их</string>
+    <string name="ps_refresh">Обновить ToggleBay</string>
+</resources>
