@@ -10,13 +10,14 @@ permissions:
 
 jobs:
   patch:
+    if: ${{ github.event.head_commit.message == 'ci-r3-product-patch-final' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: togglebay-q3-integration-20260912
           fetch-depth: 0
-      - name: Verify base and apply exact r3 correction
+      - name: Apply exact r3 product correction
         shell: bash
         run: |
           set -euo pipefail
@@ -43,31 +44,25 @@ jobs:
                   text = text.replace(old, new)
               path.write_text(text, encoding='utf-8')
 
-          q1 = Path('.github/workflows/q1-togglebay-integration.yml')
-          text = q1.read_text(encoding='utf-8')
-          old = "low ~ /power[[:space:]]*toggles/ || low ~ /power[[:space:]]*toggle/ || low ~ /power[[:space:]]*toogle/"
-          new = "low ~ /power[[:space:]-]*toggles/ || low ~ /power[[:space:]-]*toggle/ || low ~ /power[[:space:]-]*toogle/"
-          if text.count(old) != 1:
-              raise SystemExit(f'Q1 packaged-brand regex preimage count={text.count(old)}')
-          text = text.replace(old, new)
-          anchor = "          echo 'Packaged customer-brand leak gate: PASS'\n"
-          extra = """          DEX_STRINGS=q1-apk-dex-strings.txt\n          : > \"$DEX_STRINGS\"\n          while IFS= read -r dex; do\n            unzip -p \"$APK\" \"$dex\" | strings >> \"$DEX_STRINGS\"\n          done < <(unzip -Z1 \"$APK\" 'classes*.dex')\n          if grep -Eqi 'power-toggles-(backup|theme)' \"$DEX_STRINGS\"; then\n            echo 'Unexpected compiled legacy export filename:'\n            grep -Ei 'power-toggles-(backup|theme)' \"$DEX_STRINGS\"\n            exit 1\n          fi\n          grep -Fq 'togglebay-widget' \"$DEX_STRINGS\"\n          grep -Fq 'togglebay-theme' \"$DEX_STRINGS\"\n          echo 'Compiled customer filename identity gate: PASS'\n          echo 'Packaged customer-brand leak gate: PASS'\n"""
+          gate = Path('scripts/publication_backup_privacy_static_qa.sh')
+          text = gate.read_text(encoding='utf-8')
+          anchor = 'echo "PASS: backup keeps user migration while excluding ephemeral capabilities/share artifacts"\n'
+          extra = '''\n# ToggleBay public export filenames must not regress to historical branding.\nIMPORT_EXPORT="$ROOT/src/com/painless/pc/util/ImportExportActivity.java"\nWIDGET_CONFIG="$ROOT/src/com/painless/pc/cfg/WidgetConfigActivity.java"\nif grep -RInEi 'power-toggles-(backup|theme)' "$ROOT/src"; then\n  fail "Historical customer-visible export filename remains"\nfi\ngrep -Fq '\"togglebay-widget\" + fileExtension' "$IMPORT_EXPORT" || fail "ToggleBay backup document filename contract missing"\ngrep -Fq 'DEFAULT_THEME_NAME = \"togglebay-theme\" + THEME_EXTENSION' "$WIDGET_CONFIG" || fail "ToggleBay theme filename contract missing"\n\necho "PASS: ToggleBay customer-visible export filenames are independent of historical branding"\n'''
           if text.count(anchor) != 1:
-              raise SystemExit(f'Q1 insertion anchor count={text.count(anchor)}')
-          text = text.replace(anchor, extra)
-          q1.write_text(text, encoding='utf-8')
+              raise SystemExit(f'static gate anchor count={text.count(anchor)}')
+          text = text.replace(anchor, extra + anchor)
+          gate.write_text(text, encoding='utf-8')
           PY
-          rm .github/workflows/r3-identity-fix-once.yml
           git diff --check
           ACTUAL="$(git diff --name-only HEAD | sort)"
-          EXPECTED="$(printf '%s\n' .github/workflows/q1-togglebay-integration.yml .github/workflows/r3-identity-fix-once.yml src/com/painless/pc/cfg/WidgetConfigActivity.java src/com/painless/pc/util/ImportExportActivity.java | sort)"
+          EXPECTED="$(printf '%s\n' scripts/publication_backup_privacy_static_qa.sh src/com/painless/pc/cfg/WidgetConfigActivity.java src/com/painless/pc/util/ImportExportActivity.java | sort)"
           test "$ACTUAL" = "$EXPECTED"
-      - name: Commit exact r3 tree
+      - name: Commit exact r3 product tree
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'Gate 2A Apps Alfred'
           git config user.email 'actions@users.noreply.github.com'
-          git add -A
+          git add scripts/publication_backup_privacy_static_qa.sh src/com/painless/pc/cfg/WidgetConfigActivity.java src/com/painless/pc/util/ImportExportActivity.java
           git commit -m 'release: remove legacy export filenames for ToggleBay'
           git push origin HEAD:togglebay-q3-integration-20260912
