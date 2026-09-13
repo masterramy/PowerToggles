@@ -2,6 +2,9 @@ name: Q1 ToggleBay Integration
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - togglebay-q3-integration-20260912
 
 jobs:
   q1:
@@ -39,6 +42,61 @@ jobs:
           echo '== package-dependent QA/script references =='
           grep -RInE 'com\.painless\.pc|content://com\.painless\.pc' qa scripts > q1-package-couplings.txt || true
           cat q1-package-couplings.txt
+
+      - name: Fail closed on stale external QA identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          build = Path('build.gradle').read_text(encoding='utf-8')
+          if 'applicationId "com.ramybaheeg.togglebay"' not in build:
+              raise SystemExit('ToggleBay applicationId missing')
+
+          files = sorted(Path('scripts').glob('*.sh'))
+          files += [Path('qa/FINAL_RELEASE_BOUNDARIES.md')]
+          forbidden = [
+              'content://com.painless.pc.file',
+              'force-stop com.painless.pc',
+              'run-as com.painless.pc',
+              '--package com.painless.pc',
+              'dumpsys package com.painless.pc',
+              'pidof com.painless.pc',
+              'PKG="com.painless.pc"',
+              "PKG='com.painless.pc'",
+              'applicationId "com.painless.pc"',
+              "applicationId 'com.painless.pc'",
+              'com.painless.pc/.',
+              'Process: com\\.painless\\.pc',
+              'ANR in com\\.painless\\.pc',
+              'am_crash.*com\\.painless\\.pc',
+              'am_anr.*com\\.painless\\.pc',
+              'pkg=com\\.painless\\.pc',
+              'Allow Power Toggles to send you notifications?',
+          ]
+          stale=[]
+          for path in files:
+              if not path.exists():
+                  continue
+              text=path.read_text(encoding='utf-8')
+              for needle in forbidden:
+                  if needle in text:
+                      stale.append(f'{path}: {needle}')
+
+          brand=re.compile(r'power\s*toggle', re.I)
+          for path in sorted(Path('scripts').glob('*.sh')):
+              for lineno,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
+                  if brand.search(line):
+                      stale.append(f'{path}:{lineno}: historical brand label: {line}')
+
+          Path('q1-stale-harness.txt').write_text('\n'.join(stale) + ('\n' if stale else ''), encoding='utf-8')
+          if stale:
+              print('\n'.join(stale))
+              raise SystemExit('Stale external QA identity remains')
+          print('Stale external QA identity: ZERO')
+          PY
 
       - name: Build debug and release
         shell: bash
@@ -110,7 +168,7 @@ jobs:
           git rev-parse HEAD^{tree} > q1-evidence/tree.txt
           git status --short > q1-evidence/git-status.txt
           cp build.gradle AndroidManifest.xml README.md q1-evidence/ 2>/dev/null || true
-          cp q1-package-couplings.txt q1-packaged-resources.txt q1-unexpected-legacy-brand.txt q1-evidence/ 2>/dev/null || true
+          cp q1-package-couplings.txt q1-packaged-resources.txt q1-unexpected-legacy-brand.txt q1-stale-harness.txt q1-evidence/ 2>/dev/null || true
           if [ -d build/intermediates ]; then
             find build/intermediates \( -path '*merged_manifest*AndroidManifest.xml' -o -path '*merged_manifests*debug*AndroidManifest.xml' \) \
               | while read -r f; do cp "$f" "q1-evidence/$(echo "$f" | tr '/' '_')" || true; done
