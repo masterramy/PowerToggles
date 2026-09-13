@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wp_add_help">Widget eklemek için, uygulama çiziciyi açın ve widgetlar sekmesinde ToggleBay\u0027ı bulun. Widget önizlemesine uzun basın ve ana ekrana sürükleyin.</string>
+    <string name="ps_prem_label">ToggleBay pluginlerini kullan</string>
+    <string name="ps_prem_desc">ToggleBay pluginleri açıp kapatmak suretiyle kontrol edebilsin mi?</string>
+</resources>
