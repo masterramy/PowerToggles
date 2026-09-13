@@ -166,7 +166,7 @@
         <activity android:name=".picker.FilePicker" android:exported="false" android:theme="@style/activityTheme" />
         <activity android:name=".picker.ThemePicker" android:exported="false" android:label="@string/tm_title" android:theme="@style/configTheme" />
         <activity android:name=".cfg.WidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="true" android:launchMode="singleTop" android:theme="@style/configTheme" >
-            <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
         <activity android:name=".cfg.EditWidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:launchMode="singleTop" android:theme="@style/configTheme" />
         <activity android:name=".cfg.IconThemeEditor" android:exported="false" android:theme="@style/activityTheme" />
