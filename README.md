@@ -4,7 +4,7 @@ ToggleBay is an independent restoration and modernization of the open-source Pow
 
 ## Independent project
 
-ToggleBay is published by **Sufficient Systems** under the independent package ID `app.sufficient.togglebay`. It is not affiliated with or endorsed by the original Power Toggles developer, and it does not reuse the historical Play listing or public package identity.
+ToggleBay is published by **Ramy Baheeg** under the independent package ID `com.ramybaheeg.togglebay`. It is not affiliated with or endorsed by the original Power Toggles developer, and it does not reuse the historical Play listing or public package identity.
 
 The original Power Toggles source is Copyright (c) 2015 sunnygoyal and is used under the MIT License. See `LICENSE.md` for the complete license text.
 
