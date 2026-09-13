@@ -1,0 +1,95 @@
+name: Q3 Normalize ToggleBay QA
+
+on:
+  push:
+    branches:
+      - togglebay-q3-integration-20260912
+    paths:
+      - .github/workflows/q3-normalize-togglebay-qa.yml
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Normalize installed-package references only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = 'com.ramybaheeg.togglebay'
+          old = 'com.painless.pc'
+          cls = 'com.painless.pc'
+
+          files = sorted(Path('scripts').glob('*.sh'))
+          files += [Path('qa/FINAL_RELEASE_BOUNDARIES.md')]
+
+          exact = [
+              ('content://com.painless.pc.file', 'content://com.ramybaheeg.togglebay.file'),
+              ('com.painless.pc/com.painless.pc.', 'com.ramybaheeg.togglebay/com.painless.pc.'),
+              ('com.painless.pc/.', 'com.ramybaheeg.togglebay/com.painless.pc.'),
+              ('--package com.painless.pc', '--package com.ramybaheeg.togglebay'),
+              ('run-as com.painless.pc', 'run-as com.ramybaheeg.togglebay'),
+              ('force-stop com.painless.pc', 'force-stop com.ramybaheeg.togglebay'),
+              ('dumpsys package com.painless.pc', 'dumpsys package com.ramybaheeg.togglebay'),
+              ('pm grant com.painless.pc', 'pm grant com.ramybaheeg.togglebay'),
+              ('pm revoke com.painless.pc', 'pm revoke com.ramybaheeg.togglebay'),
+              ('appops set com.painless.pc', 'appops set com.ramybaheeg.togglebay'),
+              ('appops get com.painless.pc', 'appops get com.ramybaheeg.togglebay'),
+              ('pidof com.painless.pc', 'pidof com.ramybaheeg.togglebay'),
+              ('package=\"com.painless.pc\"', 'package=\"com.ramybaheeg.togglebay\"'),
+              ('PKG=\"com.painless.pc\"', 'PKG=\"com.ramybaheeg.togglebay\"'),
+              ("PKG='com.painless.pc'", "PKG='com.ramybaheeg.togglebay'"),
+              ('applicationId \"com.painless.pc\"', 'applicationId \"com.ramybaheeg.togglebay\"'),
+              ("applicationId 'com.painless.pc'", "applicationId 'com.ramybaheeg.togglebay'"),
+              ("pm list packages -f | grep 'com.painless.pc'", "pm list packages -f | grep 'com.ramybaheeg.togglebay'"),
+              ('grep -q \"com.painless.pc\" \"$OUT/state/${name}.activities.txt\"', 'grep -q \"com.ramybaheeg.togglebay\" \"$OUT/state/${name}.activities.txt\"'),
+              ('application/package ID: `com.painless.pc`', 'application/package ID: `com.ramybaheeg.togglebay`'),
+          ]
+
+          changed = []
+          for path in files:
+              if not path.exists():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              new = text
+              for before, after in exact:
+                  new = new.replace(before, after)
+              if new != text:
+                  path.write_text(new, encoding='utf-8')
+                  changed.append(str(path))
+
+          print('Changed files:')
+          for p in changed:
+              print(p)
+          if not changed:
+              raise SystemExit('No package-coupling changes produced')
+          PY
+
+          echo '== residual high-confidence stale installed-package contexts =='
+          stale=0
+          grep -RInE 'content://com\.painless\.pc\.file|force-stop com\.painless\.pc([[:space:]]|$)|run-as com\.painless\.pc([[:space:]]|$)|--package com\.painless\.pc([[:space:]]|$)|dumpsys package com\.painless\.pc([[:space:]]|$)|pidof com\.painless\.pc([[:space:]]|$)|PKG=["'"']com\.painless\.pc["'"']|applicationId ["'"']com\.painless\.pc["'"']|com\.painless\.pc/\.' scripts qa && stale=1 || true
+          test "$stale" -eq 0
+
+          echo '== intentional internal namespace/resource/consumer references remaining =='
+          grep -RInE 'com\.painless\.pc' scripts qa | head -250 || true
+
+      - name: Commit normalized QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts qa
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'qa: normalize final harness for ToggleBay package identity'
+          git push origin HEAD:togglebay-q3-integration-20260912
