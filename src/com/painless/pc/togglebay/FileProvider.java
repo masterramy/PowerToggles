@@ -4,8 +4,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 
-import com.painless.pc.BuildConfig;
-
 import java.io.File;
 import java.util.UUID;
 
@@ -17,7 +15,7 @@ import java.util.UUID;
  */
 public class FileProvider extends com.painless.pc.FileProvider {
 
-  private static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".file";
+  private static final String AUTHORITY = "com.ramybaheeg.togglebay.file";
   public static final String FOLDER_SHARE_URI = "content://" + AUTHORITY + "/folder-share";
   public static final String WIDGET_SHARE_URI = "content://" + AUTHORITY + "/widget-share";
   public static final String CROP_URI = "content://" + AUTHORITY + "/crop";
