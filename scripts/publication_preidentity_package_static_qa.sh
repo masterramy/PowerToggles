@@ -4,27 +4,37 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="$ROOT/build.gradle"
 MANIFEST="$ROOT/AndroidManifest.xml"
-BOUNDARY="$ROOT/qa/FINAL_RELEASE_BOUNDARIES.md"
+VALUES="$ROOT/res/values/values.xml"
+INFO="$ROOT/res/xml/app_info.xml"
+PRIVACY="$ROOT/PRIVACY.md"
+README="$ROOT/README.md"
+PROVIDER="$ROOT/src/com/painless/pc/FileProvider.java"
 
 fail() {
   echo "FAIL: $*" >&2
   exit 1
 }
 
-# This branch is a technical pre-identity candidate. Preserve the exact current
-# package/SDK/version boundary until Ramy explicitly authorizes permanent release
-# identity changes; do not silently turn QA/restoration metadata into final identity.
-grep -Fq 'namespace "com.painless.pc"' "$BUILD" || fail "namespace drifted"
-grep -Fq 'applicationId "com.painless.pc"' "$BUILD" || fail "applicationId drifted"
+# The public identity decision is now explicit. Preserve the restored Java/R namespace
+# while pinning the independent customer package and app-owned Android authorities.
+grep -Fq 'namespace "com.painless.pc"' "$BUILD" || fail "restored Java namespace drifted"
+grep -Fq 'applicationId "app.sufficient.togglebay"' "$BUILD" || fail "ToggleBay applicationId missing"
 grep -Fq 'compileSdkVersion 36' "$BUILD" || fail "compileSdk is not 36"
 grep -Fq 'targetSdkVersion 36' "$BUILD" || fail "targetSdk is not 36"
 grep -Fq 'minSdkVersion 16' "$BUILD" || fail "minSdk drifted"
-grep -Fq 'versionCode 160604' "$BUILD" || fail "Gradle versionCode drifted"
-grep -Fq 'versionName "6.0.4-gate2a"' "$BUILD" || fail "pre-identity Gradle versionName drifted without identity approval"
-grep -Fq 'android:versionCode="160604"' "$MANIFEST" || fail "manifest versionCode drifted"
-grep -Fq 'android:versionName="6.0.4"' "$MANIFEST" || fail "historical manifest versionName drifted"
-grep -q 'G9 — identity decision required before permanent release bytes' "$BOUNDARY" || fail "G9 identity boundary documentation missing"
-grep -Fq 'Gradle version name: `6.0.4-gate2a`' "$BOUNDARY" || fail "documented pre-identity version boundary drifted"
+grep -Fq 'versionCode 1' "$BUILD" || fail "public versionCode is not 1"
+grep -Fq 'versionName "1.0.0"' "$BUILD" || fail "public versionName is not 1.0.0"
+grep -Fq 'android:versionCode="1"' "$MANIFEST" || fail "manifest versionCode drifted"
+grep -Fq 'android:versionName="1.0.0"' "$MANIFEST" || fail "manifest versionName drifted"
+grep -Fq '<string name="app_name">ToggleBay</string>' "$VALUES" || fail "ToggleBay app label missing"
+grep -Fq 'android:icon="@drawable/togglebay_launcher"' "$MANIFEST" || fail "independent launcher icon not wired"
+grep -Fq 'app.sufficient.togglebay.permission.CONTROL_PLUGIN' "$MANIFEST" || fail "independent plugin permission missing"
+grep -Fq 'app.sufficient.togglebay.permission.READ_FOLDER_SHARE' "$MANIFEST" || fail "independent folder-share permission missing"
+grep -Fq 'android:authorities="app.sufficient.togglebay.file"' "$MANIFEST" || fail "independent provider authority missing"
+grep -Fq 'AUTHORITY = "app.sufficient.togglebay.file"' "$PROVIDER" || fail "runtime provider authority missing"
+grep -Fq '@string/togglebay_privacy_title' "$INFO" || fail "in-app privacy surface missing"
+grep -Fq 'Sufficient Systems' "$PRIVACY" || fail "publisher missing from privacy policy"
+grep -Fq 'not affiliated with or endorsed by the original' "$README" || fail "independent-restoration disclosure missing"
 
 # QA probe code/manifests belong to the debug variant only. Release source must be
 # production src/res/manifest and must not silently inherit debug harness classes.
@@ -44,7 +54,7 @@ if 'qa-debug' in release.group(1):
     raise SystemExit('FAIL: release build type references QA debug source')
 for token in ('signingConfig', 'storeFile', 'storePassword', 'keyAlias', 'keyPassword'):
     if token in text:
-        raise SystemExit('FAIL: pre-identity repository contains signing configuration/material reference: ' + token)
+        raise SystemExit('FAIL: repository contains signing configuration/material reference: ' + token)
 for token in ('debuggable true', 'testOnly true'):
     if token in text:
         raise SystemExit('FAIL: release source contains debug/test-only package flag: ' + token)
@@ -56,4 +66,4 @@ PY
 
 ! grep -Eq 'android:(debuggable|testOnly)="true"' "$MANIFEST" || fail "production manifest is debug/test-only"
 
-echo "PASS: pre-identity package metadata, release source isolation, and no-signing boundary are pinned"
+echo "PASS: ToggleBay public identity, package, privacy, attribution, and no-signing boundaries are pinned"
