@@ -38,7 +38,7 @@ import android.widget.ShareActionProvider;
 import android.widget.ShareActionProvider.OnShareTargetSelectedListener;
 import android.widget.Toast;
 
-import com.painless.pc.FileProvider;
+import com.painless.pc.togglebay.FileProvider;
 import com.painless.pc.R;
 import com.painless.pc.folder.FolderAdapter;
 import com.painless.pc.folder.FolderPick;
@@ -52,7 +52,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
 
   private static final int REQUEST_BACKUP = 10;
   private static final int REQUEST_RESTORE = 11;
-  private static final String BACKUP_FILE_NAME = "power-toggles-folders.pcf";
+  private static final String BACKUP_FILE_NAME = "togglebay-folders.pcf";
   private static final long MAX_FOLDER_ARCHIVE_BYTES = 32L * 1024L * 1024L;
   private static final long MAX_FOLDER_NAMES_BYTES = 256L * 1024L;
   private static final int MAX_FOLDER_COUNT = 256;
@@ -327,7 +327,7 @@ public class FolderFrag extends AbsListFrag implements MultiChoiceModeListener, 
         .putExtra(Intent.EXTRA_STREAM, shareUri)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-      intent.setClipData(ClipData.newRawUri("Power Toggles folder backup", shareUri));
+      intent.setClipData(ClipData.newRawUri("ToggleBay folder backup", shareUri));
     }
     return intent;
   }
