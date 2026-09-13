@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    android:title="TestString" >
+    android:title="@string/app_name" >
 
     <PreferenceScreen
         android:fragment="com.painless.pc.nav.TCacheFrag"
@@ -14,6 +14,21 @@
             android:order="1"
             android:persistent="false"
             android:title="@string/stat_battery" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/togglebay_about_title" >
+        <Preference
+            android:selectable="false"
+            android:title="@string/togglebay_publisher_title"
+            android:summary="@string/togglebay_publisher_summary" />
+        <Preference
+            android:selectable="false"
+            android:title="@string/togglebay_privacy_title"
+            android:summary="@string/togglebay_privacy_summary" />
+        <Preference
+            android:selectable="false"
+            android:title="@string/togglebay_license_title"
+            android:summary="@string/togglebay_license_summary" />
     </PreferenceCategory>
 
 </PreferenceScreen>
