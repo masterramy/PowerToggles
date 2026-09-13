@@ -51,7 +51,7 @@ public class HomeFrag extends AbsListFrag {
 
   private static final int REQUEST_BACKUP = 10;
   private static final int REQUEST_RESTORE = 11;
-  private static final String DEFAULT_BACKUP_NAME = "power-toggles-widget.zip";
+  private static final String DEFAULT_BACKUP_NAME = "togglebay-widget.zip";
   private static final long MAX_WIDGET_BACKUP_BYTES = 32L * 1024L * 1024L;
 
   @Thunk Context mContext;
@@ -139,7 +139,7 @@ public class HomeFrag extends AbsListFrag {
           .setType("application/zip")
           .putExtra(Intent.EXTRA_STREAM, shareUri)
           .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-      shareIntent.setClipData(ClipData.newRawUri("Power Toggles widget backup", shareUri));
+      shareIntent.setClipData(ClipData.newRawUri("ToggleBay widget backup", shareUri));
       startActivity(Intent.createChooser(shareIntent, getString(R.string.wp_share)));
     } catch (Throwable e) {
       Debug.log(e);
