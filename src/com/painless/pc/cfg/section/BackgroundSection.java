@@ -19,7 +19,7 @@ import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.Toast;
 
-import com.painless.pc.FileProvider;
+import com.painless.pc.togglebay.FileProvider;
 import com.painless.pc.R;
 import com.painless.pc.cfg.NinePatchEditor;
 import com.painless.pc.singleton.BitmapUtils;
@@ -38,7 +38,7 @@ public class BackgroundSection extends ConfigSection implements OnClickListener,
   private static final int REQUEST_IMAGE = 11;
   private static final int REQUEST_9PATCH = 12;
 
-  private static final String BACK_IMAGE_URI = "content://com.painless.pc.file/config#";
+  private static final String BACK_IMAGE_URI = FileProvider.CONFIG_URI_PREFIX;
 
   @Thunk final ImportExportActivity<?> mProxy;
   private final View[] mTabs = new View[3];
