@@ -151,6 +151,44 @@ jobs:
           # Translate the runtime harness from the restored Java namespace to the
           # independent installed package without modifying shipping source.
           bash scripts/togglebay_runtime_identity_prepare.sh
+          # Android clears Folder action mode after the first rendered Share target.
+          # Reacquire that customer selection before the translated harness opens
+          # Share again for the external-consumer URI-grant proof. QA-only mutation.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/publication_folder_backup_share_qa.sh')
+          text = p.read_text()
+          old = '''# Prove the positive grant through ToggleBay's rendered customer chooser. The
+          # preceding deterministic system-target proof returns with BACK; tolerate one
+          # additional nested system surface before requiring the Folder action mode again.
+          if ! wait_for_node "02-share-return-wait" "Share" 3; then
+            adb shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+            sleep 1
+          fi
+          if ! wait_for_node "02-share-return-wait-retry" "Share" 5; then
+            echo "Folder Share action did not return after system-target archive proof" >&2
+            exit 1
+          fi
+          '''
+          new = '''# Prove the positive grant through ToggleBay's rendered customer chooser.
+          # Android returns to the Folder list with action mode cleared after the first
+          # rendered Share target, so reselect the exact QA folder before sharing again.
+          if ! wait_for_node "02-share-return-list-wait" "$QA_NAME" 5; then
+            echo "Folder list did not return after system-target archive proof" >&2
+            exit 1
+          fi
+          long_press_node "02-share-consumer-longpress-source" "$QA_NAME"
+          sleep 1
+          if ! wait_for_node "02-share-consumer-action-wait" "Share" 5; then
+            echo "Folder Share action did not reappear after reselecting the QA folder" >&2
+            exit 1
+          fi
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected one translated folder-share return block, found {text.count(old)}')
+          p.write_text(text.replace(old, new, 1))
+          print('ToggleBay folder-share return/reselection harness repair: PASS')
+          PY
 
           # Publication closure must retain evidence from every independent tranche
           # even when an earlier tranche is red. The step still returns failure if
