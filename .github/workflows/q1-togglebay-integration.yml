@@ -1,9 +1,6 @@
 name: Q1 ToggleBay Integration
 
 on:
-  push:
-    branches:
-      - togglebay-q3-integration-20260912
   workflow_dispatch:
 
 jobs:
