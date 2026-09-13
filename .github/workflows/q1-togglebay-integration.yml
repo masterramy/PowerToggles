@@ -93,7 +93,10 @@ jobs:
                   if needle in text:
                       stale.append(f'{path}: {needle}')
 
-          brand=re.compile(r'power(?:[\s_-])*toggles?', re.I)
+          # Human-facing historical brand and old hyphenated filenames are forbidden.
+          # Underscore identifiers such as the stable internal Android notification
+          # channel ID power_toggles_controls are intentionally not public branding.
+          brand=re.compile(r'power(?:[\s-])*(?:toggles?|toogle)', re.I)
           for path in sorted(Path('scripts').glob('*.sh')):
               for lineno,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
                   if brand.search(line):
