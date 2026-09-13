@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">Bloqueio de tela ToggleBay</string>
+    <string name="wp_add_help">Para adicionar um widget, abra o menu de aplicativos e localize o widget ToggleBay na aba Widgets. Pressione e segure o widget, e arraste-o para a tela inicial.</string>
+    <string name="ps_prem_desc">Poder controlar os plugins ToggleBay ligando ou desligando os mesmos.</string>
+    <string name="ps_refresh">Atualizar ToggleBay</string>
+</resources>
