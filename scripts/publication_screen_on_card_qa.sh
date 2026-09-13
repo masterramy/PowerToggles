@@ -65,7 +65,7 @@ grep -q 'ScreenOnService' "$OUT/state/screen-on-services.txt"
 grep -Eq 'NotificationRecord\(.*pkg=com\.ramybaheeg\.togglebay|pkg=com\.ramybaheeg\.togglebay.*id=103' "$OUT/state/screen-on-notification.txt"
 grep -q 'persistent_controls' "$OUT/state/screen-on-notification.txt"
 if grep -E 'FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay' "$OUT/logs/screen-on-card.logcat.txt"; then
-  echo 'Power Toggles fatal/ANR during Screen Always On notification-card proof'
+  echo 'ToggleBay fatal/ANR during Screen Always On notification-card proof'
   exit 1
 fi
 

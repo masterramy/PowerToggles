@@ -9,7 +9,7 @@ PROBE="$PKG/.tracker.Gate2aProbeActivity"
 fatal_check() {
   local file="$1"
   if grep -E "FATAL EXCEPTION|Process: ${PKG//./\\.}.*has died|ANR in ${PKG//./\\.}|am_crash.*${PKG//./\\.}|am_anr.*${PKG//./\\.}" "$file"; then
-    echo "Fatal Power Toggles signal in $file" >&2
+    echo "Fatal ToggleBay signal in $file" >&2
     exit 1
   fi
 }

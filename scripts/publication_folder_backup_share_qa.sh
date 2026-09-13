@@ -49,7 +49,7 @@ fatal_scan() {
   local name="$1"
   adb logcat -d > "$OUT/logs/${name}.logcat.txt"
   if grep -E "FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay" "$OUT/logs/${name}.logcat.txt"; then
-    echo "Fatal Power Toggles runtime signal during ${name}" >&2
+    echo "Fatal ToggleBay runtime signal during ${name}" >&2
     return 1
   fi
 }

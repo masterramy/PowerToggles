@@ -100,9 +100,9 @@ replace_once(
     'import/export persistence reopen assertion repaired')
 
 # 3) The previous positive folder-share probe attempted to manufacture a URI
-# grant from the adb-shell sender. Shell does not own Power Toggles' provider and
+# grant from the adb-shell sender. Shell does not own ToggleBay' provider and
 # cannot confer that capability. Instead, select the QA consumer from the real
-# Power Toggles ShareActionProvider chooser so Android propagates the owning
+# ToggleBay ShareActionProvider chooser so Android propagates the owning
 # app's FLAG_GRANT_READ_URI_PERMISSION/ClipData grant to the recipient.
 share_old = r'''adb shell run-as "$CONSUMER_PKG" rm -f files/result.txt >/dev/null 2>&1 || true
 adb logcat -c

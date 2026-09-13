@@ -237,7 +237,7 @@ pulse_restored="retired"
 adb shell appops set "$PKG" WRITE_SETTINGS deny >/dev/null 2>&1 || true
 
 # ID 43 Home Shortcut. Invoke the exact shipping HomeCommand and require the
-# resolved system home activity to become foreground rather than Power Toggles.
+# resolved system home activity to become foreground rather than ToggleBay.
 home_component="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null | tr -d '\r' | tail -n 1)"
 home_package="${home_component%%/*}"
 adb shell am start -W -n "$PKG/.settings.LaunchActivity" >/dev/null 2>&1 || true

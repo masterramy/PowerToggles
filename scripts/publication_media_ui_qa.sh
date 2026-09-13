@@ -23,7 +23,7 @@ capture_state() {
   adb exec-out screencap -p > "$OUT/screens/${slug}.png"
   adb logcat -d > "$OUT/logs/${slug}.logcat.txt"
   if grep -E "FATAL EXCEPTION|Process: ${PKG//./\\.}.*has died|ANR in ${PKG//./\\.}|am_crash.*${PKG//./\\.}|am_anr.*${PKG//./\\.}" "$OUT/logs/${slug}.logcat.txt"; then
-    echo "$slug: fatal Power Toggles signal" >&2
+    echo "$slug: fatal ToggleBay signal" >&2
     exit 1
   fi
 }
