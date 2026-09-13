@@ -31,7 +31,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 
-import com.painless.pc.FileProvider;
+import com.painless.pc.togglebay.FileProvider;
 import com.painless.pc.R;
 import com.painless.pc.singleton.Globals;
 import com.painless.pc.singleton.ParseUtil;
