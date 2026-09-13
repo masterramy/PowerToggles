@@ -6,7 +6,7 @@
     <string name="togglebay_tasker_refresh">Refresh ToggleBay</string>
     <string name="togglebay_about_title">About ToggleBay</string>
     <string name="togglebay_publisher_title">Publisher</string>
-    <string name="togglebay_publisher_summary">Sufficient Systems</string>
+    <string name="togglebay_publisher_summary">Ramy Baheeg</string>
     <string name="togglebay_privacy_title">Privacy</string>
     <string name="togglebay_privacy_summary">No ads, analytics, tracking, accounts, or cloud sync. App data stays on this device unless you explicitly export or share it. System permissions are used only for controls you invoke or enable.</string>
     <string name="togglebay_license_title">Open-source attribution</string>
