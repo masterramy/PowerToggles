@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">Zámka obrazovky ToggleBay</string>
+    <string name="qs_activate_help_3">Pustite ikonu a otvorte znovu ToggleBay</string>
+    <string name="wp_add_help">Ak chcete pridať miniaplikáciu, otvorte zoznam aplikácií a vyhľadajte ToggleBay v zozname miniaplikácií. Dlhým stlačením miniaplikácie zobrazíte náhľad a pretiahnite ho na domovskú obrazovku.</string>
+    <string name="ps_prem_label">Použiť zásuvné moduly ToggleBay</string>
+    <string name="ps_prem_desc">Môžete kontrolovať zásuvné moduly ToggleBay ich zapnutím. alebo vypnutím</string>
+    <string name="ps_refresh">Obnoviť ToggleBay</string>
+    <string name="folder_title">Zložka ToggleBay</string>
+    <string name="folder_help_2">Ak chcete vytvoriť zložku, otvorte menu, a nájdite miniaplikáciu Zložka ToggleBay medzi miniaplikáciami. Podržte ju dlhšie a pretiahnite ju na domovskú obrazovku.</string>
+</resources>
