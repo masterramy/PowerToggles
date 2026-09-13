@@ -186,8 +186,19 @@ jobs:
           '''
           if text.count(old) != 1:
               raise SystemExit(f'Expected one translated folder-share return block, found {text.count(old)}')
-          p.write_text(text.replace(old, new, 1))
+          text = text.replace(old, new, 1)
+
+          # DocumentsUI exposes the filename as a non-clickable TextView nested inside
+          # a clickable item_root card. The previous name-based tap could land on the
+          # title without activating ACTION_OPEN_DOCUMENT. Tap the exact clickable card.
+          restore_old = 'tap_node "11-backup-select-source" "$BACKUP_NAME"'
+          restore_new = 'tap_node "11-backup-select-source" "com.google.android.documentsui:id/item_root"'
+          if text.count(restore_old) != 1:
+              raise SystemExit(f'Expected one DocumentsUI restore selection tap, found {text.count(restore_old)}')
+          text = text.replace(restore_old, restore_new, 1)
+          p.write_text(text)
           print('ToggleBay folder-share return/reselection harness repair: PASS')
+          print('ToggleBay DocumentsUI clickable restore-card harness repair: PASS')
           PY
 
           # Publication closure must retain evidence from every independent tranche
