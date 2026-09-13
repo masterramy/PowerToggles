@@ -69,7 +69,7 @@ public abstract class ImportExportActivity<T> extends CallerActivity {
 				Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
 						.addCategory(Intent.CATEGORY_OPENABLE)
 						.setType(getDocumentMimeType())
-						.putExtra(Intent.EXTRA_TITLE, "power-toggles-backup" + fileExtension);
+						.putExtra(Intent.EXTRA_TITLE, "togglebay-widget" + fileExtension);
 				requestResult(10, intent, new CallerActivity.ResultReceiver() {
 					@Override
 					public void onResult(int requestCode, Intent data) {

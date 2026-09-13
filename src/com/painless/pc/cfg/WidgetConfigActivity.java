@@ -59,7 +59,7 @@ import com.painless.pc.util.WidgetSetting;
 public class WidgetConfigActivity extends ImportExportActivity<BackupData> implements ConfigCallback {
 
   private static final String THEME_EXTENSION = ".pttheme";
-  private static final String DEFAULT_THEME_NAME = "power-toggles-theme" + THEME_EXTENSION;
+  private static final String DEFAULT_THEME_NAME = "togglebay-theme" + THEME_EXTENSION;
 
 	public WidgetConfigActivity() {
 		super(R.menu.config_menu, ".zip",

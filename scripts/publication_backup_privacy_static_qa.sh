@@ -28,4 +28,15 @@ grep -Fq 'BACK_TOKEN_PREFS = "file_provider_capabilities"' "$PROVIDER" || fail "
 grep -Fq 'FOLDER_SHARE_FILE_NAME = "folder.pcf"' "$PROVIDER" || fail "Folder share filename changed without backup review"
 grep -Fq 'WIDGET_SHARE_FILE_NAME = "widget.zip"' "$PROVIDER" || fail "Widget share filename changed without backup review"
 
+
+# ToggleBay public export filenames must not regress to historical branding.
+IMPORT_EXPORT="$ROOT/src/com/painless/pc/util/ImportExportActivity.java"
+WIDGET_CONFIG="$ROOT/src/com/painless/pc/cfg/WidgetConfigActivity.java"
+if grep -RInEi 'power-toggles-(backup|theme)' "$ROOT/src"; then
+  fail "Historical customer-visible export filename remains"
+fi
+grep -Fq '"togglebay-widget" + fileExtension' "$IMPORT_EXPORT" || fail "ToggleBay backup document filename contract missing"
+grep -Fq 'DEFAULT_THEME_NAME = "togglebay-theme" + THEME_EXTENSION' "$WIDGET_CONFIG" || fail "ToggleBay theme filename contract missing"
+
+echo "PASS: ToggleBay customer-visible export filenames are independent of historical branding"
 echo "PASS: backup keeps user migration while excluding ephemeral capabilities/share artifacts"
