@@ -29,12 +29,20 @@ runtime_scripts = [
 for name in runtime_scripts:
     p = Path(name)
     text = p.read_text()
-    if 'com.painless.pc' not in text:
+    if ('com.painless.pc' not in text
+            and r'com\.painless\.pc' not in text
+            and r'com\\.painless\\.pc' not in text):
         print(f'{name}: no legacy runtime package tokens')
         continue
 
     # Runtime package/authority/resource-id/process identity follows applicationId.
     text = text.replace('com.painless.pc', 'com.ramybaheeg.togglebay')
+
+    # Regex assertions carry escaped package dots and therefore are not covered by
+    # the plain string replacement above. Normalize both one- and two-backslash
+    # source spellings so package/resource-id/process assertions observe ToggleBay.
+    text = text.replace(r'com\\.painless\\.pc', r'com\\.ramybaheeg\\.togglebay')
+    text = text.replace(r'com\.painless\.pc', r'com\.ramybaheeg\.togglebay')
 
     # Component classes intentionally remain in the restored Java namespace.
     # Cover both literal package components and the shell-variable shorthand used by
@@ -60,6 +68,13 @@ for name in runtime_scripts:
     text = text.replace('qa-debug/src/com/ramybaheeg/togglebay', 'qa-debug/src/com/painless/pc')
     text = text.replace('package com.ramybaheeg.togglebay', 'package com.painless.pc')
     text = text.replace('import com.ramybaheeg.togglebay', 'import com.painless.pc')
+
+    # The folder-share QA script generates a completely separate external consumer
+    # application inside a heredoc. It intentionally follows the translated public
+    # package and must NOT be restored to the app's historical source namespace.
+    text = text.replace(
+        'package com.painless.pc.qaconsumer;',
+        'package com.ramybaheeg.togglebay.qaconsumer;')
 
     # Fail closed if the main-app package still uses relative component shorthand.
     # That form is only valid when applicationId and Java namespace are identical.
