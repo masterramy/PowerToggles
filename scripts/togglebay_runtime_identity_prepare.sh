@@ -100,6 +100,86 @@ for name in runtime_scripts:
         'package com.painless.pc.qaconsumer;',
         'package com.ramybaheeg.togglebay.qaconsumer;')
 
+    # Publication-only rendered picker audits must also use a framework-owned
+    # AppWidget ID. Shipping correctly rejects synthetic IDs such as 1004/1005.
+    if name == 'scripts/publication_runtime_qa.sh':
+        audit_anchor = '# Flashlight is farther down the categorized picker.'
+        audit_setup = '''PUBLICATION_USER_ID="$(adb shell am get-current-user | tr -d '\\r')"
+case "$PUBLICATION_USER_ID" in
+  ''|*[!0-9]*) echo "Unable to resolve numeric Android user: $PUBLICATION_USER_ID" >&2; exit 1 ;;
+esac
+adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$PUBLICATION_USER_ID" > runtime-evidence/state/publication-widget-grantbind.txt
+adb shell am force-stop com.ramybaheeg.togglebay
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
+  --es probe allocate_bind > runtime-evidence/state/publication-widget-allocate-bind.txt
+sleep 1
+adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/publication_widget_host_probe.xml > runtime-evidence/state/publication-widget-probe-prefs.xml
+PUBLICATION_AUDIT_WIDGET_ID="$(python3 -c 'import sys,xml.etree.ElementTree as ET; r=ET.parse(sys.argv[1]).getroot(); print(next(n.attrib["value"] for n in r if n.attrib.get("name")=="widget_id"))' runtime-evidence/state/publication-widget-probe-prefs.xml)"
+test "$PUBLICATION_AUDIT_WIDGET_ID" -gt 0
+grep -Eq 'name="bound" value="true"|value="true" name="bound"' runtime-evidence/state/publication-widget-probe-prefs.xml
+grep -Eq 'name="provider_info_present" value="true"|value="true" name="provider_info_present"' runtime-evidence/state/publication-widget-probe-prefs.xml
+
+'''
+        if audit_anchor not in text:
+            raise SystemExit(f'{name}: publication picker audit anchor missing')
+        text = text.replace(audit_anchor, audit_setup + audit_anchor, 1)
+        text = text.replace('--ei appWidgetId 1004', '--ei appWidgetId "$PUBLICATION_AUDIT_WIDGET_ID"', 1)
+        text = text.replace('--ei appWidgetId 1005', '--ei appWidgetId "$PUBLICATION_AUDIT_WIDGET_ID"', 1)
+        inventory_end = "find runtime-evidence/screens -maxdepth 1 -type f -name '*.png'"
+        audit_cleanup = '''adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
+adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.PublicationWidgetHostProbeActivity \
+  --es probe delete --ei widget_id "$PUBLICATION_AUDIT_WIDGET_ID" > runtime-evidence/state/publication-widget-delete.txt
+adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$PUBLICATION_USER_ID" >/dev/null 2>&1 || true
+
+'''
+        if inventory_end not in text:
+            raise SystemExit(f'{name}: publication picker cleanup anchor missing')
+        text = text.replace(inventory_end, audit_cleanup + inventory_end, 1)
+
+    # Import/export tracker-33 reopens an already-configured widget and therefore
+    # legitimately lands in EditWidgetConfigActivity. Accept that exact shipping
+    # activity on every reopen, including the final process-persistence proof.
+    if name == 'scripts/publication_import_export_qa.sh':
+        text = text.replace(
+            "grep -q 'com.ramybaheeg.togglebay/com.painless.pc.cfg.WidgetConfigActivity'",
+            "grep -Eq 'com\\.ramybaheeg\\.togglebay/com\\.painless\\.pc\\.cfg\\.EditWidgetConfigActivity'")
+
+    # Android's compact sharesheet can hide a newly installed QA target behind
+    # "See all". Expand it through the rendered customer chooser before selecting
+    # the external consumer so the URI grant originates from ToggleBay itself.
+    if name == 'scripts/publication_folder_backup_share_qa.sh':
+        share_anchor = '''adb logcat -c
+tap_node "02-share-source" "Share"
+sleep 2
+if ! adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1; then
+  if wait_for_node "02-share-target-wait" "QA Folder Share Consumer" 8; then
+    capture "02-share-target-list"
+    tap_node "02-share-target-source" "QA Folder Share Consumer"
+    sleep 2
+  fi
+fi
+'''
+        share_replacement = '''adb logcat -c
+tap_node "02-share-source" "Share"
+sleep 2
+if ! adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1; then
+  if ! wait_for_node "02-share-target-wait" "QA Folder Share Consumer" 3; then
+    if wait_for_node "02-share-see-all-wait" "See all" 3; then
+      tap_node "02-share-see-all-source" "See all"
+      sleep 2
+    fi
+  fi
+  if wait_for_node "02-share-target-wait-expanded" "QA Folder Share Consumer" 8; then
+    capture "02-share-target-list"
+    tap_node "02-share-target-source" "QA Folder Share Consumer"
+    sleep 2
+  fi
+fi
+'''
+        if share_anchor not in text:
+            raise SystemExit(f'{name}: folder sharesheet anchor missing')
+        text = text.replace(share_anchor, share_replacement, 1)
+
     # The inherited Gate 2A runtime probe used synthetic AppWidget IDs for its
     # configurator/picker interaction slice. Shipping code now correctly rejects
     # unowned synthetic IDs. Replace those two QA-only IDs with one genuinely
