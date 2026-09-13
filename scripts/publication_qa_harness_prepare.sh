@@ -23,7 +23,7 @@ def replace_once(path, old, new, label):
 
 # 1) Attribute fatal/ANR checks to ToggleBay rather than unrelated emulator processes.
 fatal_old = r'FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay'
-fatal_new = r'Process: com\.ramybaheeg\.togglebay(,|[[:space:]])|Process com\.painless\.pc.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay'
+fatal_new = r'Process: com\.ramybaheeg\.togglebay(,|[[:space:]])|Process com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay'
 for name in ('scripts/gate2a_runtime_qa.sh','scripts/publication_runtime_qa.sh','scripts/publication_import_export_qa.sh'):
     p = Path(name); text = p.read_text()
     old_count = text.count(fatal_old); new_count = text.count(fatal_new)
@@ -140,7 +140,7 @@ if ! adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1; 
   fi
 fi
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
-grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.ramybaheeg\.togglebay\.file/folder-share$' "$OUT/state/share-positive-result.txt"
 '''
 new_share = r'''adb shell run-as "$CONSUMER_PKG" rm -f files/result.txt >/dev/null 2>&1 || true
 adb logcat -c
@@ -170,7 +170,7 @@ adb shell am start -W -a android.intent.action.SEND -t application/zip \
   --eu android.intent.extra.STREAM "$SHARE_URI" > "$OUT/state/share-positive-start.txt" 2>&1
 sleep 1
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
-grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.ramybaheeg\.togglebay\.file/folder-share$' "$OUT/state/share-positive-result.txt"
 '''
 replace_once('scripts/publication_folder_backup_share_qa.sh', old_share, new_share,
              'deterministic customer-share plus valid cross-UID grant proof')

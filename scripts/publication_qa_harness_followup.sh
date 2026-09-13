@@ -132,7 +132,7 @@ adb shell am start -W -a android.intent.action.SEND -t application/zip \
   --eu android.intent.extra.STREAM "$SHARE_URI" > "$OUT/state/share-positive-start.txt" 2>&1
 sleep 1
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
-grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.ramybaheeg\.togglebay\.file/folder-share$' "$OUT/state/share-positive-result.txt"
 '''
 share_new = r'''adb shell run-as "$CONSUMER_PKG" rm -f files/result.txt >/dev/null 2>&1 || true
 adb logcat -c
@@ -152,7 +152,7 @@ capture "02-share-target-list"
 tap_node "02-share-target-source" "QA Folder Share Consumer"
 sleep 2
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
-grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.ramybaheeg\.togglebay\.file/folder-share$' "$OUT/state/share-positive-result.txt"
 adb exec-out run-as com.ramybaheeg.togglebay cat files/folder.pcf > "$OUT/state/customer-share-created-folder.pcf"
 test -s "$OUT/state/customer-share-created-folder.pcf"
 unzip -t "$OUT/state/customer-share-created-folder.pcf" | tee "$OUT/state/customer-share-created-unzip-test.txt"

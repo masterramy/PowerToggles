@@ -7,7 +7,7 @@ SRC="src/com/painless/pc/nav/FolderFrag.java"
 PROVIDER="src/com/painless/pc/FileProvider.java"
 QA_NAME="QA Folder 314159"
 SHARE_URI="content://com.ramybaheeg.togglebay.file/folder-share"
-BACKUP_NAME="power-toggles-folders.pcf"
+BACKUP_NAME="togglebay-folders.pcf"
 CONSUMER_PKG="com.painless.pc.qaconsumer"
 rc=0
 
@@ -37,7 +37,7 @@ static_check_absent 'Uri\.fromFile\(' 'folder share never exposes file:// URIs'
 static_check_present "$SRC" 'ACTION_CREATE_DOCUMENT' 'folder backup uses framework document creation'
 static_check_present "$SRC" 'ACTION_OPEN_DOCUMENT' 'folder restore uses framework document opening'
 static_check_present "$SRC" 'FLAG_GRANT_READ_URI_PERMISSION' 'folder share grants read access explicitly'
-static_check_present "$SRC" 'content://com\.painless\.pc\.file/folder-share|FOLDER_SHARE_URI' 'folder share uses the scoped content URI'
+static_check_present "$SRC" 'content://com\.ramybaheeg\.togglebay\.file/folder-share|FOLDER_SHARE_URI' 'folder share uses the scoped content URI'
 static_check_present "$PROVIDER" 'folder-share' 'provider exposes a dedicated folder-share path'
 static_check_present "$PROVIDER" 'checkUriPermission' 'provider enforces URI grants for external folder-share readers'
 if [ "$rc" -ne 0 ]; then
@@ -278,7 +278,7 @@ adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-negati
 # producing FileNotFoundException:No content provider instead of SecurityException.
 # Either result proves denial here; the positive share below must then prove that
 # the explicit customer-path URI grant makes the same exact URI readable cross-UID.
-grep -Eq '^FAIL (java\.lang\.SecurityException|java\.io\.FileNotFoundException:No content provider: content://com\.painless\.pc\.file/folder-share)' "$OUT/state/share-negative-result.txt"
+grep -Eq '^FAIL (java\.lang\.SecurityException|java\.io\.FileNotFoundException:No content provider: content://com\.ramybaheeg\.togglebay\.file/folder-share)' "$OUT/state/share-negative-result.txt"
 
 # Exact rendered Folder list and action mode, then real cross-UID Share selection.
 launch_folder
@@ -301,7 +301,7 @@ if ! adb shell run-as "$CONSUMER_PKG" test -s files/result.txt >/dev/null 2>&1; 
   fi
 fi
 adb shell run-as "$CONSUMER_PKG" cat files/result.txt > "$OUT/state/share-positive-result.txt"
-grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.painless\.pc\.file/folder-share$' "$OUT/state/share-positive-result.txt"
+grep -Eq '^PASS bytes=[1-9][0-9]* uri=content://com\.ramybaheeg\.togglebay\.file/folder-share$' "$OUT/state/share-positive-result.txt"
 adb exec-out run-as com.ramybaheeg.togglebay cat files/folder.pcf > "$OUT/state/shared-folder.pcf"
 test -s "$OUT/state/shared-folder.pcf"
 unzip -t "$OUT/state/shared-folder.pcf" | tee "$OUT/state/shared-unzip-test.txt"

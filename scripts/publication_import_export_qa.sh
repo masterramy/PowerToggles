@@ -117,7 +117,7 @@ tap_node "02-backup-menu-source" "Create Backup"
 sleep 2
 capture "02-backup-destination"
 assert_document_picker "02-backup-destination"
-grep -Fq 'text="power-toggles-backup.zip"' "$OUT/ui/02-backup-destination.xml"
+grep -Fq 'text="togglebay-widget.zip"' "$OUT/ui/02-backup-destination.xml"
 grep -Fq 'text="SAVE"' "$OUT/ui/02-backup-destination.xml"
 
 adb shell input keyevent KEYCODE_BACK || true
@@ -152,7 +152,7 @@ printf 'android_user_id=%s\n' "$USER_ID" > "$OUT/state/android-user.txt"
 cleanup_roundtrip() {
   adb shell am force-stop com.ramybaheeg.togglebay >/dev/null 2>&1 || true
   adb shell appwidget revokebind --package com.ramybaheeg.togglebay --user "$USER_ID" >/dev/null 2>&1 || true
-  adb shell rm -f /sdcard/Download/power-toggles-backup.zip >/dev/null 2>&1 || true
+  adb shell rm -f /sdcard/Download/togglebay-widget.zip >/dev/null 2>&1 || true
 }
 trap cleanup_roundtrip EXIT
 
@@ -231,7 +231,7 @@ print(label + '=PASS')
 PY
 }
 
-adb shell rm -f /sdcard/Download/power-toggles-backup.zip >/dev/null 2>&1 || true
+adb shell rm -f /sdcard/Download/togglebay-widget.zip >/dev/null 2>&1 || true
 adb shell appwidget grantbind --package com.ramybaheeg.togglebay --user "$USER_ID" | tee "$OUT/state/grantbind.txt"
 adb logcat -c
 probe allocate_bind > "$OUT/state/allocate-bind.txt"
@@ -273,7 +273,7 @@ tap_node "14-roundtrip-create-source" "Create Backup"
 sleep 2
 capture "14-roundtrip-create-document"
 assert_document_picker "14-roundtrip-create-document"
-grep -Fq 'text="power-toggles-backup.zip"' "$OUT/ui/14-roundtrip-create-document.xml"
+grep -Fq 'text="togglebay-widget.zip"' "$OUT/ui/14-roundtrip-create-document.xml"
 grep -Fq 'text="SAVE"' "$OUT/ui/14-roundtrip-create-document.xml"
 adb logcat -c
 tap_node "15-roundtrip-save-source" "SAVE"
@@ -283,19 +283,19 @@ grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/15-roundtrip-save-return.
 fatal_scan "15-roundtrip-save-return"
 
 for attempt in $(seq 1 10); do
-  if adb shell test -s /sdcard/Download/power-toggles-backup.zip >/dev/null 2>&1; then
+  if adb shell test -s /sdcard/Download/togglebay-widget.zip >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
-adb shell test -s /sdcard/Download/power-toggles-backup.zip
-adb shell ls -l /sdcard/Download/power-toggles-backup.zip > "$OUT/state/backup-file-ls.txt"
-adb pull /sdcard/Download/power-toggles-backup.zip "$OUT/state/power-toggles-backup.zip" >/dev/null
-unzip -t "$OUT/state/power-toggles-backup.zip" | tee "$OUT/state/backup-unzip-test.txt"
-unzip -p "$OUT/state/power-toggles-backup.zip" config.txt | sed -n '1p' > "$OUT/state/backup-config.json"
+adb shell test -s /sdcard/Download/togglebay-widget.zip
+adb shell ls -l /sdcard/Download/togglebay-widget.zip > "$OUT/state/backup-file-ls.txt"
+adb pull /sdcard/Download/togglebay-widget.zip "$OUT/state/togglebay-widget.zip" >/dev/null
+unzip -t "$OUT/state/togglebay-widget.zip" | tee "$OUT/state/backup-unzip-test.txt"
+unzip -p "$OUT/state/togglebay-widget.zip" config.txt | sed -n '1p' > "$OUT/state/backup-config.json"
 python3 -m json.tool "$OUT/state/backup-config.json" > "$OUT/state/backup-config.pretty.json"
 compare_json "$OUT/state/baseline-settings.json" "$OUT/state/backup-config.json" "backup_config_matches_saved_widget"
-sha256sum "$OUT/state/power-toggles-backup.zip" > "$OUT/state/backup-sha256.txt"
+sha256sum "$OUT/state/togglebay-widget.zip" > "$OUT/state/backup-sha256.txt"
 
 # Harness-only fixture mutation: invert a real persisted customer setting. If
 # restore is not genuinely applied, pressing Done will preserve this divergence.
@@ -348,17 +348,17 @@ sleep 2
 capture "18-roundtrip-open-document"
 assert_document_picker "18-roundtrip-open-document"
 
-if ! wait_for_node "19-roundtrip-backup-file-wait" "power-toggles-backup.zip" 5; then
+if ! wait_for_node "19-roundtrip-backup-file-wait" "togglebay-widget.zip" 5; then
   tap_node "19-roundtrip-roots-source" "Show roots"
   sleep 1
   wait_for_node "19-roundtrip-downloads-wait" "Downloads" 5
   tap_node "19-roundtrip-downloads-source" "Downloads"
   sleep 2
-  wait_for_node "19-roundtrip-backup-file-wait-downloads" "power-toggles-backup.zip" 8
+  wait_for_node "19-roundtrip-backup-file-wait-downloads" "togglebay-widget.zip" 8
 fi
 capture "19-roundtrip-backup-visible"
 adb logcat -c
-tap_node "20-roundtrip-backup-select-source" "power-toggles-backup.zip"
+tap_node "20-roundtrip-backup-select-source" "togglebay-widget.zip"
 sleep 4
 capture "20-roundtrip-after-import"
 grep -Fq 'package="com.ramybaheeg.togglebay"' "$OUT/ui/20-roundtrip-after-import.xml"
