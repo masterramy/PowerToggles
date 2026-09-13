@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wp_add_help">Aby dodać widżet, otwórz menu aplikacji i zlokalizuj widżet ToggleBay w zakładce z widżetami. Następnie przytrzymaj go i przeciągnij na ekran główny.</string>
+    <string name="ps_prem_label">Używaj wtyczek do ToggleBay</string>
+    <string name="ps_prem_desc">Umożliwia wyłączenie lub włączenie wtyczek do ToggleBay</string>
+    <string name="ps_refresh">Odśwież ToggleBay</string>
+    <string name="sl_no_camera">Nie znaleziono aparatu lub nie jest on wspierany przez ToggleBay.</string>
+    <string name="folder_title">Folder ToggleBay</string>
+    <string name="folder_help_2">Aby utworzyć folder, otwórz menu aplikacji i zlokalizuj folder ToggleBay w zakładce z widżetami. Następnie przytrzymaj go i przeciągnij na ekran główny.</string>
+</resources>
