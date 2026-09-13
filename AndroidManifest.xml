@@ -135,7 +135,7 @@
             <intent-filter><action android:name="android.net.conn.CONNECTIVITY_CHANGE" /></intent-filter>
         </receiver>
         <provider
-            android:name="FileProvider"
+            android:name="com.painless.pc.togglebay.FileProvider"
             android:authorities="${applicationId}.file"
             android:exported="true"
             android:grantUriPermissions="true"
@@ -166,7 +166,7 @@
         <activity android:name=".picker.FilePicker" android:exported="false" android:theme="@style/activityTheme" />
         <activity android:name=".picker.ThemePicker" android:exported="false" android:label="@string/tm_title" android:theme="@style/configTheme" />
         <activity android:name=".cfg.WidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="true" android:launchMode="singleTop" android:theme="@style/configTheme" >
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
+            <intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><intent-filter><action android:name="android.intent.action.SEARCH" /></intent-filter><meta-data android:name="android.app.searchable" android:resource="@xml/toggle_search" />
         </activity>
         <activity android:name=".cfg.EditWidgetConfigActivity" android:configChanges="orientation|keyboardHidden|screenSize" android:exported="false" android:launchMode="singleTop" android:theme="@style/configTheme" />
         <activity android:name=".cfg.IconThemeEditor" android:exported="false" android:theme="@style/activityTheme" />
@@ -199,7 +199,7 @@
         <activity android:name=".folder.FolderPick" android:exported="true" android:icon="@drawable/folder_icon" android:label="@string/folder_title" android:theme="@style/activityTheme" >
             <intent-filter><action android:name="android.intent.action.CREATE_SHORTCUT" /><category android:name="android.intent.category.DEFAULT" /></intent-filter>
         </activity>
-        <receiver android:name=".PluginUpdateReceiver" android:exported="true" >
+        <receiver android:name="com.painless.pc.togglebay.PluginUpdateReceiver" android:exported="true" >
             <intent-filter><action android:name="net.dinglisch.android.tasker.ACTION_TASK_COMPLETE" /><data android:scheme="task" /></intent-filter>
             <intent-filter><action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING" /><action android:name="${applicationId}.ACTION_STATE_CHANGED" /></intent-filter>
         </receiver>
