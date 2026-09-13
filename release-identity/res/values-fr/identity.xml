@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">ToggleBay verrouillage de l\u0027écraser</string>
+    <string name="wp_add_help">Pour ajouter un widget, ouvrir le tiroir des applications, et chercher "ToggleBay" dans l\u0027onglet Widgets. Appuyer longuement sur son image et le glisser sur l\u0027écran d\u0027accueil.</string>
+    <string name="ps_prem_label">Utiliser les plugins ToggleBay</string>
+    <string name="ps_prem_desc">Contrôle des plugins ToggleBay en les basculant (marche/arrêt)</string>
+    <string name="ps_refresh">Mettre à jour l\u0027affichage de ToggleBay</string>
+</resources>
