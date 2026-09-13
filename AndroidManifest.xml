@@ -104,10 +104,10 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/togglebay_launcher"
         android:label="@string/app_name" >
-        <!-- AppWidgetManager delivers the provider's framework broadcasts explicitly;
-             this receiver has no supported cross-app custom IPC surface. Keep it
-             non-exported so arbitrary apps cannot force widget redraw work. -->
-        <receiver android:name=".PCWidgetActivity" android:exported="false" android:label="@string/app_name" >
+        <!-- AppWidget hosts and AppWidgetService must be able to discover and bind
+             this framework provider. Keep its only manifest action limited to the
+             framework APPWIDGET_UPDATE contract; retired custom widget IPC stays denied. -->
+        <receiver android:name=".PCWidgetActivity" android:exported="true" android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -178,8 +178,8 @@
         </activity>
         <activity android:name=".acts.BrightnessActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name="FlashActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:screenOrientation="portrait" android:theme="@style/flashTheme" />
-        <activity android:name="BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
-        <activity android:name="RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Dialog" />
+        <activity android:name="BootDialog" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
+        <activity android:name="RLPicker" android:exported="false" android:label="@string/rt_title" android:launchMode="singleTask" android:noHistory="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog" />
         <activity android:name=".acts.BrightnessSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name=".acts.VolumeSlider" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
         <activity android:name="ProxyActivity" android:exported="false" android:launchMode="singleTask" android:noHistory="true" android:theme="@style/panelTheme" />
