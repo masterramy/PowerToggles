@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wp_add_help">Widget hozzáadásához nyisd meg az alkalmazásokat, ahol van a ToggleBay. Tartsd hosszan nyomva a widget, majd húzd a kezdőképernyőre.</string>
+    <string name="ps_prem_desc">A ToggleBay-ben lehetséges a pluginok be- és kikapcsolása</string>
+    <string name="ps_refresh">ToggleBay Frissíté
+se</string>
+</resources>
