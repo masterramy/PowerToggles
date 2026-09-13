@@ -37,7 +37,7 @@ capture_route() {
     exit 1
   fi
 
-  if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc" \
+  if grep -E "FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay" \
       "$OUT/logs/${slug}.logcat.txt"; then
     echo "${slug}: fatal Power Toggles signal while launching user-mediated settings route" >&2
     exit 1

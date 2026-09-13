@@ -234,7 +234,7 @@ adb exec-out screencap -p > runtime-evidence/screens/21-publication-labels-lower
 adb shell dumpsys activity activities > runtime-evidence/state/21-publication-labels-lower-picker.activities.txt
 adb shell dumpsys window windows > runtime-evidence/state/21-publication-labels-lower-picker.windows.txt
 adb logcat -d > runtime-evidence/logs/21-publication-labels-lower-picker.logcat.txt
-if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc" runtime-evidence/logs/21-publication-labels-lower-picker.logcat.txt; then
+if grep -E "FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay" runtime-evidence/logs/21-publication-labels-lower-picker.logcat.txt; then
   echo "Fatal runtime signal during publication label audit"
   exit 1
 fi
@@ -326,7 +326,7 @@ PY
 adb shell dumpsys activity activities > runtime-evidence/state/22-publication-picker-inventory.activities.txt
 adb shell dumpsys window windows > runtime-evidence/state/22-publication-picker-inventory.windows.txt
 adb logcat -d > runtime-evidence/logs/22-publication-picker-inventory.logcat.txt
-if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc" runtime-evidence/logs/22-publication-picker-inventory.logcat.txt; then
+if grep -E "FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay" runtime-evidence/logs/22-publication-picker-inventory.logcat.txt; then
   echo "Fatal runtime signal during publication picker inventory"
   exit 1
 fi

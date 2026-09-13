@@ -22,8 +22,8 @@ def replace_once(path, old, new, label):
     raise SystemExit(f'{path}: expected one {label} anchor; old={old_count} new={new_count}')
 
 # 1) Attribute fatal/ANR checks to Power Toggles rather than unrelated emulator processes.
-fatal_old = r'FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc'
-fatal_new = r'Process: com\.painless\.pc(,|[[:space:]])|Process com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc'
+fatal_old = r'FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay'
+fatal_new = r'Process: com\.ramybaheeg\.togglebay(,|[[:space:]])|Process com\.painless\.pc.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay'
 for name in ('scripts/gate2a_runtime_qa.sh','scripts/publication_runtime_qa.sh','scripts/publication_import_export_qa.sh'):
     p = Path(name); text = p.read_text()
     old_count = text.count(fatal_old); new_count = text.count(fatal_new)

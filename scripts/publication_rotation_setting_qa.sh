@@ -84,7 +84,7 @@ printf '%s\n' \
 [ "$auto_write" = "true" ]
 [ "$restored" = "$before" ]
 [ "$auto_restored" = "$original_auto" ]
-if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc|ANR in com\.painless\.pc|SecurityException" "$OUT/logs/rotation-setting.logcat.txt"; then
+if grep -E "FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay|ANR in com\.ramybaheeg\.togglebay|SecurityException" "$OUT/logs/rotation-setting.logcat.txt"; then
   echo "Unexpected fatal/security signal during public rotation-setting proof" >&2
   exit 1
 fi

@@ -28,7 +28,7 @@ dump_ui_retry() {
 fatal_scan() {
   local name="$1"
   adb logcat -d > "$OUT/logs/${name}.logcat.txt"
-  if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.painless\.pc|am_crash.*com\.painless\.pc|am_anr.*com\.painless\.pc" "$OUT/logs/${name}.logcat.txt"; then
+  if grep -E "FATAL EXCEPTION|Process: com\.ramybaheeg\.togglebay.*has died|ANR in com\.ramybaheeg\.togglebay|am_crash.*com\.ramybaheeg\.togglebay|am_anr.*com\.ramybaheeg\.togglebay" "$OUT/logs/${name}.logcat.txt"; then
     echo "Fatal runtime signal during ${name}"
     return 1
   fi
@@ -186,7 +186,7 @@ adb shell input tap 998 202
 sleep 1
 capture "13-notification-permission-prompt"
 grep -q 'package="com.google.android.permissioncontroller"' "$OUT/ui/13-notification-permission-prompt.xml"
-grep -q 'Allow Power Toggles to send you notifications?' "$OUT/ui/13-notification-permission-prompt.xml"
+grep -q 'Allow ToggleBay to send you notifications?' "$OUT/ui/13-notification-permission-prompt.xml"
 grep -q 'text="Allow"' "$OUT/ui/13-notification-permission-prompt.xml"
 
 adb shell pm grant com.ramybaheeg.togglebay android.permission.POST_NOTIFICATIONS
@@ -201,7 +201,7 @@ sleep 2
 capture "14-notification-enabled"
 grep -Eq 'resource-id="com\.painless\.pc:id/my_switch"[^>]*checked="true"' "$OUT/ui/14-notification-enabled.xml"
 adb shell dumpsys notification --noredact > "$OUT/state/notification-enabled.dumpsys.txt"
-grep -Eq 'NotificationRecord\(.*pkg=com\.painless\.pc|pkg=com\.painless\.pc.*id=1' "$OUT/state/notification-enabled.dumpsys.txt"
+grep -Eq 'NotificationRecord\(.*pkg=com\.ramybaheeg\.togglebay|pkg=com\.ramybaheeg\.togglebay.*id=1' "$OUT/state/notification-enabled.dumpsys.txt"
 grep -q 'power_toggles_controls' "$OUT/state/notification-enabled.dumpsys.txt"
 
 adb shell cmd statusbar expand-notifications >/dev/null 2>&1 || true
@@ -216,8 +216,8 @@ sleep 2
 capture "16-notification-disabled"
 grep -Eq 'resource-id="com\.painless\.pc:id/my_switch"[^>]*checked="false"' "$OUT/ui/16-notification-disabled.xml"
 adb shell dumpsys notification --noredact > "$OUT/state/notification-disabled.dumpsys.txt"
-if grep -E 'NotificationRecord\(.*pkg=com\.painless\.pc|pkg=com\.painless\.pc.*id=1' "$OUT/state/notification-disabled.dumpsys.txt"; then
-  echo "Power Toggles notification remained active after disabling"
+if grep -E 'NotificationRecord\(.*pkg=com\.ramybaheeg\.togglebay|pkg=com\.ramybaheeg\.togglebay.*id=1' "$OUT/state/notification-disabled.dumpsys.txt"; then
+  echo "ToggleBay notification remained active after disabling"
   exit 1
 fi
 grep -q 'power_toggles_controls' "$OUT/state/notification-disabled.dumpsys.txt"
