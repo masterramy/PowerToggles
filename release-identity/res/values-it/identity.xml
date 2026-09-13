@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wp_add_help">Per aggiungere un widget apri l\u0027elenco delle app e cerca ToggleBay nella schermata dei widget. Tieni premuta l\u0027anteprima del widget e trascinala sullo schermo.</string>
+    <string name="ps_prem_label">Usa i plugins di ToggleBay</string>
+    <string name="ps_prem_desc">Puoi controllare i plugin di ToggleBay impostando on/off</string>
+    <string name="ps_refresh">Ricarica ToggleBay</string>
+</resources>
