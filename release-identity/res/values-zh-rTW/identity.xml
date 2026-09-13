@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_label">ToggleBay 螢幕鎖定</string>
+    <string name="wp_add_help">若想增加小工具，開啟應用程式列表並在小工具頁面中找到 ToggleBay 小工具。長按小工具的預覽圖示並拖曳到桌面。</string>
+    <string name="ps_prem_label">使用 ToggleBay 外掛程式</string>
+    <string name="ps_prem_desc">使用開關啟用或停用 ToggleBay 外掛程式</string>
+    <string name="ps_refresh">更新 ToggleBay</string>
+</resources>
