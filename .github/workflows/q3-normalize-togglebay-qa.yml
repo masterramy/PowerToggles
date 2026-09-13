@@ -18,69 +18,39 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Normalize remaining runtime identity assertions
+      - name: Normalize final QA labels
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           files = sorted(Path('scripts').glob('*.sh'))
-
-          exact = [
-              ('Process: com\\.painless\\.pc', 'Process: com\\.ramybaheeg\\.togglebay'),
-              ('ANR in com\\.painless\\.pc', 'ANR in com\\.ramybaheeg\\.togglebay'),
-              ('am_crash.*com\\.painless\\.pc', 'am_crash.*com\\.ramybaheeg\\.togglebay'),
-              ('am_anr.*com\\.painless\\.pc', 'am_anr.*com\\.ramybaheeg\\.togglebay'),
-              ('Allow Power Toggles to send you notifications?', 'Allow ToggleBay to send you notifications?'),
-              ('pkg=com\\.painless\\.pc', 'pkg=com\\.ramybaheeg\\.togglebay'),
-              ('Power Toggles notification remained active after disabling', 'ToggleBay notification remained active after disabling'),
-          ]
-
-          changed = []
+          changed=[]
           for path in files:
-              text = path.read_text(encoding='utf-8')
-              new = text
-              for before, after in exact:
-                  new = new.replace(before, after)
+              text=path.read_text(encoding='utf-8')
+              new=text.replace('Power Toggles','ToggleBay')
               if new != text:
                   path.write_text(new, encoding='utf-8')
                   changed.append(str(path))
-
           print('Changed files:')
           for p in changed:
               print(p)
           if not changed:
-              raise SystemExit('No remaining runtime-identity assertion changes produced')
+              raise SystemExit('No historical QA labels found to normalize')
 
-          forbidden = [
-              'Process: com\\.painless\\.pc',
-              'ANR in com\\.painless\\.pc',
-              'am_crash.*com\\.painless\\.pc',
-              'am_anr.*com\\.painless\\.pc',
-              'Allow Power Toggles to send you notifications?',
-              'pkg=com\\.painless\\.pc',
-              'Power Toggles notification remained active after disabling',
-          ]
+          pat=re.compile(r'power\s*toggle', re.I)
           stale=[]
           for path in files:
-              text=path.read_text(encoding='utf-8')
-              for needle in forbidden:
-                  if needle in text:
-                      stale.append((str(path), needle))
+              for lineno,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
+                  if pat.search(line):
+                      stale.append((str(path),lineno,line))
           if stale:
               for item in stale:
                   print('STALE', *item)
               raise SystemExit(2)
-          print('Known stale runtime-identity assertions: ZERO')
-
-          print('Remaining historical-brand mentions in scripts (review only):')
-          import re
-          pat=re.compile(r'power\s*toggle', re.I)
-          for path in files:
-              for lineno,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
-                  if pat.search(line):
-                      print(f'{path}:{lineno}:{line}')
+          print('Historical Power Toggle labels in scripts: ZERO')
           PY
 
       - name: Commit normalized QA
@@ -92,5 +62,5 @@ jobs:
           git add scripts
           git diff --cached --check
           git diff --cached --stat
-          git commit -m 'qa: align runtime assertions with ToggleBay identity'
+          git commit -m 'qa: clean final harness labels for ToggleBay'
           git push origin HEAD:togglebay-q3-integration-20260912
