@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ToggleBay</string>
+    <string name="ps_tasker_setup">Modify ToggleBay state</string>
+    <string name="admin_label">ToggleBay Screen Lock</string>
+    <string name="wp_add_help">To add a widget, open the widget picker and locate the ToggleBay widget.</string>
+    <string name="ps_prem_label">Use ToggleBay plugins</string>
+    <string name="ps_prem_desc">Can control ToggleBay plugins and receive their state updates.</string>
+    <string name="ps_refresh">Refresh ToggleBay</string>
+
+    <string name="stat_privacy">Privacy</string>
+    <string name="stat_privacy_summary">ToggleBay has no account, ads SDK, analytics SDK, or app-operated remote data collection. Android device backup may copy eligible app settings to the user’s Google backup when device backup is enabled.</string>
+    <string name="stat_open_source">Open source &amp; attribution</string>
+    <string name="stat_open_source_summary">ToggleBay is an independent modern Android utility derived from the MIT-licensed Power Toggles codebase by Sunny Goyal and contributors. It is not the original Power Toggles app and is not presented as an official continuation.</string>
+    <string name="stat_license_summary">The upstream Power Toggles codebase is used under the MIT License. Copyright © 2015 sunnygoyal.</string>
+</resources>
