@@ -59,7 +59,9 @@ jobs:
           PY
           rm .github/workflows/r3-identity-fix-once.yml
           git diff --check
-          test "$(git diff --name-only HEAD | sort)" = "$(printf '%s\n' .github/workflows/q1-togglebay-integration.yml src/com/painless/pc/cfg/WidgetConfigActivity.java src/com/painless/pc/util/ImportExportActivity.java | sort)"
+          ACTUAL="$(git diff --name-only HEAD | sort)"
+          EXPECTED="$(printf '%s\n' .github/workflows/q1-togglebay-integration.yml .github/workflows/r3-identity-fix-once.yml src/com/painless/pc/cfg/WidgetConfigActivity.java src/com/painless/pc/util/ImportExportActivity.java | sort)"
+          test "$ACTUAL" = "$EXPECTED"
       - name: Commit exact r3 tree
         shell: bash
         run: |
