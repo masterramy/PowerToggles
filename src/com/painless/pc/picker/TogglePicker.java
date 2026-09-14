@@ -70,17 +70,21 @@ public class TogglePicker extends Dialog
   private static final int INDEX_ADAPTER_CUSTOM = 2;
 
   @Thunk final int[][] mWidgetSections = new int[][] {
-          new int[] { 1, 11, 0, 26, 12},                       // Mobile data
-          new int[] { 3, 2, 28, 8, 6, 22, 24},                 // Network
-          new int[] { 18, 19, 20, 21},                         // Multimedia
-          new int[] { 7, 17, 23, 13, 16, 9, 31, 38},           // Display
-          new int[] { 4, 5, 25, 10, 27, 15, 43},               // Hardware
+          new int[] { },                                      // Mobile data: no truthful ordinary-app direct controls remain
+          new int[] { 2, 28},                                 // Network
+          new int[] { 18, 19, 20, 21},                        // Multimedia
+          new int[] { 7, 17, 23, 13, 16, 9, 31, 38},          // Display
+          new int[] { 4, 25, 10, 27, 15, 43},                 // Hardware / status / commands
           new int[] { 33, 32, 34}                              // App Commands
 
           // Publication-readiness retirement boundary:
-          // Stable TrackerManager IDs remain intact for persisted legacy definitions,
-          // but new configurations must not offer unsupported/obsolete controls.
-          // Retired here: WiMAX 14; shutdown/restart/menu 29/30/35;
+          // Stable TrackerManager IDs remain intact for persisted/imported legacy
+          // definitions, but new configurations must not offer controls whose normal
+          // tap merely routes to Android Settings instead of performing the advertised
+          // control. Modern settings-only retirements: hotspot 0, mobile data 1,
+          // Wi-Fi 3, location 5, Bluetooth 6, airplane mode 8, network mode 11,
+          // USB tether 12, Bluetooth discovery 22, NFC 24, Bluetooth tether 26.
+          // Earlier retirements remain: WiMAX 14; shutdown/restart/menu 29/30/35;
           // font mutation 36/37; adbWireless 39; legacy platform SIP 41/42;
           // Pulse Notification Light 40; hidden Recent Apps 44; deprecated No Lock 45;
           // Wifi Optimize 46; and the obsolete global Immersive service 47.
@@ -152,7 +156,9 @@ public class TogglePicker extends Dialog
 
       @Override
       protected Void doInBackground(Void... params) {
-        // Toggles
+        // Toggles / controls. A section with no truthful modern controls is omitted
+        // entirely so customers never see an empty category or a settings shortcut
+        // misrepresented as a toggle.
         String trackerLables[] = res.getStringArray(R.array.tracker_names);
         String trackerHeaders[] = res.getStringArray(R.array.tracker_category);
         SharedPreferences pref = Globals.getAppPrefs(mProxy);
@@ -160,6 +166,9 @@ public class TogglePicker extends Dialog
         ArrayList<SectionItem> trackers = new ArrayList<SectionItem>();
 
         for (int i=0; i<mWidgetSections.length; i++) {
+          if (mWidgetSections[i].length == 0) {
+            continue;
+          }
           trackers.add(new SectionItem(trackerHeaders[i], null));
           for (final int tId : mWidgetSections[i]) {
             Drawable drawable = res.getDrawable(TrackerManager.getTracker(tId, pref).buttonConfig[1])
