@@ -165,21 +165,24 @@ chmod +x "$TMP_PROBE"
 bash "$TMP_PROBE"
 rm -f "$TMP_PROBE"
 
-# Publication copy closure for the surviving tracker labels. The main picker
-# viewport produced by the certified probe must show the three corrected labels
-# that belong in its first visible section, and must not regress to their stale
-# literal names. This is rendered/runtime evidence, not only a resource check.
+# Physical Fold testing established the product-semantic contract: the primary
+# picker may not advertise a control whose normal tap merely punts the customer
+# to Android Settings. The first rendered section must therefore start with the
+# surviving direct Network controls, and the former radio/settings shortcuts
+# must be absent rather than merely crash-free.
 TOP_PICKER_XML="runtime-evidence/ui/18-widget-add-toggle-picker.xml"
 test -s "$TOP_PICKER_XML"
-grep -Fq 'text="Mobile Data Settings"' "$TOP_PICKER_XML"
-grep -Fq 'text="Mobile Network"' "$TOP_PICKER_XML"
-grep -Fq 'text="Wi‑Fi"' "$TOP_PICKER_XML"
-if grep -Fq 'text="GPRS (Mobile Data)"' "$TOP_PICKER_XML" \
-  || grep -Fq 'text="Data Network Toggle"' "$TOP_PICKER_XML" \
-  || grep -Fq 'text="Wifi"' "$TOP_PICKER_XML"; then
-  echo "A stale publication tracker label remains in the rendered top picker"
-  exit 1
-fi
+grep -Fq 'text="Data Sync"' "$TOP_PICKER_XML"
+grep -Fq 'text="Sync Now"' "$TOP_PICKER_XML"
+for forbidden_label in \
+  'Mobile Data Settings' 'Mobile Network' 'Wi‑Fi' 'Hotspot (Wifi)' 'GPS' \
+  'Bluetooth' 'Airplane Mode' 'USB Tether' 'Bluetooth Discovery' 'NFC' \
+  'Bluetooth Tether'; do
+  if grep -Fq "text=\"${forbidden_label}\"" "$TOP_PICKER_XML"; then
+    echo "Settings-only control is still rendered as a primary toggle: ${forbidden_label}"
+    exit 1
+  fi
+done
 
 # Flashlight is farther down the categorized picker. Re-open the real widget
 # picker and bounded-scroll until the corrected label is rendered, then retain
@@ -239,9 +242,10 @@ if grep -E "FATAL EXCEPTION|Process: com\.painless\.pc.*has died|ANR in com\.pai
   exit 1
 fi
 
-# Exhaustively inventory the real new-toggle picker. This is deliberately QA-only:
-# stable historical tracker IDs remain untouched, while the customer-facing picker
-# must expose every intended surviving control and none of the retired/root-era set.
+# Exhaustively inventory the real new-control picker. Stable historical tracker
+# IDs remain loadable for persisted/imported definitions, while the customer-
+# facing picker must expose every intended truthful control and none of the
+# retired/settings-only set.
 adb shell am force-stop com.painless.pc
 adb shell am start -W -a android.appwidget.action.APPWIDGET_CONFIGURE \
   -n com.painless.pc/.cfg.WidgetConfigActivity --ei appWidgetId 1005 \
@@ -287,20 +291,21 @@ for path in sorted(root.glob("*.xml")):
     page_text.append(f"{path.name}: " + " | ".join(values))
 
 expected = [
-    "Hotspot (Wifi)", "Mobile Data Settings", "Data Sync", "Wi‑Fi", "Flashlight",
-    "GPS", "Bluetooth", "Brightness", "Airplane Mode", "Screen Auto Rotate",
-    "Volume Toggle", "Mobile Network", "USB Tether", "Screen Always On (WakeLock)",
-    "Battery Info", "Screen Timeout", "Auto Brightness", "Play/Pause Music",
-    "Next Track", "Previous Track", "Music volume", "Bluetooth Discovery",
-    "Brightness Slider", "NFC", "Screen Lock", "Bluetooth Tether", "Volume Slider",
-    "Sync Now", "Screen Light", "Notification Widget", "Widget Settings",
+    "Data Sync", "Sync Now", "Flashlight", "Brightness", "Screen Auto Rotate",
+    "Volume Toggle", "Screen Always On (WakeLock)", "Battery Info", "Screen Timeout",
+    "Auto Brightness", "Play/Pause Music", "Next Track", "Previous Track",
+    "Music volume", "Brightness Slider", "Screen Lock", "Volume Slider",
+    "Screen Light", "Notification Widget", "Widget Settings",
     "Second Notification Row", "Rotation Lock", "Home Shortcut",
 ]
 retired = [
-    "WiMax (4G)", "Shutdown", "Restart", "Shutdown Menu", "Increase System Font",
-    "Decrease System Font", "adbWireless", "Receive internet calls (SIP)",
-    "Internet calling (SIP)", "Pulse notification light", "Recent Apps",
-    "No Lock Screen", "Wifi Optimize", "Immersive mode",
+    "Hotspot (Wifi)", "Mobile Data Settings", "Wi‑Fi", "GPS", "Bluetooth",
+    "Airplane Mode", "Mobile Network", "USB Tether", "Bluetooth Discovery",
+    "NFC", "Bluetooth Tether", "WiMax (4G)", "Shutdown", "Restart",
+    "Shutdown Menu", "Increase System Font", "Decrease System Font", "adbWireless",
+    "Receive internet calls (SIP)", "Internet calling (SIP)",
+    "Pulse notification light", "Recent Apps", "No Lock Screen", "Wifi Optimize",
+    "Immersive mode",
 ]
 missing = [x for x in expected if x not in seen]
 forbidden = [x for x in retired if x in seen]
@@ -333,4 +338,4 @@ fi
 
 find runtime-evidence/screens -maxdepth 1 -type f -name '*.png' -printf '%f\n' | sort > runtime-evidence/screenshot-index.txt
 echo "Publication rendered label audit: PASS" > runtime-evidence/state/publication-label-audit-summary.txt
-echo "Publication picker exposure audit: PASS" > runtime-evidence/state/publication-picker-inventory-summary.txt
+echo "Publication truthful picker exposure audit: PASS" > runtime-evidence/state/publication-picker-inventory-summary.txt
