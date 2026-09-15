@@ -46,6 +46,13 @@ if not exist "%JDK_HOME_LOCAL%\bin\java.exe" (
 set "JAVA_HOME=%JDK_HOME_LOCAL%"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
+rem Remove outside JVM hooks that can override or contaminate this build.
+set "JAVA_OPTS="
+set "JAVA_TOOL_OPTIONS="
+set "_JAVA_OPTIONS="
+set "JDK_JAVA_OPTIONS="
+set "GRADLE_OPTS="
+
 "%JAVA_HOME%\bin\java.exe" -XshowSettings:properties -version 2>&1 | findstr /C:"java.specification.version = 17" >nul
 if errorlevel 1 (
   echo [ERROR] Builder Java is not JDK 17. Refusing to continue.
@@ -114,8 +121,31 @@ if not exist "%GRADLE_HOME_LOCAL%\bin\gradle.bat" (
 )
 set "GRADLE_EXE=%GRADLE_HOME_LOCAL%\bin\gradle.bat"
 
-echo [OK] Gradle pinned to:
-call "%GRADLE_EXE%" --version | findstr /C:"Gradle 8.13" /C:"JVM:"
+rem Isolate Gradle from any Java-25 daemon/cache state on the host machine.
+set "GRADLE_USER_HOME=%TOOLS_DIR%\gradle-user-home-jdk17"
+if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
+if exist "%CD%\.gradle" rmdir /S /Q "%CD%\.gradle"
+
+set "GRADLE_VERSION_FILE=%TOOLS_DIR%\gradle-version.txt"
+call "%GRADLE_EXE%" --no-daemon --version > "%GRADLE_VERSION_FILE%" 2>&1
+if errorlevel 1 (
+  type "%GRADLE_VERSION_FILE%"
+  echo [ERROR] Gradle could not start under the pinned JDK 17.
+  goto :fail
+)
+type "%GRADLE_VERSION_FILE%"
+findstr /R /C:"Gradle 8\.13" "%GRADLE_VERSION_FILE%" >nul
+if errorlevel 1 (
+  echo [ERROR] Unexpected Gradle version. Expected 8.13.
+  goto :fail
+)
+findstr /R /C:"JVM:.*17\." "%GRADLE_VERSION_FILE%" >nul
+if errorlevel 1 (
+  echo [ERROR] Gradle is NOT running on JDK 17. Refusing to build.
+  echo [ERROR] The JVM line above must show JVM: 17.x.
+  goto :fail
+)
+echo [OK] Gradle 8.13 is running on JDK 17.
 echo.
 
 echo What do you want to build?
