@@ -6,70 +6,116 @@ title ToggleBay Builder
 echo ============================================================
 echo ToggleBay Builder
 echo Builds the debug APK and/or release AAB from this source tree.
+echo Uses pinned local JDK 17 + Gradle 8.13 for reproducibility.
 echo ============================================================
 echo.
 
-rem ---- Java 17 -------------------------------------------------
-where java >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Java was not found on PATH.
-  echo Install JDK 17, reopen this window, and run this BAT again.
+rem ---- Tool cache ------------------------------------------------
+set "TOOLS_DIR=%CD%\.togglebay-tools"
+if not exist "%TOOLS_DIR%" mkdir "%TOOLS_DIR%"
+
+rem ---- Pin JDK 17 -------------------------------------------------
+set "JDK_ARCH=x64"
+if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "JDK_ARCH=aarch64"
+set "JDK_HOME_LOCAL=%TOOLS_DIR%\jdk-17"
+set "JDK_ZIP=%TOOLS_DIR%\temurin17.zip"
+set "JDK_STAGE=%TOOLS_DIR%\jdk17-stage"
+
+if not exist "%JDK_HOME_LOCAL%\bin\java.exe" (
+  echo [INFO] Pinned JDK 17 not found. Bootstrapping Eclipse Temurin 17...
+  if exist "%JDK_STAGE%" rmdir /S /Q "%JDK_STAGE%"
+  if exist "%JDK_ZIP%" del /Q "%JDK_ZIP%"
+  mkdir "%JDK_STAGE%"
+
+  set "TB_JDK_URL=https://api.adoptium.net/v3/binary/latest/17/ga/windows/%JDK_ARCH%/jdk/hotspot/normal/eclipse"
+  set "TB_JDK_ZIP=%JDK_ZIP%"
+  set "TB_JDK_STAGE=%JDK_STAGE%"
+  set "TB_JDK_HOME=%JDK_HOME_LOCAL%"
+
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri $env:TB_JDK_URL -OutFile $env:TB_JDK_ZIP; Expand-Archive -LiteralPath $env:TB_JDK_ZIP -DestinationPath $env:TB_JDK_STAGE -Force; $jdk = Get-ChildItem -Path $env:TB_JDK_STAGE -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'bin\java.exe') } | Select-Object -First 1; if (-not $jdk) { throw 'Downloaded JDK archive did not contain bin\java.exe' }; if (Test-Path $env:TB_JDK_HOME) { Remove-Item -Recurse -Force $env:TB_JDK_HOME }; Move-Item -LiteralPath $jdk.FullName -Destination $env:TB_JDK_HOME"
+  if errorlevel 1 goto :fail
+  if exist "%JDK_STAGE%" rmdir /S /Q "%JDK_STAGE%"
+  if exist "%JDK_ZIP%" del /Q "%JDK_ZIP%"
+)
+
+if not exist "%JDK_HOME_LOCAL%\bin\java.exe" (
+  echo [ERROR] Pinned JDK 17 bootstrap did not produce java.exe.
   goto :fail
 )
 
-echo [OK] Java found:
-java -version
+set "JAVA_HOME=%JDK_HOME_LOCAL%"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+
+"%JAVA_HOME%\bin\java.exe" -XshowSettings:properties -version 2>&1 | findstr /C:"java.specification.version = 17" >nul
+if errorlevel 1 (
+  echo [ERROR] Builder Java is not JDK 17. Refusing to continue.
+  "%JAVA_HOME%\bin\java.exe" -version
+  goto :fail
+)
+
+echo [OK] Builder Java pinned to:
+"%JAVA_HOME%\bin\java.exe" -version
 echo.
 
-rem ---- Android SDK ----------------------------------------------
+rem ---- Android SDK -----------------------------------------------
 if not defined ANDROID_HOME if defined ANDROID_SDK_ROOT set "ANDROID_HOME=%ANDROID_SDK_ROOT%"
 if not defined ANDROID_HOME if exist "%LOCALAPPDATA%\Android\Sdk" set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
 if not defined ANDROID_HOME (
   echo [ERROR] Android SDK not found.
-  echo Set ANDROID_HOME or ANDROID_SDK_ROOT, or install Android Studio.
+  echo Install Android Studio, or set ANDROID_HOME / ANDROID_SDK_ROOT.
   goto :fail
 )
 set "ANDROID_SDK_ROOT=%ANDROID_HOME%"
 echo [OK] Android SDK: %ANDROID_HOME%
 
-rem ---- Ensure API 36 platform when sdkmanager is available -------
 set "SDKMANAGER="
 if exist "%ANDROID_HOME%\cmdline-tools\latest\bin\sdkmanager.bat" set "SDKMANAGER=%ANDROID_HOME%\cmdline-tools\latest\bin\sdkmanager.bat"
 if not defined SDKMANAGER if exist "%ANDROID_HOME%\tools\bin\sdkmanager.bat" set "SDKMANAGER=%ANDROID_HOME%\tools\bin\sdkmanager.bat"
 
 if not exist "%ANDROID_HOME%\platforms\android-36\android.jar" (
   if defined SDKMANAGER (
-    echo [INFO] Android API 36 is missing. Installing required SDK packages...
+    echo [INFO] Android API 36 missing. Installing required SDK packages...
     call "%SDKMANAGER%" "platforms;android-36" "build-tools;35.0.0"
     if errorlevel 1 goto :fail
   ) else (
-    echo [ERROR] Android API 36 is missing and sdkmanager.bat was not found.
-    echo Install Android SDK Platform 36 in Android Studio, then rerun this BAT.
+    echo [ERROR] Android API 36 missing and sdkmanager.bat was not found.
+    echo Install Android SDK Platform 36 in Android Studio, then rerun.
     goto :fail
   )
 )
 
-rem ---- Gradle 8.13 ----------------------------------------------
-set "GRADLE_EXE="
-where gradle >nul 2>nul
-if not errorlevel 1 set "GRADLE_EXE=gradle"
-
-if not defined GRADLE_EXE (
-  set "TOOLS_DIR=%CD%\.togglebay-tools"
-  set "GRADLE_HOME_LOCAL=!TOOLS_DIR!\gradle-8.13"
-  set "GRADLE_ZIP=!TOOLS_DIR!\gradle-8.13-bin.zip"
-  if not exist "!GRADLE_HOME_LOCAL!\bin\gradle.bat" (
-    echo [INFO] Gradle 8.13 not found. Bootstrapping a local copy...
-    if not exist "!TOOLS_DIR!" mkdir "!TOOLS_DIR!"
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing 'https://services.gradle.org/distributions/gradle-8.13-bin.zip' -OutFile '!GRADLE_ZIP!'"
+if not exist "%ANDROID_HOME%\build-tools\35.0.0" (
+  if defined SDKMANAGER (
+    echo [INFO] Android Build Tools 35.0.0 missing. Installing...
+    call "%SDKMANAGER%" "build-tools;35.0.0"
     if errorlevel 1 goto :fail
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '!GRADLE_ZIP!' -DestinationPath '!TOOLS_DIR!' -Force"
-    if errorlevel 1 goto :fail
+  ) else (
+    echo [ERROR] Android Build Tools 35.0.0 missing and sdkmanager.bat was not found.
+    goto :fail
   )
-  set "GRADLE_EXE=!GRADLE_HOME_LOCAL!\bin\gradle.bat"
 )
 
-echo [OK] Gradle: %GRADLE_EXE%
+rem ---- Pin Gradle 8.13 -------------------------------------------
+set "GRADLE_HOME_LOCAL=%TOOLS_DIR%\gradle-8.13"
+set "GRADLE_ZIP=%TOOLS_DIR%\gradle-8.13-bin.zip"
+if not exist "%GRADLE_HOME_LOCAL%\bin\gradle.bat" (
+  echo [INFO] Pinned Gradle 8.13 not found. Bootstrapping local copy...
+  if exist "%GRADLE_ZIP%" del /Q "%GRADLE_ZIP%"
+  set "TB_GRADLE_ZIP=%GRADLE_ZIP%"
+  set "TB_TOOLS_DIR=%TOOLS_DIR%"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing 'https://services.gradle.org/distributions/gradle-8.13-bin.zip' -OutFile $env:TB_GRADLE_ZIP; Expand-Archive -LiteralPath $env:TB_GRADLE_ZIP -DestinationPath $env:TB_TOOLS_DIR -Force"
+  if errorlevel 1 goto :fail
+  if exist "%GRADLE_ZIP%" del /Q "%GRADLE_ZIP%"
+)
+
+if not exist "%GRADLE_HOME_LOCAL%\bin\gradle.bat" (
+  echo [ERROR] Gradle 8.13 bootstrap failed.
+  goto :fail
+)
+set "GRADLE_EXE=%GRADLE_HOME_LOCAL%\bin\gradle.bat"
+
+echo [OK] Gradle pinned to:
+call "%GRADLE_EXE%" --version | findstr /C:"Gradle 8.13" /C:"JVM:"
 echo.
 
 echo What do you want to build?
@@ -119,7 +165,7 @@ echo.
 echo ============================================================
 echo BUILD COMPLETE
 echo ============================================================
-if exist "dist\ToggleBay-debug.apk" echo Debug APK:  %CD%\dist\ToggleBay-debug.apk
+if exist "dist\ToggleBay-debug.apk" echo Debug APK:   %CD%\dist\ToggleBay-debug.apk
 if exist "dist\ToggleBay-release.aab" echo Release AAB: %CD%\dist\ToggleBay-release.aab
 echo.
 echo NOTE: BUILD_TOGGLEBAY.bat does NOT create or store signing keys.
