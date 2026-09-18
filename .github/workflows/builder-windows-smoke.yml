@@ -78,7 +78,7 @@ jobs:
 
           $text = Get-Content -LiteralPath $info -Raw
           foreach ($needle in @(
-            'ToggleBay builder=2026-09-18-r5',
+            'ToggleBay builder=2026-09-18-r6',
             'package=com.ramybaheeg.togglebay',
             'versionName=1.0.0',
             'versionCode=1',
