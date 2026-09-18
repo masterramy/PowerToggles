@@ -1,0 +1,76 @@
+name: ToggleBay Windows Builder Smoke
+
+on:
+  push:
+    branches:
+      - q3-togglebay-ramy-identity-20260912-builder
+    paths:
+      - BUILD_TOGGLEBAY.bat
+      - .github/workflows/builder-windows-smoke.yml
+      - build.gradle
+      - gradle.properties
+      - AndroidManifest.xml
+  workflow_dispatch:
+
+jobs:
+  windows-builder:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run full Windows builder
+        shell: cmd
+        run: BUILD_TOGGLEBAY.bat both
+
+      - name: Verify outputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $apk = Join-Path $PWD 'dist\ToggleBay-debug.apk'
+          $aab = Join-Path $PWD 'dist\ToggleBay-release.aab'
+          $info = Join-Path $PWD 'dist\BUILD_INFO.txt'
+          foreach ($p in @($apk,$aab,$info)) {
+            if (-not (Test-Path -LiteralPath $p)) {
+              throw "Missing expected builder output: $p"
+            }
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $apkZip = [IO.Compression.ZipFile]::OpenRead($apk)
+          try {
+            $names = @($apkZip.Entries.FullName)
+            if ($names -notcontains 'AndroidManifest.xml') { throw 'APK missing AndroidManifest.xml' }
+            if (-not ($names | Where-Object { $_ -eq 'classes.dex' -or $_ -like 'classes*.dex' })) { throw 'APK missing classes.dex' }
+          } finally { $apkZip.Dispose() }
+
+          $aabZip = [IO.Compression.ZipFile]::OpenRead($aab)
+          try {
+            $names = @($aabZip.Entries.FullName)
+            if ($names -notcontains 'BundleConfig.pb') { throw 'AAB missing BundleConfig.pb' }
+            if ($names -notcontains 'base/manifest/AndroidManifest.xml') { throw 'AAB missing base manifest' }
+          } finally { $aabZip.Dispose() }
+
+          $text = Get-Content -LiteralPath $info -Raw
+          foreach ($needle in @(
+            'package=com.ramybaheeg.togglebay',
+            'versionName=1.0.0',
+            'versionCode=1',
+            'targetSdk=36',
+            'gradle=8.13',
+            'jdk=17'
+          )) {
+            if ($text -notmatch [regex]::Escape($needle)) {
+              throw "BUILD_INFO missing expected value: $needle"
+            }
+          }
+
+      - name: Upload builder outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: togglebay-windows-builder-smoke
+          path: |
+            dist/ToggleBay-debug.apk
+            dist/ToggleBay-release.aab
+            dist/BUILD_INFO.txt
