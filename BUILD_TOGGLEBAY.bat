@@ -8,7 +8,7 @@ if errorlevel 1 (
 )
 
 title ToggleBay Builder
-set "BUILDER_VERSION=2026-09-18-r4"
+set "BUILDER_VERSION=2026-09-18-r5"
 set "EXPECTED_PACKAGE=com.ramybaheeg.togglebay"
 set "EXPECTED_VERSION_CODE=1"
 set "EXPECTED_VERSION_NAME=1.0.0"
@@ -37,6 +37,16 @@ call :ensure_dirs
 if errorlevel 1 goto :fail
 call :detect_arch
 if errorlevel 1 goto :fail
+
+rem Neutralize host JVM/Gradle injection before the first private-JDK probe.
+rem This is intentionally earlier than :activate_jdk so JAVA_TOOL_OPTIONS,
+rem _JAVA_OPTIONS, JDK_JAVA_OPTIONS, or GRADLE_OPTS cannot poison bootstrap.
+set "JAVA_OPTS="
+set "JAVA_TOOL_OPTIONS="
+set "_JAVA_OPTIONS="
+set "JDK_JAVA_OPTIONS="
+set "GRADLE_OPTS="
+
 call :ensure_jdk
 if errorlevel 1 goto :fail
 call :activate_jdk
