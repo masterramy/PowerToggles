@@ -8,7 +8,7 @@ if errorlevel 1 (
 )
 
 title ToggleBay Builder
-set "BUILDER_VERSION=2026-09-18-r5"
+set "BUILDER_VERSION=2026-09-18-r6"
 set "EXPECTED_PACKAGE=com.ramybaheeg.togglebay"
 set "EXPECTED_VERSION_CODE=1"
 set "EXPECTED_VERSION_NAME=1.0.0"
@@ -16,6 +16,7 @@ set "EXPECTED_TARGET_SDK=36"
 set "GRADLE_VERSION=8.13"
 set "GRADLE_SHA256=20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78"
 set "BUILD_TOOLS_VERSION=35.0.0"
+set "DOWNLOAD_TIMEOUT_SEC=600"
 set "TOOLS_DIR=%CD%\.togglebay-tools"
 set "DIST_DIR=%CD%\dist"
 set "LAST_ERROR=Unknown builder failure."
@@ -52,6 +53,8 @@ if errorlevel 1 goto :fail
 call :activate_jdk
 if errorlevel 1 goto :fail
 call :ensure_gradle
+if errorlevel 1 goto :fail
+call :purge_incompatible_gradle_state
 if errorlevel 1 goto :fail
 call :verify_gradle
 if errorlevel 1 goto :fail
@@ -162,7 +165,8 @@ set "TB_JDK_ZIP=%JDK_ZIP%"
 set "TB_JDK_STAGE=%JDK_STAGE%"
 set "TB_JDK_HOME=%JDK_HOME_LOCAL%"
 
-"%PS_EXE%" -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $meta=Invoke-RestMethod -Uri $env:TB_JDK_META_URL; $bin=$meta[0].binaries | Where-Object { $_.architecture -eq $env:TB_JDK_ARCH -and $_.image_type -eq 'jdk' -and $_.os -eq 'windows' } | Select-Object -First 1; if(-not $bin){throw 'Adoptium metadata returned no matching Windows JDK 17 binary.'}; $url=$bin.package.link; $expected=$bin.package.checksum.ToLowerInvariant(); $downloaded=$false; for($i=1;$i -le 3;$i++){try{Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $env:TB_JDK_ZIP; $downloaded=$true; break}catch{if($i -eq 3){throw}; Start-Sleep -Seconds (2*$i)}}; if(-not $downloaded){throw 'JDK download did not complete.'}; $actual=(Get-FileHash -Algorithm SHA256 -LiteralPath $env:TB_JDK_ZIP).Hash.ToLowerInvariant(); if($actual -ne $expected){throw ('JDK SHA-256 mismatch. Expected '+$expected+' got '+$actual)}; Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead($env:TB_JDK_ZIP); $z.Dispose(); Expand-Archive -LiteralPath $env:TB_JDK_ZIP -DestinationPath $env:TB_JDK_STAGE -Force; $jdk=Get-ChildItem -Path $env:TB_JDK_STAGE -Directory -Recurse | Where-Object { Test-Path (Join-Path $_.FullName 'bin\java.exe') } | Select-Object -First 1; if(-not $jdk){throw 'Verified JDK archive did not contain bin\java.exe.'}; if(Test-Path $env:TB_JDK_HOME){Remove-Item -Recurse -Force $env:TB_JDK_HOME}; Move-Item -LiteralPath $jdk.FullName -Destination $env:TB_JDK_HOME"
+set "TB_DOWNLOAD_TIMEOUT=%DOWNLOAD_TIMEOUT_SEC%"
+"%PS_EXE%" -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $timeout=[int]$env:TB_DOWNLOAD_TIMEOUT; $meta=Invoke-RestMethod -TimeoutSec 60 -Uri $env:TB_JDK_META_URL; $bin=$meta[0].binaries | Where-Object { $_.architecture -eq $env:TB_JDK_ARCH -and $_.image_type -eq 'jdk' -and $_.os -eq 'windows' } | Select-Object -First 1; if(-not $bin){throw 'Adoptium metadata returned no matching Windows JDK 17 binary.'}; $url=$bin.package.link; $expected=$bin.package.checksum.ToLowerInvariant(); $downloaded=$false; for($i=1;$i -le 3;$i++){try{Invoke-WebRequest -UseBasicParsing -TimeoutSec $timeout -Uri $url -OutFile $env:TB_JDK_ZIP; $downloaded=$true; break}catch{if($i -eq 3){throw}; Start-Sleep -Seconds (2*$i)}}; if(-not $downloaded){throw 'JDK download did not complete.'}; $actual=(Get-FileHash -Algorithm SHA256 -LiteralPath $env:TB_JDK_ZIP).Hash.ToLowerInvariant(); if($actual -ne $expected){throw ('JDK SHA-256 mismatch. Expected '+$expected+' got '+$actual)}; Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead($env:TB_JDK_ZIP); $z.Dispose(); Expand-Archive -LiteralPath $env:TB_JDK_ZIP -DestinationPath $env:TB_JDK_STAGE -Force; $jdk=Get-ChildItem -Path $env:TB_JDK_STAGE -Directory -Recurse | Where-Object { Test-Path (Join-Path $_.FullName 'bin\java.exe') } | Select-Object -First 1; if(-not $jdk){throw 'Verified JDK archive did not contain bin\java.exe.'}; if(Test-Path $env:TB_JDK_HOME){Remove-Item -Recurse -Force $env:TB_JDK_HOME}; Move-Item -LiteralPath $jdk.FullName -Destination $env:TB_JDK_HOME"
 if errorlevel 1 (
   set "LAST_ERROR=Verified JDK 17 bootstrap failed. Check internet access and rerun; partial downloads are rejected."
   exit /b 1
@@ -222,8 +226,9 @@ set "TB_GRADLE_ZIP=%GRADLE_ZIP%"
 set "TB_GRADLE_SHA=%GRADLE_SHA256%"
 set "TB_TOOLS_DIR=%TOOLS_DIR%"
 set "TB_GRADLE_HOME=%GRADLE_HOME_LOCAL%"
+set "TB_DOWNLOAD_TIMEOUT=%DOWNLOAD_TIMEOUT_SEC%"
 
-"%PS_EXE%" -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $downloaded=$false; for($i=1;$i -le 3;$i++){try{Invoke-WebRequest -UseBasicParsing -Uri $env:TB_GRADLE_URL -OutFile $env:TB_GRADLE_ZIP; $downloaded=$true; break}catch{if($i -eq 3){throw}; Start-Sleep -Seconds (2*$i)}}; if(-not $downloaded){throw 'Gradle download did not complete.'}; $actual=(Get-FileHash -Algorithm SHA256 -LiteralPath $env:TB_GRADLE_ZIP).Hash.ToLowerInvariant(); $expected=($env:TB_GRADLE_SHA).ToLowerInvariant(); if($actual -ne $expected){throw ('Gradle SHA-256 mismatch. Expected '+$expected+' got '+$actual)}; Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead($env:TB_GRADLE_ZIP); $z.Dispose(); if(Test-Path $env:TB_GRADLE_HOME){Remove-Item -Recurse -Force $env:TB_GRADLE_HOME}; Expand-Archive -LiteralPath $env:TB_GRADLE_ZIP -DestinationPath $env:TB_TOOLS_DIR -Force"
+"%PS_EXE%" -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $timeout=[int]$env:TB_DOWNLOAD_TIMEOUT; $downloaded=$false; for($i=1;$i -le 3;$i++){try{Invoke-WebRequest -UseBasicParsing -TimeoutSec $timeout -Uri $env:TB_GRADLE_URL -OutFile $env:TB_GRADLE_ZIP; $downloaded=$true; break}catch{if($i -eq 3){throw}; Start-Sleep -Seconds (2*$i)}}; if(-not $downloaded){throw 'Gradle download did not complete.'}; $actual=(Get-FileHash -Algorithm SHA256 -LiteralPath $env:TB_GRADLE_ZIP).Hash.ToLowerInvariant(); $expected=($env:TB_GRADLE_SHA).ToLowerInvariant(); if($actual -ne $expected){throw ('Gradle SHA-256 mismatch. Expected '+$expected+' got '+$actual)}; Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead($env:TB_GRADLE_ZIP); $z.Dispose(); if(Test-Path $env:TB_GRADLE_HOME){Remove-Item -Recurse -Force $env:TB_GRADLE_HOME}; Expand-Archive -LiteralPath $env:TB_GRADLE_ZIP -DestinationPath $env:TB_TOOLS_DIR -Force"
 if errorlevel 1 (
   set "LAST_ERROR=Verified Gradle 8.13 bootstrap failed. The builder rejects corrupt or checksum-mismatched downloads."
   exit /b 1
@@ -243,6 +248,21 @@ findstr /C:"Gradle %GRADLE_VERSION%" "%GRADLE_VERSION_FILE%" >nul
 if errorlevel 1 exit /b 1
 findstr /R /C:"Launcher JVM: 17" /C:"JVM:.*17\." "%GRADLE_VERSION_FILE%" >nul
 if errorlevel 1 exit /b 1
+exit /b 0
+
+:purge_incompatible_gradle_state
+rem A failed prior run under the wrong JVM can leave compiled Gradle state behind.
+rem Purge only project/version-specific execution caches; keep downloaded modules.
+if exist "%CD%\.gradle" rmdir /S /Q "%CD%\.gradle" >nul 2>&1
+if exist "%GRADLE_USER_HOME%\caches\%GRADLE_VERSION%" rmdir /S /Q "%GRADLE_USER_HOME%\caches\%GRADLE_VERSION%" >nul 2>&1
+if exist "%CD%\.gradle" (
+  set "LAST_ERROR=Could not clear stale project Gradle state. Close Android Studio/Gradle processes using this folder and rerun."
+  exit /b 1
+)
+if exist "%GRADLE_USER_HOME%\caches\%GRADLE_VERSION%" (
+  set "LAST_ERROR=Could not clear stale Gradle 8.13 compiled state. Close Gradle/Java processes using this project and rerun."
+  exit /b 1
+)
 exit /b 0
 
 :verify_gradle
