@@ -469,13 +469,13 @@ if errorlevel 1 (
   exit /b 1
 )
 set "%~3="
-set /p "%~3="<"%TB_FIND_OUT%"
-call set "TB_DISCOVERED=%%%~3%%"
-if not defined TB_DISCOVERED (
+for /f "usebackq delims=" %%A in ("%TB_FIND_OUT%") do set "%~3=%%A"
+if not defined %~3 (
   set "LAST_ERROR=Artifact discovery returned an empty path."
   exit /b 1
 )
-echo [OK] Discovered fresh artifact: "%TB_DISCOVERED%"
+echo [OK] Discovered fresh artifact:
+type "%TB_FIND_OUT%"
 exit /b 0
 
 :verify_archive
