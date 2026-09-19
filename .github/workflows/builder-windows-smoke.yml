@@ -16,9 +16,15 @@ jobs:
   windows-builder:
     runs-on: windows-latest
     timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: ToggleBayRenamedFolder
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          path: ToggleBayRenamedFolder
 
       - name: Seed hostile host state and stale outputs
         shell: cmd
@@ -78,7 +84,7 @@ jobs:
 
           $text = Get-Content -LiteralPath $info -Raw
           foreach ($needle in @(
-            'ToggleBay builder=2026-09-18-r6',
+            'ToggleBay builder=2026-09-18-r7',
             'package=com.ramybaheeg.togglebay',
             'versionName=1.0.0',
             'versionCode=1',
@@ -96,6 +102,6 @@ jobs:
         with:
           name: togglebay-windows-builder-smoke
           path: |
-            dist/ToggleBay-debug.apk
-            dist/ToggleBay-release.aab
-            dist/BUILD_INFO.txt
+            ToggleBayRenamedFolder/dist/ToggleBay-debug.apk
+            ToggleBayRenamedFolder/dist/ToggleBay-release.aab
+            ToggleBayRenamedFolder/dist/BUILD_INFO.txt
