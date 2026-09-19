@@ -8,7 +8,7 @@ if errorlevel 1 (
 )
 
 title ToggleBay Builder
-set "BUILDER_VERSION=2026-09-18-r6"
+set "BUILDER_VERSION=2026-09-18-r7"
 set "EXPECTED_PACKAGE=com.ramybaheeg.togglebay"
 set "EXPECTED_VERSION_CODE=1"
 set "EXPECTED_VERSION_NAME=1.0.0"
@@ -405,8 +405,8 @@ if errorlevel 1 (
 exit /b 0
 
 :collect_and_verify
-set "APK_SOURCE=%CD%\build\outputs\apk\debug\PowerToggles-debug.apk"
-set "AAB_SOURCE=%CD%\build\outputs\bundle\release\PowerToggles-release.aab"
+set "APK_SOURCE="
+set "AAB_SOURCE="
 set "NEED_APK=0"
 set "NEED_AAB=0"
 if /I "%MODE%"=="debug" set "NEED_APK=1"
@@ -417,8 +417,10 @@ if /I "%MODE%"=="both" (
 )
 
 if "%NEED_APK%"=="1" (
+  call :discover_single_artifact "%CD%\build\outputs\apk\debug" "*.apk" APK_SOURCE
+  if errorlevel 1 exit /b 1
   if not exist "%APK_SOURCE%" (
-    set "LAST_ERROR=Gradle reported success but the expected debug APK is missing."
+    set "LAST_ERROR=Gradle reported success but the discovered debug APK path does not exist."
     exit /b 1
   )
   call :verify_archive "%APK_SOURCE%" apk
@@ -433,8 +435,10 @@ if "%NEED_APK%"=="1" (
 )
 
 if "%NEED_AAB%"=="1" (
+  call :discover_single_artifact "%CD%\build\outputs\bundle\release" "*.aab" AAB_SOURCE
+  if errorlevel 1 exit /b 1
   if not exist "%AAB_SOURCE%" (
-    set "LAST_ERROR=Gradle reported success but the expected release AAB is missing."
+    set "LAST_ERROR=Gradle reported success but the discovered release AAB path does not exist."
     exit /b 1
   )
   call :verify_archive "%AAB_SOURCE%" aab
@@ -448,6 +452,30 @@ if "%NEED_AAB%"=="1" (
 
 call :write_build_info
 if errorlevel 1 exit /b 1
+exit /b 0
+
+:discover_single_artifact
+set "TB_FIND_DIR=%~1"
+set "TB_FIND_PATTERN=%~2"
+set "TB_FIND_OUT=%TOOLS_DIR%\artifact-path.txt"
+if exist "%TB_FIND_OUT%" del /Q "%TB_FIND_OUT%" >nul 2>&1
+if not exist "%TB_FIND_DIR%" (
+  set "LAST_ERROR=Gradle reported success but output directory is missing: %TB_FIND_DIR%"
+  exit /b 1
+)
+"%PS_EXE%" -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; $files=@(Get-ChildItem -LiteralPath $env:TB_FIND_DIR -Filter $env:TB_FIND_PATTERN -File); if($files.Count -ne 1){throw ('Expected exactly one '+$env:TB_FIND_PATTERN+' in '+$env:TB_FIND_DIR+'; found '+$files.Count+'. Files: '+(($files.Name)-join ', '))}; [IO.File]::WriteAllText($env:TB_FIND_OUT,$files[0].FullName,[Text.UTF8Encoding]::new($false))"
+if errorlevel 1 (
+  set "LAST_ERROR=Could not uniquely discover the fresh Gradle artifact in %TB_FIND_DIR%."
+  exit /b 1
+)
+set "%~3="
+set /p "%~3="<"%TB_FIND_OUT%"
+call set "TB_DISCOVERED=%%%~3%%"
+if not defined TB_DISCOVERED (
+  set "LAST_ERROR=Artifact discovery returned an empty path."
+  exit /b 1
+)
+echo [OK] Discovered fresh artifact: "%TB_DISCOVERED%"
 exit /b 0
 
 :verify_archive
