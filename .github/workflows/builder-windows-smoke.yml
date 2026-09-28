@@ -50,7 +50,7 @@ jobs:
           if ($manager -notmatch 'LegacySettingsAction\.isLegacySettingsOnlyId') { throw 'Retired IDs are not routed through LegacySettingsAction.' }
           $legacy = Get-Content -LiteralPath 'src/com/painless/pc/tracker/LegacySettingsAction.java' -Raw
           foreach ($id in @(0,1,3,5,6,8,11,12,22,24,26)) {
-            if ($legacy -notmatch "(?m)^\s*case $id:") { throw "Legacy settings-only ID $id is not covered." }
+            if ($legacy -notmatch "(?m)^\s*case ${id}:") { throw "Legacy settings-only ID $id is not covered." }
           }
           foreach ($forbidden in @('setWifiEnabled','BluetoothAdapter\.enable','BluetoothAdapter\.disable','Settings\.System\.putInt','Settings\.Global\.putInt')) {
             if ($legacy -match $forbidden) { throw "LegacySettingsAction contains forbidden direct-toggle behavior: $forbidden" }
