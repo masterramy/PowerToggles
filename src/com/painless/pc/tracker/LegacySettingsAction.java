@@ -53,7 +53,7 @@ public final class LegacySettingsAction extends AbstractCommand {
       case 22: return R.drawable.icon_toggle_bluetooth_discovery;
       case 24: return R.drawable.icon_toggle_nfc;
       case 26: return R.drawable.icon_toggle_bluetooth_tether;
-      default: return R.drawable.icon_toggle_settings;
+      default: return R.drawable.icon_prefs;
     }
   }
 
