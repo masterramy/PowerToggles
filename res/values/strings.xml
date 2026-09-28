@@ -19,19 +19,19 @@
     <string name="msg_unknown_error">Some unexpected error occurred</string>
 
     <string-array name="tracker_names">
-        <item>Hotspot (Wifi)</item>
-        <item>GPRS (Mobile Data)</item>
+        <item>Hotspot Settings</item>
+        <item>Mobile Data Settings</item>
         <item>Data Sync</item>
-        <item>Wifi</item>
+        <item>Wi-Fi Settings</item>
         <item>Flash Light</item>
-        <item>GPS</item>
-        <item>Bluetooth</item>
+        <item>Location Settings</item>
+        <item>Bluetooth Settings</item>
         <item>Brightness</item>
-        <item>Airplane Mode</item>
+        <item>Airplane Mode Settings</item>
         <item>Screen Auto Rotate</item>
         <item>Volume Toggle</item>
-        <item>Data Network Toggle</item>
-        <item>USB Tether</item>
+        <item>Mobile Network Settings</item>
+        <item>USB Tethering Settings</item>
         <item>Screen Always On (WakeLock)</item>
         <item>WiMax (4G)</item>
         <item>Battery Info</item>
@@ -41,11 +41,11 @@
         <item>Next Track</item>
         <item>Previous Track</item>
         <item>Music volume</item>
-        <item>Bluetooth Discovery</item>
+        <item>Bluetooth Settings</item>
         <item>Brightness Slider</item>
-        <item>NFC</item>
+        <item>NFC Settings</item>
         <item>Screen Lock</item>
-        <item>Bluetooth Tether</item>
+        <item>Bluetooth Tethering Settings</item>
         <item>Volume Slider</item>
         <item>Sync Now</item>
         <item>Shutdown</item>
@@ -79,19 +79,19 @@
         <item>Others</item>
     </string-array>
     <string-array name="tracker_names_short">
-        <item>Hotspot (Wifi)</item>
+        <item>Hotspot Settings</item>
+        <item>Data Settings</item>
+        <item></item>
+        <item>Wi-Fi Settings</item>
+        <item></item>
+        <item>Location Settings</item>
+        <item>Bluetooth Settings</item>
+        <item></item>
+        <item>Airplane Settings</item>
         <item></item>
         <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
-        <item></item>
+        <item>Network Settings</item>
+        <item>USB Tether Settings</item>
         <item></item>
         <item></item>
         <item></item>
@@ -101,11 +101,11 @@
         <item>Next</item>
         <item>Previous</item>
         <item></item>
+        <item>Bluetooth Settings</item>
         <item></item>
-        <item></item>
-        <item></item>
+        <item>NFC Settings</item>
         <item>Lock</item>
-        <item></item>
+        <item>BT Tether Settings</item>
         <item>Volume</item>
         <item>Sync Now</item>
         <item>Shutdown</item>
