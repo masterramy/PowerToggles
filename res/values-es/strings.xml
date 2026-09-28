@@ -236,19 +236,19 @@
 <string name="pp_description">Si</string>
 <string name="pp_ignore">Si</string>
 <string-array name="tracker_names">
-  <item>Hotspot (WiFi)</item>
-  <item>Datos móviles</item>
+  <item>Ajustes de zona Wi-Fi</item>
+  <item>Ajustes de datos móviles</item>
   <item>Sincronizar datos</item>
-  <item>WiFi</item>
+  <item>Ajustes de Wi-Fi</item>
   <item>Flash (Linterna)</item>
-  <item>GPS</item>
-  <item>Bluetooth</item>
+  <item>Ajustes de ubicación</item>
+  <item>Ajustes de Bluetooth</item>
   <item>Brillo</item>
-  <item>Modo avión</item>
+  <item>Ajustes de modo avión</item>
   <item>Auto-rotar pantalla</item>
   <item>Interruptor de volumen</item>
-  <item>Interruptor de datos móviles</item>
-  <item>USB Tether</item>
+  <item>Ajustes de red móvil</item>
+  <item>Ajustes de anclaje USB</item>
   <item>Pantalla siempre encendida</item>
   <item>WiMax (4G)</item>
   <item>Estado de la batería</item>
@@ -258,11 +258,11 @@
   <item>Pista siguiente</item>
   <item>Pista anterior</item>
   <item>Volumen multimedia</item>
-  <item>Buscar dispositivos Bluetooth</item>
+  <item>Ajustes de Bluetooth</item>
   <item>Regulador de brillo</item>
-  <item>NFC</item>
+  <item>Ajustes de NFC</item>
   <item>Bloquear pantalla</item>
-  <item>Bluetooth Tether</item>
+  <item>Ajustes de anclaje Bluetooth</item>
   <item>Regulador de volumen</item>
   <item>Sincronizar ahora</item>
   <item>Apagar</item>
@@ -286,19 +286,19 @@
   <item>Modo pantalla completa</item>
 </string-array>
 <string-array name="tracker_names_short">
-  <item>Hotspot (WiFi)</item>
+  <item>Ajustes zona Wi-Fi</item>
+  <item>Ajustes datos</item>
+  <item></item>
+  <item>Ajustes Wi-Fi</item>
+  <item></item>
+  <item>Ajustes ubicación</item>
+  <item>Ajustes Bluetooth</item>
+  <item></item>
+  <item>Ajustes modo avión</item>
   <item></item>
   <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
-  <item></item>
+  <item>Ajustes red</item>
+  <item>Ajustes USB</item>
   <item></item>
   <item></item>
   <item></item>
@@ -308,11 +308,11 @@
   <item>Siguiente</item>
   <item>Anterior</item>
   <item></item>
+  <item>Ajustes Bluetooth</item>
   <item></item>
-  <item></item>
-  <item></item>
+  <item>Ajustes NFC</item>
   <item>Bloquear</item>
-  <item></item>
+  <item>Ajustes BT</item>
   <item>Volumen</item>
   <item>Sincronizar ahora</item>
   <item>Apagar</item>

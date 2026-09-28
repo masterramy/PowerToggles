@@ -123,4 +123,5 @@ if 'if (mWidgetSections[i].length == 0)' not in text:
 print('PASS: primary picker exposes exactly 23 truthful direct/setup-once controls and commands')
 PY
 
+
 echo "PASS: retired tracker compatibility plus truthful new-control catalog contract"

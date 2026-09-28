@@ -26,6 +26,7 @@ import com.painless.pc.tracker.HomeCommand;
 import com.painless.pc.tracker.HotSpotTracker;
 import com.painless.pc.tracker.ImmersiveTracker;
 import com.painless.pc.tracker.LockScreenToggle;
+import com.painless.pc.tracker.LegacySettingsAction;
 import com.painless.pc.tracker.MediaNext;
 import com.painless.pc.tracker.MediaPlayPause;
 import com.painless.pc.tracker.MediaPrev;
@@ -111,6 +112,9 @@ public class TrackerManager {
 	};
 
 	public static AbstractTracker getTracker(int id, SharedPreferences pref) {
+		if (LegacySettingsAction.isLegacySettingsOnlyId(id)) {
+			return new LegacySettingsAction(id, pref);
+		}
 		try {
 			final Class<? extends AbstractTracker> trackerClass = TRACKER_LIST[id];
 			final Constructor<? extends AbstractTracker> ct = trackerClass.getConstructor(

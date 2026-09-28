@@ -8,7 +8,10 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.provider.Settings;
 
+import com.painless.pc.R;
+import com.painless.pc.TrackerManager;
 import com.painless.pc.singleton.Globals;
+import com.painless.pc.util.SettingsDecoder;
 
 /**
  * Debug-only Gate 2A runtime probe. This activity is excluded from release builds.
@@ -37,6 +40,66 @@ public final class Gate2aProbeActivity extends Activity {
   private void runProbe(Intent intent) {
     final String probe = intent.getStringExtra("probe");
     final SharedPreferences appPrefs = Globals.getAppPrefs(this);
+
+    if ("legacy_truthful_actions".equals(probe)) {
+      final int[] retiredIds = new int[] {0, 1, 3, 5, 6, 8, 11, 12, 22, 24, 26};
+      final String[] expectedActions = new String[] {
+          Settings.ACTION_WIRELESS_SETTINGS,
+          Settings.ACTION_DATA_USAGE_SETTINGS,
+          Settings.ACTION_WIFI_SETTINGS,
+          Settings.ACTION_LOCATION_SOURCE_SETTINGS,
+          Settings.ACTION_BLUETOOTH_SETTINGS,
+          Settings.ACTION_AIRPLANE_MODE_SETTINGS,
+          Settings.ACTION_DATA_ROAMING_SETTINGS,
+          Settings.ACTION_WIRELESS_SETTINGS,
+          Settings.ACTION_BLUETOOTH_SETTINGS,
+          Settings.ACTION_NFC_SETTINGS,
+          Settings.ACTION_WIRELESS_SETTINGS
+      };
+      final String[] labels = getResources().getStringArray(R.array.tracker_names);
+      boolean allLegacyActions = true;
+      boolean allNeutral = true;
+      boolean allExpectedIntents = true;
+      boolean allSettingsLabels = true;
+      boolean keyTargetsResolve = true;
+
+      for (int i = 0; i < retiredIds.length; i++) {
+        final AbstractTracker tracker = TrackerManager.getTracker(retiredIds[i], appPrefs);
+        if (!(tracker instanceof LegacySettingsAction)) {
+          allLegacyActions = false;
+          continue;
+        }
+        allNeutral &= tracker.buttonConfig.length == 2;
+        final Intent target = ((LegacySettingsAction) tracker).getIntent();
+        allExpectedIntents &= expectedActions[i].equals(target.getAction());
+        allSettingsLabels &= tracker.getLabel(labels).contains("Settings");
+
+        // The physical complaint was specifically Wi-Fi, Location, Bluetooth,
+        // and mobile data. Prove those four system destinations resolve on API 36.
+        final int id = retiredIds[i];
+        if (id == 1 || id == 3 || id == 5 || id == 6) {
+          keyTargetsResolve &= target.resolveActivity(getPackageManager()) != null;
+        }
+      }
+
+      final String defaultTrackers = new SettingsDecoder("{}").getTrackerDef();
+      final boolean defaultListOk = "2,4,7,9,10,13,15".equals(defaultTrackers);
+      final boolean pass = allLegacyActions && allNeutral && allExpectedIntents
+          && allSettingsLabels && keyTargetsResolve && defaultListOk;
+
+      getSharedPreferences(PROBE_PREFS, MODE_PRIVATE).edit()
+          .putBoolean("legacy_truthful_actions_pass", pass)
+          .putBoolean("legacy_all_actions", allLegacyActions)
+          .putBoolean("legacy_all_neutral", allNeutral)
+          .putBoolean("legacy_expected_intents", allExpectedIntents)
+          .putBoolean("legacy_settings_labels", allSettingsLabels)
+          .putBoolean("legacy_key_targets_resolve", keyTargetsResolve)
+          .putBoolean("legacy_default_list_ok", defaultListOk)
+          .putString("legacy_default_list", defaultTrackers)
+          .commit();
+      finish();
+      return;
+    }
 
     if ("battery".equals(probe)) {
       final int battery = Globals.getBattery(this);
