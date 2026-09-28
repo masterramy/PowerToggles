@@ -6,6 +6,8 @@ PULSE="$ROOT/src/com/painless/pc/tracker/PulseLightTracker.java"
 SIP_RECEIVE="$ROOT/src/com/painless/pc/tracker/SipReceiveTracker.java"
 SIP_CALL="$ROOT/src/com/painless/pc/tracker/SipCallTracker.java"
 PICKER="$ROOT/src/com/painless/pc/picker/TogglePicker.java"
+STORAGE="$ROOT/src/com/painless/pc/singleton/SettingStorage.java"
+SETTINGS_ACTION="$ROOT/src/com/painless/pc/tracker/SettingsActionTracker.java"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -121,6 +123,56 @@ if arrays[0].strip():
 if 'if (mWidgetSections[i].length == 0)' not in text:
     raise SystemExit('FAIL: empty retired category is still rendered as a header')
 print('PASS: primary picker exposes exactly 23 truthful direct/setup-once controls and commands')
+PY
+
+
+# Persisted/imported settings-only IDs must also be truthful at runtime. They may
+# retain stable numeric IDs for backwards compatibility, but loading one must
+# yield a neutral command-style Settings action rather than a stateful toggle.
+python3 - "$STORAGE" "$SETTINGS_ACTION" <<'PY'
+import re
+import sys
+
+storage = open(sys.argv[1], encoding='utf-8').read()
+action = open(sys.argv[2], encoding='utf-8').read()
+
+expected = {0, 1, 3, 5, 6, 8, 11, 12, 22, 24, 26}
+case_ids = {int(x) for x in re.findall(r'case\s+(\d+)\s*:', action)}
+missing = sorted(expected - case_ids)
+if missing:
+    raise SystemExit('FAIL: settings-only compatibility action missing IDs: ' + ','.join(map(str, missing)))
+
+required_storage = [
+    'SettingsActionTracker.isSettingsOnlyLegacyId(id)',
+    'SettingsActionTracker.create(id, context, pref)',
+]
+for needle in required_storage:
+    if needle not in storage:
+        raise SystemExit('FAIL: persisted settings-only IDs are not migrated through SettingsActionTracker: ' + needle)
+
+required_action = [
+    'extends AbstractCommand',
+    'mLabel = label + " Settings"',
+    'getIntent()',
+    'ACTION_WIFI_SETTINGS',
+    'ACTION_LOCATION_SOURCE_SETTINGS',
+    'ACTION_BLUETOOTH_SETTINGS',
+    'ACTION_DATA_USAGE_SETTINGS',
+    'ACTION_AIRPLANE_MODE_SETTINGS',
+    'ACTION_NFC_SETTINGS',
+    'android.settings.TETHER_SETTINGS',
+]
+for needle in required_action:
+    if needle not in action:
+        raise SystemExit('FAIL: truthful legacy Settings action contract drifted: ' + needle)
+
+# Command semantics are deliberately neutral: SettingsActionTracker must not
+# override actual-state or state-change machinery from AbstractCommand.
+for forbidden in ['getActualState(', 'requestStateChange(', 'getStateColor(']:
+    if forbidden in action:
+        raise SystemExit('FAIL: SettingsActionTracker regained toggle/state semantics: ' + forbidden)
+
+print('PASS: persisted settings-only legacy IDs load as explicit neutral Settings actions')
 PY
 
 echo "PASS: retired tracker compatibility plus truthful new-control catalog contract"
