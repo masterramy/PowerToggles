@@ -46,8 +46,13 @@ jobs:
             exit 1
           fi
 
+          AVD_HOME="$RUNNER_TEMP/togglebay-avd"
+          ANDROID_USER="$RUNNER_TEMP/togglebay-android-user"
+          mkdir -p "$AVD_HOME" "$ANDROID_USER"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_AVD_HOME=$AVD_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$ANDROID_USER" >> "$GITHUB_ENV"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/emulator" >> "$GITHUB_PATH"
           echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
@@ -64,7 +69,8 @@ jobs:
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "emulator" "system-images;android-36;google_apis;x86_64"
-          echo no | avdmanager create avd -n togglebay36 -k "system-images;android-36;google_apis;x86_64" --force
+          echo no | avdmanager create avd --force --name togglebay36 --package "system-images;android-36;google_apis;x86_64" --device "pixel_6"
+          avdmanager list avd
 
       - name: Build debug candidate
         run: gradle --no-daemon clean assembleDebug
@@ -73,13 +79,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nohup emulator -avd togglebay36 -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect >/tmp/togglebay-emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 5; done'
-          adb shell input keyevent 82 || true
-          adb shell settings put global window_animation_scale 0 || true
-          adb shell settings put global transition_animation_scale 0 || true
-          adb shell settings put global animator_duration_scale 0 || true
+          "$ANDROID_HOME/emulator/emulator" -avd togglebay36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data >/tmp/togglebay-emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "Emulator PID: $EMU_PID"
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed" >&2
+              cat /tmp/togglebay-emulator.log
+              exit 1
+            fi
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              echo "Emulator booted"
+              adb devices -l
+              adb shell input keyevent 82 || true
+              adb shell settings put global window_animation_scale 0 || true
+              adb shell settings put global transition_animation_scale 0 || true
+              adb shell settings put global animator_duration_scale 0 || true
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Emulator failed to boot within 240 seconds" >&2
+          adb devices -l || true
+          cat /tmp/togglebay-emulator.log
+          exit 1
 
       - name: Install exact debug candidate
         shell: bash
