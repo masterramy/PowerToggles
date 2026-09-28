@@ -25,6 +25,7 @@ import com.painless.pc.qs.QTStorage;
 import com.painless.pc.tracker.AbstractTracker;
 import com.painless.pc.tracker.PluginTracker;
 import com.painless.pc.tracker.SimpleShortcut;
+import com.painless.pc.tracker.SettingsActionTracker;
 import com.painless.pc.util.SettingsDecoder;
 import com.painless.pc.util.WidgetSetting;
 
@@ -195,7 +196,12 @@ public class SettingStorage {
 				
 		AbstractTracker tracker = trackerList[id];
 		if (tracker == null) {
-			tracker = TrackerManager.getTracker(id, pref);
+			// Historical settings-only IDs stay readable so old widgets/imports do not
+			// break, but they no longer load as stateful ON/OFF toggles. Their modern
+			// contract is an explicit user-mediated Settings action.
+			tracker = SettingsActionTracker.isSettingsOnlyLegacyId(id)
+					? SettingsActionTracker.create(id, context, pref)
+					: TrackerManager.getTracker(id, pref);
 			trackerList[id] = tracker;
 			if (tracker.getChangeAction() != null) {
 				actionToTracker.put(tracker.getChangeAction(), tracker);
