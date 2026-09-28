@@ -1,0 +1,108 @@
+name: ToggleBay Truthful Controls API36 Runtime
+
+on:
+  pull_request:
+    branches:
+      - q3-togglebay-truthful-ci-base-20260928
+    paths:
+      - src/**
+      - res/**
+      - qa-debug/**
+      - build.gradle
+      - AndroidManifest.xml
+      - .github/workflows/truthful-runtime-api36.yml
+
+jobs:
+  api36-truthful-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Install Android API 36 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "system-images;android-36;google_apis;x86_64"
+          echo no | avdmanager create avd -n togglebay36 -k "system-images;android-36;google_apis;x86_64" --force
+
+      - name: Build debug candidate
+        run: gradle --no-daemon clean assembleDebug
+
+      - name: Boot API 36 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup emulator -avd togglebay36 -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect >/tmp/togglebay-emulator.log 2>&1 &
+          adb wait-for-device
+          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 5; done'
+          adb shell input keyevent 82 || true
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+
+      - name: Install exact debug candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find build/outputs/apk/debug -type f -name '*-debug.apk')
+          test "${#apks[@]}" -eq 1
+          cp "${apks[0]}" /tmp/ToggleBay-debug.apk
+          adb install -r /tmp/ToggleBay-debug.apk
+          adb shell dumpsys package com.ramybaheeg.togglebay | grep -E 'versionName=1.0.0|versionCode=1' | tee /tmp/package-identity.txt
+
+      - name: Run truthful legacy-actions probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb logcat -c
+          adb shell am force-stop com.ramybaheeg.togglebay
+          adb shell am start -W -n com.ramybaheeg.togglebay/com.painless.pc.tracker.Gate2aProbeActivity --es probe legacy_truthful_actions
+          sleep 2
+          adb shell run-as com.ramybaheeg.togglebay cat shared_prefs/gate2a_probe.xml | tee /tmp/truthful-probe.xml
+          grep -F 'name="legacy_truthful_actions_pass" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_all_actions" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_all_neutral" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_expected_intents" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_settings_labels" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_key_targets_resolve" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_default_list_ok" value="true"' /tmp/truthful-probe.xml
+          grep -F 'name="legacy_default_list">2,4,7,9,10,13,15</string>' /tmp/truthful-probe.xml
+          if adb logcat -d | grep -E 'FATAL EXCEPTION|ANR in com\.ramybaheeg\.togglebay'; then
+            echo 'Unexpected crash/ANR in truthful-controls probe' >&2
+            exit 1
+          fi
+
+      - name: Preserve runtime evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p truthful-runtime-evidence
+          cp /tmp/truthful-probe.xml truthful-runtime-evidence/ 2>/dev/null || true
+          cp /tmp/package-identity.txt truthful-runtime-evidence/ 2>/dev/null || true
+          cp /tmp/togglebay-emulator.log truthful-runtime-evidence/ 2>/dev/null || true
+          adb logcat -d > truthful-runtime-evidence/logcat.txt 2>/dev/null || true
+          sha256sum /tmp/ToggleBay-debug.apk > truthful-runtime-evidence/apk-sha256.txt 2>/dev/null || true
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: togglebay-truthful-controls-api36-runtime
+          path: truthful-runtime-evidence/
