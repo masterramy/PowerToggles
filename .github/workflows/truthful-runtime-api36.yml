@@ -79,6 +79,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sudo chmod 666 /dev/kvm || true
           "$ANDROID_HOME/emulator/emulator" -avd togglebay36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data >/tmp/togglebay-emulator.log 2>&1 &
           EMU_PID=$!
           echo "Emulator PID: $EMU_PID"
@@ -144,7 +145,7 @@ jobs:
           cp /tmp/truthful-probe.xml truthful-runtime-evidence/ 2>/dev/null || true
           cp /tmp/package-identity.txt truthful-runtime-evidence/ 2>/dev/null || true
           cp /tmp/togglebay-emulator.log truthful-runtime-evidence/ 2>/dev/null || true
-          adb logcat -d > truthful-runtime-evidence/logcat.txt 2>/dev/null || true
+          timeout 10 adb logcat -d > truthful-runtime-evidence/logcat.txt 2>/dev/null || true
           sha256sum /tmp/ToggleBay-debug.apk > truthful-runtime-evidence/apk-sha256.txt 2>/dev/null || true
 
       - name: Upload runtime evidence
