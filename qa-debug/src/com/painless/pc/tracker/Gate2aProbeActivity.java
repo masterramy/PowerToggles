@@ -72,7 +72,7 @@ public final class Gate2aProbeActivity extends Activity {
         allNeutral &= tracker.buttonConfig.length == 2;
         final Intent target = ((LegacySettingsAction) tracker).getIntent();
         allExpectedIntents &= expectedActions[i].equals(target.getAction());
-        allSettingsLabels &= tracker.getLabel(labels).contains("Settings");
+        allSettingsLabels &= tracker.getLabel(labels).endsWith("⚙");
 
         // The physical complaint was specifically Wi-Fi, Location, Bluetooth,
         // and mobile data. Prove those four system destinations resolve on API 36.
