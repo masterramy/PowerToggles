@@ -14,7 +14,7 @@ import com.painless.pc.R;
 public final class LegacySettingsAction extends AbstractCommand {
 
   public LegacySettingsAction(int trackerId, SharedPreferences pref) {
-    super(trackerId, pref, iconFor(trackerId));
+    super(trackerId, pref, R.drawable.icon_prefs);
   }
 
   public static boolean isLegacySettingsOnlyId(int trackerId) {
@@ -36,21 +36,13 @@ public final class LegacySettingsAction extends AbstractCommand {
     }
   }
 
-  private static int iconFor(int trackerId) {
-    switch (trackerId) {
-      case 0: return R.drawable.icon_toggle_hotspot;
-      case 1: return R.drawable.icon_toggle_gprs;
-      case 3: return R.drawable.icon_toggle_wifi;
-      case 5: return R.drawable.icon_toggle_gps_2;
-      case 6: return R.drawable.icon_toggle_bluetooth;
-      case 8: return R.drawable.icon_toggle_airplane;
-      case 11: return R.drawable.icon_toggle_gprs_4g;
-      case 12: return R.drawable.icon_toggle_usb;
-      case 22: return R.drawable.icon_toggle_bluetooth_discovery;
-      case 24: return R.drawable.icon_toggle_nfc;
-      case 26: return R.drawable.icon_toggle_bluetooth_tether;
-      default: return R.drawable.icon_prefs;
-    }
+  @Override
+  public String getLabel(String[] labelArray) {
+    // Some historical translations still name the old destination rather than
+    // saying "Settings". The gear marker is deliberately locale-independent:
+    // a legacy Wi-Fi/Bluetooth/etc. button is now visibly an action/route, never
+    // an ON/OFF control, even before every historical translation is refreshed.
+    return super.getLabel(labelArray) + " ⚙";
   }
 
   @Override
