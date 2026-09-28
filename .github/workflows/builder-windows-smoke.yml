@@ -1,6 +1,9 @@
 name: ToggleBay Windows Builder Smoke
 
 on:
+  pull_request:
+    branches:
+      - q3-togglebay-ramy-identity-20260912-builder
   push:
     branches:
       - q3-togglebay-ramy-identity-20260912-builder
