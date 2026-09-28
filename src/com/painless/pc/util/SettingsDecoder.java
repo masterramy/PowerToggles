@@ -43,7 +43,7 @@ public class SettingsDecoder {
           (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT ? CLICK_TYPE_KITKAT : CLICK_TYPE_HOLO);
 
   public static final String KEY_TRACKER_ARRAY = "trackers";
-  private static final String DEFAULT_TRACKERS = "1,2,3,4,5,6,7";
+  private static final String DEFAULT_TRACKERS = "2,4,7,9,10,13,15";
 
   public static final String KEY_PADDING = "padding";
   public static final String KEY_STRETCH = "stretch";
