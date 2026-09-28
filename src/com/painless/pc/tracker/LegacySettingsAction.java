@@ -7,15 +7,11 @@ import android.provider.Settings;
 import com.painless.pc.R;
 
 /**
- * Compatibility representation for historical controls that modern ToggleBay
- * deliberately no longer exposes as toggles. Persisted/imported tracker IDs
- * remain readable, but they render as neutral actions and open the relevant
- * Android settings surface instead of pretending to change system state.
+ * Compatibility representation for historical controls that ToggleBay no
+ * longer exposes as direct toggles. Persisted/imported IDs stay readable, but
+ * render as neutral actions and open the relevant Android Settings surface.
  */
 public final class LegacySettingsAction extends AbstractCommand {
-
-  private static final String TETHER_SETTINGS_ACTION = "android.settings.TETHER_SETTINGS";
-  private static final String WIFI_PANEL_ACTION = "android.settings.panel.action.WIFI";
 
   public LegacySettingsAction(int trackerId, SharedPreferences pref) {
     super(trackerId, pref, iconFor(trackerId));
@@ -62,16 +58,16 @@ public final class LegacySettingsAction extends AbstractCommand {
     switch (trackerId) {
       case 0:
       case 12:
-        return new Intent(TETHER_SETTINGS_ACTION);
+      case 26:
+        return new Intent(Settings.ACTION_WIRELESS_SETTINGS);
       case 1:
         return new Intent(Settings.ACTION_DATA_USAGE_SETTINGS);
       case 3:
-        return new Intent(WIFI_PANEL_ACTION);
+        return new Intent(Settings.ACTION_WIFI_SETTINGS);
       case 5:
         return new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
       case 6:
       case 22:
-      case 26:
         return new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
       case 8:
         return new Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS);
